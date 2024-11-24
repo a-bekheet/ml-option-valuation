@@ -187,5 +187,5 @@ class StockSplitDetector:
         return splits_detected
 
 if __name__ == "__main__":
-    detector = StockSplitDetector('data_files/option_data_no_BACC.csv')
+    detector = StockSplitDetector('data_files/option_data_no_BACC_adjusted.csv')
     splits = detector.detect_splits()

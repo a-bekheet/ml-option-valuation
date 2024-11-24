@@ -1,3 +1,5 @@
 numpy
 tqdm
 pandas
+datetime
+yfinance

@@ -1,7 +1,10 @@
 import pandas as pd
 import numpy as np
 
-def analyze_option_data_columns(file_path='/Users/bekheet/dev/option-ml-prediction/data_files/option_data_with_headers.csv'):
+file_path = 'data_files/option_data_with_headers_cleaned.csv'
+
+
+def analyze_option_data_columns(file_path=file_path):
     """
     Analyze column presence in the options data
     """
@@ -61,3 +64,4 @@ def analyze_option_data_columns(file_path='/Users/bekheet/dev/option-ml-predicti
 
 # Run the analysis
 analysis = analyze_option_data_columns()
+

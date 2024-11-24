@@ -102,7 +102,19 @@ def analyze_csv_columns(filepath='data_files/option_data_no_BACC.csv'):
     if len(concerns) > 0:
         for _, row in concerns.iterrows():
             print(f"Column '{row['Column Name']}' has {row['Missing Count']} missing values "
-                  f"({100 - row['Percentage Present']:.2f}% missing)")
+                f"({100 - row['Percentage Present']:.2f}% missing)")
+            
+        print("\nColumns with Missing Data by Ticker:")
+        print("-" * 80)
+        for _, row in concerns.iterrows():
+            col = row['Column Name']
+            missing_by_ticker = df[df[col].isna()].groupby('ticker').size().reset_index(name='Missing Count')
+            missing_by_ticker['Percentage Missing'] = missing_by_ticker['Missing Count'] / df.groupby('ticker').size().reset_index(name='Total Count')['Total Count'] * 100
+            missing_by_ticker = missing_by_ticker.sort_values('Missing Count', ascending=False)
+            
+            print(f"Column '{col}':")
+            print(missing_by_ticker.to_string(index=False))
+            print()
     else:
         print("No major data quality concerns found")
     
@@ -121,7 +133,7 @@ def analyze_csv_columns(filepath='data_files/option_data_no_BACC.csv'):
     print(f"Total Memory Usage: {total_memory:.2f} MB")
     
     # Save detailed analysis
-    analysis_df.to_csv('option_data_no_BACC_detailed_analysis.csv', index=False)
+    analysis_df.to_csv('option_data_abscense_detailed_analysis.csv', index=False)
     
     return analysis_df
 

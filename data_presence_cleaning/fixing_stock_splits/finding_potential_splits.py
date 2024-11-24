@@ -103,7 +103,7 @@ def analyze_price_consistency(df):
 
 def main():
     # Read the data
-    df = pd.read_csv('data_files/option_data_compressed.csv')
+    df = pd.read_csv('data_files/option_data_no_BACC.csv')
     
     # Detect potential splits
     potential_splits = detect_stock_splits(df)

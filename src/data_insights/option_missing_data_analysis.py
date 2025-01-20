@@ -2,7 +2,7 @@ import pandas as pd
 import numpy as np
 from datetime import datetime
 
-def analyze_csv_columns(filepath='data_files/option_data_no_BACC.csv'):
+def analyze_csv_columns(filepath='data_files/option_data.csv'):
     """Analyze column properties of the option data CSV"""
     # Define date columns and dtypes
     date_columns = ['lastTradeDate', 'quoteDate', 'expiryDate']
@@ -133,7 +133,7 @@ def analyze_csv_columns(filepath='data_files/option_data_no_BACC.csv'):
     print(f"Total Memory Usage: {total_memory:.2f} MB")
     
     # Save detailed analysis
-    analysis_df.to_csv('option_data_abscense_detailed_analysis.csv', index=False)
+    analysis_df.to_csv('option_data_analysis.csv', index=False)
     
     return analysis_df
 

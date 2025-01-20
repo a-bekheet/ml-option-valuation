@@ -3,7 +3,7 @@ import numpy as np
 
 def analyze_random_rows():
     # Read the data
-    df = pd.read_csv('/Users/bekheet/dev/option-ml-prediction/data_files/option_data_with_headers_cleaned.csv')
+    df = pd.read_csv('/Users/bekheet/dev/option-ml-prediction/data_files/option_data.csv')
     
     # Select random rows (using different random seeds for diversity)
     samples = []

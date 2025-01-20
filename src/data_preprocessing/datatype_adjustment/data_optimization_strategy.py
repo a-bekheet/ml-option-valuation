@@ -1,3 +1,19 @@
+"""
+This module provides functionality for analyzing and optimizing the memory usage of a pandas DataFrame. 
+It includes functions to perform detailed memory analysis of DataFrame columns, suggest optimization 
+strategies based on column statistics, and handle specific data types.
+Functions:
+    - analyze_memory_usage(df): Analyzes memory usage of DataFrame columns, providing detailed statistics 
+      such as data type, memory usage in MB, percentage of total memory, unique value count, and min/max 
+      values for numeric columns. It also prints a summary and per-column analysis with optimization suggestions.
+    - suggest_optimization(column, stats, series): Suggests optimization strategies for a given column based 
+      on its statistics. It provides recommendations for converting data types to more memory-efficient types 
+      where applicable.
+The module also includes a script to load a CSV file, analyze its memory usage, and print the analysis results. 
+If the file is not found or an error occurs during loading, appropriate error messages are displayed.
+
+"""
+
 import pandas as pd
 import numpy as np
 import os

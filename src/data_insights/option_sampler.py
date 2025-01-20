@@ -142,7 +142,7 @@ class OptionsDataSampler:
 if __name__ == "__main__":
     # Initialize sampler
     sampler = OptionsDataSampler(
-        input_file='data_files/option_data_no_BACC.csv',
+        input_file='data_files/option_data.csv',
         sample_size=100,  # 10% sample
         random_seed=42    # for reproducibility
     )

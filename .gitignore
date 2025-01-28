@@ -9,3 +9,5 @@ venv/
 *.npy
 *.csv
 .DS_Store
+.pth
+models

@@ -3,30 +3,18 @@ import numpy as np
 import torch
 import torch.nn as nn
 from torch.utils.data import Dataset, DataLoader, random_split
-from datetime import datetime
 import matplotlib.pyplot as plt
 
-# Stock Option Dataset Handler
-# This class prepares financial data for deep learning by:
-# - Loading and cleaning option chain data from CSV
-# - Creating sequential data windows for time series prediction
-# - Handling feature selection and target variable preparation
 class StockOptionDataset(Dataset):
-    def __init__(self, csv_file, ticker="CGC", seq_len=10):
+    def __init__(self, csv_file, ticker="CGC", seq_len=15):  # Vary sequence length here
         super().__init__()
         print(f"Loading data from: {csv_file}")
         df = pd.read_csv(csv_file)
         
-        # Focus on a single stock ticker for consistency
         df = df[df['ticker'] == ticker].copy()
         if df.empty:
             raise ValueError(f"No data found for ticker: {ticker}")
         
-        # Features used for prediction, including:
-        # - Option-specific metrics (strike, bid/ask, implied volatility)
-        # - Stock metrics (volume, price data)
-        # - Technical indicators (moving averages)
-        # - Time-based features (day of week/month/year)
         feature_cols = [
             "strike", "bid", "ask", "change", "percentChange", "volume",
             "openInterest", "impliedVolatility", "daysToExpiry", "stockVolume",
@@ -36,13 +24,8 @@ class StockOptionDataset(Dataset):
             "day_of_week", "day_of_month", "day_of_year"
         ]
         
-        # We're predicting the option's last trading price
         target_col = "lastPrice"
-        
-        # Remove any rows with missing data to ensure clean training
         df.dropna(subset=feature_cols + [target_col], inplace=True)
-
-        # Convert dataframe to numpy for faster processing
         data_np = df[feature_cols + [target_col]].to_numpy(dtype=np.float32)
         
         self.feature_cols = feature_cols
@@ -51,107 +34,148 @@ class StockOptionDataset(Dataset):
         self.seq_len = seq_len
         self.data = data_np
         self.n_samples = self.data.shape[0]
-        
-        # Calculate the maximum valid starting index for sequences
-        # We need enough data points ahead of each start point to form a complete sequence
         self.max_index = self.n_samples - self.seq_len - 1
         
     def __len__(self):
         return max(0, self.max_index)
     
     def __getitem__(self, idx):
-        # Create a window of historical data (sequence)
         x_seq = self.data[idx : idx + self.seq_len, :self.n_features]
-        
-        # Get the next price point as our prediction target
         y_val = self.data[idx + self.seq_len, self.n_features]
-        
         return torch.tensor(x_seq, dtype=torch.float32), torch.tensor(y_val, dtype=torch.float32)
 
 
-# Hybrid Neural Network Architecture
-# Combines LSTM and GRU layers for robust time series processing:
-# - LSTM captures long-term dependencies
-# - GRU provides efficient processing of recent information
-# - Final dense layer generates the price prediction
-class MixedRNNModel(nn.Module):
-    def __init__(self, input_size, hidden_size_lstm=32, hidden_size_gru=32, num_layers_lstm=1, num_layers_gru=1):
-        super(MixedRNNModel, self).__init__()
+class ImprovedMixedRNNModel(nn.Module):
+    def __init__(self, input_size, hidden_size_lstm=128, hidden_size_gru=128, num_layers=2):
+        super(ImprovedMixedRNNModel, self).__init__()
         
-        # LSTM processes the initial sequence, good at capturing long-term patterns
+        # Batch normalization for input
+        self.input_bn = nn.BatchNorm1d(input_size)
+        
+        # Multi-layer LSTM with dropout
         self.lstm = nn.LSTM(
             input_size=input_size,
             hidden_size=hidden_size_lstm,
-            num_layers=num_layers_lstm,
-            batch_first=True
+            num_layers=num_layers,
+            batch_first=True,
+            dropout=0.2 if num_layers > 1 else 0
         )
         
-        # GRU refines the LSTM output, efficient at handling recent information
+        # Batch normalization between LSTM and GRU
+        self.mid_bn = nn.BatchNorm1d(hidden_size_lstm)
+        
+        # Dropout layer
+        self.dropout = nn.Dropout(0.2)
+        
+        # Multi-layer GRU
         self.gru = nn.GRU(
             input_size=hidden_size_lstm,
             hidden_size=hidden_size_gru,
-            num_layers=num_layers_gru,
-            batch_first=True
+            num_layers=num_layers,
+            batch_first=True,
+            dropout=0.2 if num_layers > 1 else 0
         )
         
-        # Final layer converts processed sequence into a single price prediction
-        self.fc = nn.Linear(hidden_size_gru, 1)
-
-    def forward(self, x):
-        # Process steps:
-        # 1. LSTM extracts temporal patterns from input sequence
-        lstm_out, (_, _) = self.lstm(x)
+        # Final layers
+        self.bn_final = nn.BatchNorm1d(hidden_size_gru)
+        self.fc1 = nn.Linear(hidden_size_gru, hidden_size_gru // 2)
+        self.fc2 = nn.Linear(hidden_size_gru // 2, 1)
         
-        # 2. GRU further processes these patterns
+    def forward(self, x):
+        # Input normalization
+        batch_size, seq_len, features = x.size()
+        x = x.view(-1, features)
+        x = self.input_bn(x)
+        x = x.view(batch_size, seq_len, features)
+        
+        # LSTM processing
+        lstm_out, _ = self.lstm(x)
+        
+        # Mid-processing
+        lstm_out = lstm_out.contiguous()
+        batch_size, seq_len, hidden_size = lstm_out.size()
+        lstm_out = lstm_out.view(-1, hidden_size)
+        lstm_out = self.mid_bn(lstm_out)
+        lstm_out = lstm_out.view(batch_size, seq_len, hidden_size)
+        lstm_out = self.dropout(lstm_out)
+        
+        # GRU processing
         gru_out, _ = self.gru(lstm_out)
         
-        # 3. Take the final time step's output as our sequence summary
-        final_hidden = gru_out[:, -1, :]
+        # Take final time step
+        final_out = gru_out[:, -1, :]
         
-        # 4. Generate final price prediction
-        return self.fc(final_hidden)
+        # Final processing
+        final_out = self.bn_final(final_out)
+        final_out = self.dropout(final_out)
+        final_out = torch.relu(self.fc1(final_out))
+        final_out = self.fc2(final_out)
+        
+        return final_out
 
 
-# Model Training Pipeline
-# Handles the complete training process including:
-# - Forward/backward passes
-# - Loss calculation
-# - Validation assessment
-# - Progress tracking
+# Early stopping implementation
+class EarlyStopping:
+    def __init__(self, patience=5, min_delta=1e-5):
+        self.patience = patience
+        self.min_delta = min_delta
+        self.counter = 0
+        self.best_loss = None
+        self.early_stop = False
+        
+    def __call__(self, val_loss):
+        if self.best_loss is None:
+            self.best_loss = val_loss
+        elif val_loss > self.best_loss - self.min_delta:
+            self.counter += 1
+            if self.counter >= self.patience:
+                self.early_stop = True
+        else:
+            self.best_loss = val_loss
+            self.counter = 0
+
+
+# Improved training function with learning rate scheduling and gradient clipping
 def train_model(
     model,
     train_loader,
     val_loader,
-    epochs=5,
+    epochs=20,  # Increased epochs since we have early stopping
     lr=1e-3,
     device='cpu'
 ):
     criterion = nn.MSELoss()
-    optimizer = torch.optim.Adam(model.parameters(), lr=lr)
-    model.to(device)
+    optimizer = torch.optim.Adam(model.parameters(), lr=lr, weight_decay=1e-5)  # Added weight decay
+    scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
+        optimizer, mode='min', factor=0.5, patience=3, verbose=True
+    )
+    early_stopping = EarlyStopping(patience=5)
     
+    model.to(device)
     train_losses = []
     val_losses = []
     
     for epoch in range(epochs):
-        # Training Phase
+        # Training phase
         model.train()
         total_train_loss = 0.0
         for x_seq, y_val in train_loader:
             x_seq, y_val = x_seq.to(device), y_val.to(device)
             
-            # Standard training step: predict, calculate loss, update weights
             optimizer.zero_grad()
             y_pred = model(x_seq)
             loss = criterion(y_pred.squeeze(), y_val)
             loss.backward()
-            optimizer.step()
             
+            # Gradient clipping
+            torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)
+            
+            optimizer.step()
             total_train_loss += loss.item()
         
         avg_train_loss = total_train_loss / len(train_loader)
         
-        # Validation Phase
+        # Validation phase
         model.eval()
         total_val_loss = 0.0
         with torch.no_grad():
@@ -163,38 +187,41 @@ def train_model(
         
         avg_val_loss = total_val_loss / len(val_loader)
         
-        # Store metrics for plotting
+        # Store losses
         train_losses.append(avg_train_loss)
         val_losses.append(avg_val_loss)
         
+        # Learning rate scheduling
+        scheduler.step(avg_val_loss)
+        
+        # Early stopping check
+        early_stopping(avg_val_loss)
+        
         print(f"Epoch [{epoch+1}/{epochs}] | Train Loss: {avg_train_loss:.6f} | Val Loss: {avg_val_loss:.6f}")
+        
+        if early_stopping.early_stop:
+            print("Early stopping triggered")
+            break
     
     return train_losses, val_losses
 
 
-# Main Execution Pipeline
-# Orchestrates the entire model training process:
-# 1. Data preparation
-# 2. Model initialization
-# 3. Training execution
-# 4. Performance visualization
-# 5. Model saving
 def main():
     # Configuration
     data_path = "/Users/bekheet/dev/option-ml-prediction/data_files/option_data_scaled.csv"
     ticker = "CGC"
-    seq_len = 10
-    batch_size = 64
-    epochs = 10
+    seq_len = 15  # Increased from 10
+    batch_size = 128  # Increased from 64
+    epochs = 20
     device = 'cuda' if torch.cuda.is_available() else 'cpu'
     
-    # Initialize and split dataset
+    # Initialize dataset
     dataset = StockOptionDataset(csv_file=data_path, ticker=ticker, seq_len=seq_len)
     
     if len(dataset) < 1:
         raise ValueError("Insufficient data for sequence creation!")
     
-    # Split data: 70% training, 15% validation, 15% testing
+    # Data splitting
     total_len = len(dataset)
     train_len = int(0.70 * total_len)
     val_len = int(0.15 * total_len)
@@ -202,18 +229,24 @@ def main():
     
     train_ds, val_ds, test_ds = random_split(
         dataset, 
-        [train_len, val_len, test_len], 
+        [train_len, val_len, test_len],
         generator=torch.Generator().manual_seed(42)
     )
-    print(f"Dataset splits: {len(train_ds)} train, {len(val_ds)} validation, {len(test_ds)} test samples")
     
-    # Create data loaders for batch processing
+    # Create data loaders
     train_loader = DataLoader(train_ds, batch_size=batch_size, shuffle=True)
     val_loader = DataLoader(val_ds, batch_size=batch_size, shuffle=False)
     test_loader = DataLoader(test_ds, batch_size=batch_size, shuffle=False)
     
-    # Initialize and train model
-    model = MixedRNNModel(input_size=dataset.n_features, hidden_size_lstm=32, hidden_size_gru=32)
+    # Initialize improved model
+    model = ImprovedMixedRNNModel(
+        input_size=dataset.n_features,
+        hidden_size_lstm=128,
+        hidden_size_gru=128,
+        num_layers=2
+    )
+    
+    # Train model
     train_losses, val_losses = train_model(
         model=model,
         train_loader=train_loader,
@@ -223,17 +256,17 @@ def main():
         device=device
     )
     
-    # Save trained model
-    # Generate a timestamped filename
+    # Save trained model with timestamp
+    from datetime import datetime
     timestamp = datetime.now().strftime("%m%d%H%M%S")
     model_save_path = f"/Users/bekheet/dev/option-ml-prediction/models/mixed_lstm_gru_model_{timestamp}.pth"
     torch.save(model.state_dict(), model_save_path)
     print(f"Model saved to {model_save_path}")
     
-    # Visualize training progress
-    plt.figure(figsize=(8, 5))
-    plt.plot(range(1, epochs + 1), train_losses, label="Train Loss")
-    plt.plot(range(1, epochs + 1), val_losses, label="Validation Loss")
+    # Plot results
+    plt.figure(figsize=(10, 6))
+    plt.plot(train_losses, label="Train Loss", linewidth=2)
+    plt.plot(val_losses, label="Validation Loss", linewidth=2)
     plt.title(f"Training and Validation Loss Curves for {ticker}")
     plt.xlabel("Epoch")
     plt.ylabel("MSE Loss")
@@ -241,7 +274,7 @@ def main():
     plt.grid(True)
     plt.show()
     
-    # Final model evaluation on test set
+    # Final evaluation
     model.eval()
     test_loss = 0.0
     criterion = nn.MSELoss()
@@ -253,7 +286,9 @@ def main():
             test_loss += loss.item()
     test_loss /= len(test_loader)
     print(f"Final Test Set MSE: {test_loss:.6f}")
-    
+    print(f"Final Test Set RMSE: {np.sqrt(test_loss):.6f}")
+    print(f"Final Test Set Percentage Error: {np.sqrt(test_loss) * 100:.2f}%")
+
 
 if __name__ == "__main__":
     main()

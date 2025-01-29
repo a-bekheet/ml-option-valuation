@@ -169,6 +169,65 @@ def calculate_errors(y_true, y_pred):
         'mape': mape
     }
 
+def analyze_model_architecture(model, input_size=23, seq_len=15, batch_size=32):
+    """
+    Analyze the architecture of the model, including parameter count and tensor shapes.
+    
+    Args:
+        model: The PyTorch model to analyze
+        input_size: Number of input features
+        seq_len: Length of input sequence
+        batch_size: Batch size for shape analysis
+    
+    Returns:
+        dict: Dictionary containing model statistics
+    """
+    # Count parameters
+    total_params = sum(p.numel() for p in model.parameters())
+    trainable_params = sum(p.numel() for p in model.parameters() if p.requires_grad)
+    
+    # Create dummy input for shape analysis
+    dummy_input = torch.randn(batch_size, seq_len, input_size)
+    
+    # Dictionary to store shapes
+    layer_shapes = {}
+    
+    def hook_fn(module, input, output, name):
+        def get_tensor_shape(x):
+            if isinstance(x, torch.Tensor):
+                return tuple(x.shape)
+            elif isinstance(x, tuple):
+                return tuple(get_tensor_shape(t) for t in x if isinstance(t, torch.Tensor))
+            return None
+
+        layer_shapes[name] = {
+            'input_shape': [tuple(i.shape) for i in input],
+            'output_shape': get_tensor_shape(output)
+        }
+    
+    # Register hooks for each layer
+    hooks = []
+    for name, layer in model.named_children():
+        hooks.append(layer.register_forward_hook(
+            lambda m, i, o, name=name: hook_fn(m, i, o, name)
+        ))
+    
+    # Forward pass with dummy input
+    # Set model to eval mode and use no_grad for analysis
+    model.eval()
+    with torch.no_grad():
+        _ = model(dummy_input)
+    
+    # Remove hooks
+    for hook in hooks:
+        hook.remove()
+    
+    return {
+        'total_parameters': total_params,
+        'trainable_parameters': trainable_params,
+        'layer_shapes': layer_shapes
+    }
+
 def train_model(model, train_loader, val_loader, epochs=20, lr=1e-3, device='cpu'):
     criterion = nn.MSELoss()
     optimizer = torch.optim.Adam(model.parameters(), lr=lr, weight_decay=1e-5)
@@ -233,18 +292,30 @@ def train_model(model, train_loader, val_loader, epochs=20, lr=1e-3, device='cpu
     
     return train_losses, val_losses
 
-def main():
-    # Configuration
-    data_path = "/Users/bekheet/dev/option-ml-prediction/data_files/option_data_scaled.csv"
+def train_option_model(data_path, ticker=None, seq_len=15, batch_size=128, epochs=20, 
+                      hidden_size_lstm=128, hidden_size_gru=128, num_layers=2):
+    """
+    Train the option pricing model with the specified parameters.
     
-    # Get available tickers and their counts, let user select one
-    tickers, counts = get_available_tickers(data_path)
-    ticker = select_ticker(tickers, counts)
+    Args:
+        data_path: Path to the CSV data file
+        ticker: Stock ticker to analyze (if None, user will be prompted)
+        seq_len: Length of input sequence
+        batch_size: Training batch size
+        epochs: Number of training epochs
+        hidden_size_lstm: Hidden size for LSTM layer
+        hidden_size_gru: Hidden size for GRU layer
+        num_layers: Number of layers in both LSTM and GRU
     
-    seq_len = 15
-    batch_size = 128
-    epochs = 20
+    Returns:
+        tuple: (trained_model, training_history, model_analysis)
+    """
     device = 'cuda' if torch.cuda.is_available() else 'cpu'
+    
+    # Get available tickers and select one if not provided
+    if ticker is None:
+        tickers, counts = get_available_tickers(data_path)
+        ticker = select_ticker(tickers, counts)
     
     # Initialize dataset
     dataset = StockOptionDataset(csv_file=data_path, ticker=ticker, seq_len=seq_len)
@@ -269,12 +340,19 @@ def main():
     val_loader = DataLoader(val_ds, batch_size=batch_size, shuffle=False)
     test_loader = DataLoader(test_ds, batch_size=batch_size, shuffle=False)
     
-    # Initialize improved model
+    # Initialize model
     model = ImprovedMixedRNNModel(
         input_size=dataset.n_features,
-        hidden_size_lstm=128,
-        hidden_size_gru=128,
-        num_layers=2
+        hidden_size_lstm=hidden_size_lstm,
+        hidden_size_gru=hidden_size_gru,
+        num_layers=num_layers
+    )
+    
+    # Analyze model architecture
+    model_analysis = analyze_model_architecture(
+        model, 
+        input_size=dataset.n_features,
+        seq_len=seq_len
     )
     
     # Train model
@@ -287,43 +365,12 @@ def main():
         device=device
     )
     
-    # Create models directory if it doesn't exist
-    models_dir = "/Users/bekheet/dev/option-ml-prediction/models"
-    os.makedirs(models_dir, exist_ok=True)
-    
-    # Save trained model with timestamp
-    timestamp = datetime.now().strftime("%m%d%H%M%S")
-    model_save_path = f"{models_dir}/mixed_lstm_gru_model_{ticker}_{timestamp}.pth"
-    torch.save(model.state_dict(), model_save_path)
-    print(f"Model saved to {model_save_path}")
-    
-    # Plot and save results
-    plt.figure(figsize=(10, 6))
-    plt.plot(train_losses, label="Train Loss", linewidth=2)
-    plt.plot(val_losses, label="Validation Loss", linewidth=2)
-    plt.title(f"Training and Validation Loss Curves for {ticker}")
-    plt.suptitle(f"Model Training Results - {timestamp}", fontsize=10)
-    plt.xlabel("Epoch")
-    plt.ylabel("MSE Loss")
-    plt.legend()
-    plt.grid(True)
-    
-    # Save plot with matching filename pattern
-    plot_save_path = f"{models_dir}/training_plot_{ticker}_{timestamp}.png"
-    plt.savefig(plot_save_path, dpi=300, bbox_inches='tight')
-    print(f"Plot saved to {plot_save_path}")
-    
-    plt.show()
-    
     # Final evaluation
     model.eval()
     test_loss = 0.0
     all_y_true = []
     all_y_pred = []
     criterion = nn.MSELoss()
-    
-    print("\nPerforming final model evaluation...")
-    print("-" * 50)
     
     with torch.no_grad():
         for x_seq, y_val in test_loader:
@@ -332,36 +379,226 @@ def main():
             loss = criterion(y_pred.squeeze(), y_val)
             test_loss += loss.item()
             
-            # Collect predictions and actual values
             all_y_true.extend(y_val.cpu().numpy())
             all_y_pred.extend(y_pred.squeeze().cpu().numpy())
     
-    test_loss /= len(test_loader)
-    
-    # Convert to numpy arrays
-    all_y_true = np.array(all_y_true)
-    all_y_pred = np.array(all_y_pred)
-    
-    # Calculate comprehensive error metrics
+    # Calculate and print metrics
     errors = calculate_errors(torch.tensor(all_y_true), torch.tensor(all_y_pred))
-    
-    # Print detailed error analysis
     print("\nFinal Test Set Metrics:")
     print("-" * 50)
-    print(f"Mean Squared Error (MSE): {errors['mse']:.6f}")
-    print(f"Root Mean Squared Error (RMSE): {errors['rmse']:.6f}")
-    print(f"Mean Absolute Error (MAE): {errors['mae']:.6f}")
-    print(f"Mean Absolute Percentage Error (MAPE): {errors['mape']:.2f}%")
-    print("-" * 50)
+    print(f"MSE: {errors['mse']:.6f}")
+    print(f"RMSE: {errors['rmse']:.6f}")
+    print(f"MAE: {errors['mae']:.6f}")
+    print(f"MAPE: {errors['mape']:.2f}%")
     
-    # Additional statistics
-    print("\nPrediction Statistics:")
+    return model, {'train_losses': train_losses, 'val_losses': val_losses}, model_analysis
+
+def save_and_display_results(model, history, analysis, models_dir="/Users/bekheet/dev/option-ml-prediction/models"):
+    """
+    Save the model, training plots, and display analysis results.
+    
+    Args:
+        model: Trained PyTorch model
+        history: Dictionary containing training and validation losses
+        analysis: Dictionary containing model architecture analysis
+        models_dir: Directory to save model and plots
+    """
+    # Create models directory if it doesn't exist
+    os.makedirs(models_dir, exist_ok=True)
+    
+    # Generate timestamp for unique filenames
+    timestamp = datetime.now().strftime("%m%d%H%M%S")
+    
+    # Save model
+    model_save_path = f"{models_dir}/mixed_lstm_gru_model_{timestamp}.pth"
+    torch.save(model.state_dict(), model_save_path)
+    print(f"\nModel saved to {model_save_path}")
+    
+    # Plot and save training history
+    plt.figure(figsize=(10, 6))
+    plt.plot(history['train_losses'], label="Train Loss", linewidth=2)
+    plt.plot(history['val_losses'], label="Validation Loss", linewidth=2)
+    plt.title("Training and Validation Loss Curves")
+    plt.xlabel("Epoch")
+    plt.ylabel("MSE Loss")
+    plt.legend()
+    plt.grid(True)
+    
+    plot_save_path = f"{models_dir}/training_plot_{timestamp}.png"
+    plt.savefig(plot_save_path, dpi=300, bbox_inches='tight')
+    print(f"Plot saved to {plot_save_path}")
+    
+    # Display model architecture analysis
+    print("\nModel Architecture Analysis:")
     print("-" * 50)
-    print(f"Average True Value: {np.mean(all_y_true):.6f}")
-    print(f"Average Predicted Value: {np.mean(all_y_pred):.6f}")
-    print(f"Standard Deviation of Error: {np.std(all_y_true - all_y_pred):.6f}")
-    print(f"Maximum Absolute Error: {np.max(np.abs(all_y_true - all_y_pred)):.6f}")
-    print(f"Minimum Absolute Error: {np.min(np.abs(all_y_true - all_y_pred)):.6f}")
+    print(f"Total parameters: {analysis['total_parameters']:,}")
+    print(f"Trainable parameters: {analysis['trainable_parameters']:,}")
+    print("\nLayer Shapes:")
+    for layer_name, shapes in analysis['layer_shapes'].items():
+        print(f"\n{layer_name}:")
+        print(f"  Input shape: {shapes['input_shape']}")
+        print(f"  Output shape: {shapes['output_shape']}")
+
+def load_model(model_path, input_size, hidden_size_lstm=128, hidden_size_gru=128, num_layers=2):
+    """
+    Load a saved model from disk.
+    
+    Args:
+        model_path: Path to the saved model file
+        input_size: Number of input features
+        hidden_size_lstm: Hidden size for LSTM layer
+        hidden_size_gru: Hidden size for GRU layer
+        num_layers: Number of layers in both LSTM and GRU
+    
+    Returns:
+        loaded_model: The loaded PyTorch model
+    """
+    model = ImprovedMixedRNNModel(
+        input_size=input_size,
+        hidden_size_lstm=hidden_size_lstm,
+        hidden_size_gru=hidden_size_gru,
+        num_layers=num_layers
+    )
+    model.load_state_dict(torch.load(model_path))
+    return model
+
+def run_existing_model(model_path, data_path, ticker=None):
+    """
+    Load and run predictions with an existing model.
+    
+    Args:
+        model_path: Path to the saved model file
+        data_path: Path to the data file
+        ticker: Stock ticker to analyze (if None, user will be prompted)
+    """
+    # Initialize dataset to get input size
+    if ticker is None:
+        tickers, counts = get_available_tickers(data_path)
+        ticker = select_ticker(tickers, counts)
+    
+    dataset = StockOptionDataset(csv_file=data_path, ticker=ticker)
+    
+    # Load model
+    model = load_model(model_path, input_size=dataset.n_features)
+    model.eval()
+    
+    # Create data loader for the entire dataset
+    data_loader = DataLoader(dataset, batch_size=128, shuffle=False)
+    
+    # Make predictions
+    all_y_true = []
+    all_y_pred = []
+    device = 'cuda' if torch.cuda.is_available() else 'cpu'
+    model = model.to(device)
+    
+    print(f"\nMaking predictions for {ticker}...")
+    with torch.no_grad():
+        for x_seq, y_val in data_loader:
+            x_seq, y_val = x_seq.to(device), y_val.to(device)
+            y_pred = model(x_seq)
+            all_y_true.extend(y_val.cpu().numpy())
+            all_y_pred.extend(y_pred.squeeze().cpu().numpy())
+    
+    # Calculate and display metrics
+    errors = calculate_errors(torch.tensor(all_y_true), torch.tensor(all_y_pred))
+    print("\nPrediction Metrics:")
+    print("-" * 50)
+    print(f"MSE: {errors['mse']:.6f}")
+    print(f"RMSE: {errors['rmse']:.6f}")
+    print(f"MAE: {errors['mae']:.6f}")
+    print(f"MAPE: {errors['mape']:.2f}%")
+
+def display_menu():
+    """Display the main menu and get user choice."""
+    print("\nOption Trading Model - Main Menu")
+    print("-" * 50)
+    print("1. Train new model")
+    print("2. Run existing model")
+    print("3. Analyze network architecture")
+    print("4. Exit")
+    
+    while True:
+        try:
+            choice = input("\nEnter your choice (1-4): ")
+            if choice in ['1', '2', '3', '4']:
+                return int(choice)
+            print("Invalid choice. Please enter a number between 1 and 4.")
+        except ValueError:
+            print("Invalid input. Please enter a number.")
+
+def main():
+    # Configuration
+    config = {
+        'data_path': "/Users/bekheet/dev/option-ml-prediction/data_files/option_data_scaled.csv",
+        'seq_len': 15,
+        'batch_size': 128,
+        'epochs': 20,
+        'hidden_size_lstm': 128,
+        'hidden_size_gru': 128,
+        'num_layers': 2
+    }
+    
+    while True:
+        choice = display_menu()
+        
+        if choice == 1:
+            # Train new model
+            print("\nTraining new model...")
+            model, history, analysis = train_option_model(**config)
+            save_and_display_results(model, history, analysis)
+            
+        elif choice == 2:
+            # Run existing model
+            models_dir = "/Users/bekheet/dev/option-ml-prediction/models"
+            model_files = [f for f in os.listdir(models_dir) if f.endswith('.pth')]
+            
+            if not model_files:
+                print("\nNo saved models found in", models_dir)
+                continue
+            
+            print("\nAvailable models:")
+            for i, model_file in enumerate(model_files, 1):
+                print(f"{i}. {model_file}")
+            
+            while True:
+                try:
+                    choice = int(input("\nSelect a model number: "))
+                    if 1 <= choice <= len(model_files):
+                        model_path = os.path.join(models_dir, model_files[choice-1])
+                        break
+                    print("Invalid choice. Please try again.")
+                except ValueError:
+                    print("Please enter a valid number.")
+            
+            run_existing_model(model_path, config['data_path'])
+            
+        elif choice == 3:
+            # Analyze network architecture
+            print("\nAnalyzing network architecture...")
+            # Create a model instance with default parameters
+            model = ImprovedMixedRNNModel(
+                input_size=23,  # Default number of features
+                hidden_size_lstm=config['hidden_size_lstm'],
+                hidden_size_gru=config['hidden_size_gru'],
+                num_layers=config['num_layers']
+            )
+            analysis = analyze_model_architecture(model)
+            
+            print("\nNetwork Architecture Analysis:")
+            print("-" * 50)
+            print(f"Total parameters: {analysis['total_parameters']:,}")
+            print(f"Trainable parameters: {analysis['trainable_parameters']:,}")
+            print("\nLayer Shapes:")
+            for layer_name, shapes in analysis['layer_shapes'].items():
+                print(f"\n{layer_name}:")
+                print(f"  Input shape: {shapes['input_shape']}")
+                print(f"  Output shape: {shapes['output_shape']}")
+                
+        elif choice == 4:
+            print("\nExiting program...")
+            break
+        
+        input("\nPress Enter to continue...")
 
 if __name__ == "__main__":
     main()

@@ -92,7 +92,7 @@ class StockOptionDataset(Dataset):
         return torch.tensor(x_seq, dtype=torch.float32), torch.tensor(y_val, dtype=torch.float32)
 
 class ImprovedMixedRNNModel(nn.Module):
-    def __init__(self, input_size, hidden_size_lstm=128, hidden_size_gru=128, num_layers=2, output_size=1):
+    def __init__(self, input_size, hidden_size_lstm=64, hidden_size_gru=64, num_layers=2, output_size=1):
 
         super(ImprovedMixedRNNModel, self).__init__()
         
@@ -186,24 +186,12 @@ def calculate_errors(y_true, y_pred):
 def analyze_model_architecture(model, input_size=23, seq_len=15, batch_size=32):
     """
     Analyze the architecture of the model, including parameter count and tensor shapes.
-    
-    Args:
-        model: The PyTorch model to analyze
-        input_size: Number of input features
-        seq_len: Length of input sequence
-        batch_size: Batch size for shape analysis
-    
-    Returns:
-        dict: Dictionary containing model statistics
-    """
-    # Count parameters
+
+        """
     total_params = sum(p.numel() for p in model.parameters())
     trainable_params = sum(p.numel() for p in model.parameters() if p.requires_grad)
     
-    # Create dummy input for shape analysis
     dummy_input = torch.randn(batch_size, seq_len, input_size)
-    
-    # Dictionary to store shapes
     layer_shapes = {}
     
     def hook_fn(module, input, output, name):
@@ -219,20 +207,16 @@ def analyze_model_architecture(model, input_size=23, seq_len=15, batch_size=32):
             'output_shape': get_tensor_shape(output)
         }
     
-    # Register hooks for each layer
     hooks = []
     for name, layer in model.named_children():
         hooks.append(layer.register_forward_hook(
             lambda m, i, o, name=name: hook_fn(m, i, o, name)
         ))
     
-    # Forward pass with dummy input
-    # Set model to eval mode and use no_grad for analysis
     model.eval()
     with torch.no_grad():
         _ = model(dummy_input)
     
-    # Remove hooks
     for hook in hooks:
         hook.remove()
     
@@ -242,7 +226,6 @@ def analyze_model_architecture(model, input_size=23, seq_len=15, batch_size=32):
         'layer_shapes': layer_shapes
     }
 
-
 def train_model(model, train_loader, val_loader, epochs=20, lr=1e-3, device='cpu'):
     criterion = nn.MSELoss()
     optimizer = torch.optim.Adam(model.parameters(), lr=lr, weight_decay=1e-5)
@@ -250,7 +233,6 @@ def train_model(model, train_loader, val_loader, epochs=20, lr=1e-3, device='cpu
         optimizer, mode='min', factor=0.5, patience=3
     )
     
-    # Custom learning rate logging
     def log_lr(optimizer):
         for param_group in optimizer.param_groups:
             return param_group['lr']
@@ -262,7 +244,6 @@ def train_model(model, train_loader, val_loader, epochs=20, lr=1e-3, device='cpu
     val_losses = []
     
     for epoch in range(epochs):
-        # Training phase
         model.train()
         total_train_loss = 0.0
         for x_seq, y_val in train_loader:
@@ -281,7 +262,6 @@ def train_model(model, train_loader, val_loader, epochs=20, lr=1e-3, device='cpu
         
         avg_train_loss = total_train_loss / len(train_loader)
         
-        # Validation phase
         model.eval()
         total_val_loss = 0.0
         with torch.no_grad():
@@ -296,7 +276,6 @@ def train_model(model, train_loader, val_loader, epochs=20, lr=1e-3, device='cpu
         train_losses.append(avg_train_loss)
         val_losses.append(avg_val_loss)
         
-        # Learning rate scheduling
         scheduler.step(avg_val_loss)
         current_lr = log_lr(optimizer)
         
@@ -311,22 +290,11 @@ def train_model(model, train_loader, val_loader, epochs=20, lr=1e-3, device='cpu
     return train_losses, val_losses
 
 def train_option_model(data_path, ticker=None, seq_len=15, batch_size=128, epochs=20, 
-                      hidden_size_lstm=128, hidden_size_gru=128, num_layers=2):
+                       hidden_size_lstm=128, hidden_size_gru=128, num_layers=2,
+                       target_cols=["bid", "ask"]):
     """
-    Train the option pricing model with the specified parameters.
-    
-    Args:
-        data_path: Path to the CSV data file
-        ticker: Stock ticker to analyze (if None, user will be prompted)
-        seq_len: Length of input sequence
-        batch_size: Training batch size
-        epochs: Number of training epochs
-        hidden_size_lstm: Hidden size for LSTM layer
-        hidden_size_gru: Hidden size for GRU layer
-        num_layers: Number of layers in both LSTM and GRU
-    
-    Returns:
-        tuple: (trained_model, training_history, model_analysis)
+    Train the option pricing model using the specified target columns.
+    This version partitions the data in chronological order.
     """
     device = 'cuda' if torch.cuda.is_available() else 'cpu'
     
@@ -418,15 +386,9 @@ def train_option_model(data_path, ticker=None, seq_len=15, batch_size=128, epoch
 
 def save_and_display_results(model, history, analysis, ticker, target_cols, models_dir="/Users/bekheet/dev/option-ml-prediction/models"):
     """
-    Save the model, training plots, and display analysis results.
-    
-    Args:
-        model: Trained PyTorch model
-        history: Dictionary containing training and validation losses
-        analysis: Dictionary containing model architecture analysis
-        models_dir: Directory to save model and plots
+    Save the model and training plots. The model filename will be suffixed by the
+    target columns and ticker.
     """
-    # Create models directory if it doesn't exist
     os.makedirs(models_dir, exist_ok=True)
     timestamp = datetime.now().strftime("%m%d%H%M%S")
     target_str = "-".join(target_cols)
@@ -459,20 +421,7 @@ def save_and_display_results(model, history, analysis, ticker, target_cols, mode
         print(f"  Input shape: {shapes['input_shape']}")
         print(f"  Output shape: {shapes['output_shape']}")
 
-def load_model(model_path, input_size, hidden_size_lstm=128, hidden_size_gru=128, num_layers=2):
-    """
-    Load a saved model from disk.
-    
-    Args:
-        model_path: Path to the saved model file
-        input_size: Number of input features
-        hidden_size_lstm: Hidden size for LSTM layer
-        hidden_size_gru: Hidden size for GRU layer
-        num_layers: Number of layers in both LSTM and GRU
-    
-    Returns:
-        loaded_model: The loaded PyTorch model
-    """
+def load_model(model_path, input_size, hidden_size_lstm=128, hidden_size_gru=128, num_layers=2, output_size=1):
     model = ImprovedMixedRNNModel(
         input_size=input_size,
         hidden_size_lstm=hidden_size_lstm,
@@ -486,11 +435,6 @@ def load_model(model_path, input_size, hidden_size_lstm=128, hidden_size_gru=128
 def run_existing_model(model_path, data_path, ticker=None, target_cols=["bid", "ask"]):
     """
     Load and run predictions with an existing model.
-    
-    Args:
-        model_path: Path to the saved model file
-        data_path: Path to the data file
-        ticker: Stock ticker to analyze (if None, user will be prompted)
     """
     if ticker is None:
         tickers, counts = get_available_tickers(data_path)
@@ -545,12 +489,12 @@ def display_menu():
 def main():
     # Add target_cols to the configuration
     config = {
-        'data_path': "/Users/bekheet/dev/option-ml-prediction/data_files/option_data_scaled.csv",
+        'data_path': "data_files/option_data_scaled.csv",
         'seq_len': 15,
-        'batch_size': 128,
+        'batch_size': 32,
         'epochs': 20,
-        'hidden_size_lstm': 128,
-        'hidden_size_gru': 128,
+        'hidden_size_lstm': 64,
+        'hidden_size_gru': 64,
         'num_layers': 2,
         'ticker': None,  # if None, user will be prompted
         'target_cols': ["bid", "ask"]
@@ -565,7 +509,7 @@ def main():
             save_and_display_results(model, history, analysis, ticker, target_cols)
             
         elif choice == 2:
-            models_dir = "/Users/bekheet/dev/option-ml-prediction/models"
+            models_dir = "models"
             model_files = [f for f in os.listdir(models_dir) if f.endswith('.pth')]
             
             if not model_files:

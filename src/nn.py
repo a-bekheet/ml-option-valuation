@@ -2,16 +2,49 @@ import pandas as pd
 import numpy as np
 import torch
 import torch.nn as nn
-from torch.utils.data import Dataset, DataLoader, random_split
-import matplotlib.pyplot as plt
+from torch.utils.data import Dataset, DataLoader, Subset
 from datetime import datetime
 import os
+from pathlib import Path
+import matplotlib.pyplot as plt
 
-def get_available_tickers(csv_file):
-    """Load and return sorted list of unique tickers with their data counts."""
-    df = pd.read_csv(csv_file)
-    ticker_counts = df['ticker'].value_counts().sort_index()
-    return list(ticker_counts.index), list(ticker_counts.values)
+def calculate_errors(y_true, y_pred):
+    """Calculate various error metrics between predicted and actual values."""
+    y_true = y_true.cpu().numpy()
+    y_pred = y_pred.cpu().numpy()
+    
+    # Calculate errors (averaged over both targets)
+    mse = np.mean((y_true - y_pred) ** 2)
+    rmse = np.sqrt(mse)
+    mae = np.mean(np.abs(y_true - y_pred))
+    mape = np.mean(np.abs((y_true - y_pred) / y_true)) * 100
+    
+    return {
+        'mse': mse,
+        'rmse': rmse,
+        'mae': mae,
+        'mape': mape
+    }
+
+def get_available_tickers(data_dir):
+    """Load and return sorted list of available tickers from metadata file."""
+    if not os.path.exists(data_dir):
+        raise FileNotFoundError(
+            f"\nError: Data directory '{data_dir}' not found!\n"
+            f"Please run the split_data.py script first to prepare the data:\n"
+            f"  python split_data.py"
+        )
+        
+    metadata_file = os.path.join(data_dir, 'ticker_metadata.csv')
+    if not os.path.exists(metadata_file):
+        raise FileNotFoundError(
+            f"\nError: Metadata file not found at '{metadata_file}'!\n"
+            f"Please run the split_data.py script first to prepare the data:\n"
+            f"  python split_data.py"
+        )
+        
+    metadata = pd.read_csv(metadata_file)
+    return list(metadata['ticker']), list(metadata['count'])
 
 def select_ticker(tickers, counts):
     """Display tickers with their data counts and get user selection."""
@@ -40,22 +73,19 @@ def select_ticker(tickers, counts):
             print("Please enter a valid number or 'q' to quit.")
 
 class StockOptionDataset(Dataset):
-    def __init__(self, csv_file, ticker="CGC", seq_len=15, target_cols=["bid", "ask"]):
+    def __init__(self, data_dir, ticker, seq_len=15, target_cols=["bid", "ask"]):
         """
-        Loads data for a given ticker and sets up the features and targets.
-        
-        IMPORTANT CHANGES:
-          - The feature columns have been re-ordered to *exclude* the target columns.
-          - The target columns are now a list (e.g. ["bid", "ask"]).
+        Loads data for a given ticker from its specific file.
         """
-        print(f"Loading data from: {csv_file}")
-        df = pd.read_csv(csv_file)
+        file_path = os.path.join(data_dir, f"option_data_scaled_{ticker}.csv")
+        print(f"Loading data from: {file_path}")
         
-        df = df[df['ticker'] == ticker].copy()
-        if df.empty:
-            raise ValueError(f"No data found for ticker: {ticker}")
+        if not os.path.exists(file_path):
+            raise FileNotFoundError(f"No data file found for ticker {ticker}")
+            
+        df = pd.read_csv(file_path)
         
-        # Define the feature columns (note: 'bid' and 'ask' have been removed)
+        # Define the feature columns (excluding target columns)
         feature_cols = [
             "strike", "change", "percentChange", "volume",
             "openInterest", "impliedVolatility", "daysToExpiry", "stockVolume",
@@ -71,7 +101,7 @@ class StockOptionDataset(Dataset):
         # Ensure that none of the required columns are missing
         df.dropna(subset=feature_cols + target_cols, inplace=True)
         
-        # Concatenate features and targets (features first, then targets)
+        # Concatenate features and targets
         data_np = df[feature_cols + target_cols].to_numpy(dtype=np.float32)
         
         self.data = data_np
@@ -85,19 +115,16 @@ class StockOptionDataset(Dataset):
         return max(0, self.max_index)
     
     def __getitem__(self, idx):
-        # Get a sequence of features
         x_seq = self.data[idx : idx + self.seq_len, :self.n_features]
-        # Get the target(s) from the next row; now a vector (e.g. [bid, ask])
         y_val = self.data[idx + self.seq_len, self.n_features : self.n_features + self.n_targets]
         return torch.tensor(x_seq, dtype=torch.float32), torch.tensor(y_val, dtype=torch.float32)
 
+# [The ImprovedMixedRNNModel class remains exactly the same as in the original code]
 class ImprovedMixedRNNModel(nn.Module):
     def __init__(self, input_size, hidden_size_lstm=64, hidden_size_gru=64, num_layers=2, output_size=1):
-
         super(ImprovedMixedRNNModel, self).__init__()
         
         self.input_bn = nn.BatchNorm1d(input_size)
-        
         self.lstm = nn.LSTM(
             input_size=input_size,
             hidden_size=hidden_size_lstm,
@@ -119,7 +146,7 @@ class ImprovedMixedRNNModel(nn.Module):
         
         self.bn_final = nn.BatchNorm1d(hidden_size_gru)
         self.fc1 = nn.Linear(hidden_size_gru, hidden_size_gru // 2)
-        self.fc2 = nn.Linear(hidden_size_gru // 2, output_size)  # output_size now equals len(target_cols)
+        self.fc2 = nn.Linear(hidden_size_gru // 2, output_size)
         
     def forward(self, x):
         batch_size, seq_len, features = x.size()
@@ -146,6 +173,8 @@ class ImprovedMixedRNNModel(nn.Module):
         
         return final_out
 
+# [EarlyStopping, calculate_errors, and analyze_model_architecture functions remain the same]
+
 class EarlyStopping:
     def __init__(self, patience=5, min_delta=1e-5):
         self.patience = patience
@@ -165,151 +194,144 @@ class EarlyStopping:
             self.best_loss = val_loss
             self.counter = 0
 
-def calculate_errors(y_true, y_pred):
-    """Calculate various error metrics between predicted and actual values."""
-    y_true = y_true.cpu().numpy()
-    y_pred = y_pred.cpu().numpy()
-    
-    # Calculate errors (averaged over both targets)
-    mse = np.mean((y_true - y_pred) ** 2)
-    rmse = np.sqrt(mse)
-    mae = np.mean(np.abs(y_true - y_pred))
-    mape = np.mean(np.abs((y_true - y_pred) / y_true)) * 100
-    
-    return {
-        'mse': mse,
-        'rmse': rmse,
-        'mae': mae,
-        'mape': mape
-    }
-
-def analyze_model_architecture(model, input_size=23, seq_len=15, batch_size=32):
+def train_option_model(data_dir, ticker=None, seq_len=15, batch_size=128, epochs=20, 
+                      hidden_size_lstm=128, hidden_size_gru=128, num_layers=2,
+                      target_cols=["bid", "ask"]):
     """
-    Analyze the architecture of the model, including parameter count and tensor shapes.
-
-        """
-    total_params = sum(p.numel() for p in model.parameters())
-    trainable_params = sum(p.numel() for p in model.parameters() if p.requires_grad)
-    
-    dummy_input = torch.randn(batch_size, seq_len, input_size)
-    layer_shapes = {}
-    
-    def hook_fn(module, input, output, name):
-        def get_tensor_shape(x):
-            if isinstance(x, torch.Tensor):
-                return tuple(x.shape)
-            elif isinstance(x, tuple):
-                return tuple(get_tensor_shape(t) for t in x if isinstance(t, torch.Tensor))
-            return None
-
-        layer_shapes[name] = {
-            'input_shape': [tuple(i.shape) for i in input],
-            'output_shape': get_tensor_shape(output)
-        }
-    
-    hooks = []
-    for name, layer in model.named_children():
-        hooks.append(layer.register_forward_hook(
-            lambda m, i, o, name=name: hook_fn(m, i, o, name)
-        ))
-    
-    model.eval()
-    with torch.no_grad():
-        _ = model(dummy_input)
-    
-    for hook in hooks:
-        hook.remove()
-    
-    return {
-        'total_parameters': total_params,
-        'trainable_parameters': trainable_params,
-        'layer_shapes': layer_shapes
-    }
-
-def train_model(model, train_loader, val_loader, epochs=20, lr=1e-3, device='cpu'):
-    criterion = nn.MSELoss()
-    optimizer = torch.optim.Adam(model.parameters(), lr=lr, weight_decay=1e-5)
-    scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
-        optimizer, mode='min', factor=0.5, patience=3
-    )
-    
-    def log_lr(optimizer):
-        for param_group in optimizer.param_groups:
-            return param_group['lr']
-    
-    early_stopping = EarlyStopping(patience=5)
-    
-    model.to(device)
-    train_losses = []
-    val_losses = []
-    
-    for epoch in range(epochs):
-        model.train()
-        total_train_loss = 0.0
-        for x_seq, y_val in train_loader:
-            x_seq, y_val = x_seq.to(device), y_val.to(device)
-            
-            optimizer.zero_grad()
-            y_pred = model(x_seq)
-            # Do not use squeeze() since our targets are 2-dimensional now
-            loss = criterion(y_pred, y_val)
-            loss.backward()
-            
-            torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)
-            
-            optimizer.step()
-            total_train_loss += loss.item()
+    Train the option pricing model using ticker-specific data files.
+    """
+    def calculate_errors(y_true, y_pred):
+        """Calculate various error metrics between predicted and actual values."""
+        y_true = y_true.cpu().numpy()
+        y_pred = y_pred.cpu().numpy()
         
-        avg_train_loss = total_train_loss / len(train_loader)
+        # Calculate errors (averaged over both targets)
+        mse = np.mean((y_true - y_pred) ** 2)
+        rmse = np.sqrt(mse)
+        mae = np.mean(np.abs(y_true - y_pred))
+        mape = np.mean(np.abs((y_true - y_pred) / y_true)) * 100
+        
+        return {
+            'mse': mse,
+            'rmse': rmse,
+            'mae': mae,
+            'mape': mape
+        }
+
+    def analyze_model_architecture(model, input_size=23, seq_len=15, batch_size=32):
+        """Analyze the architecture of the model, including parameter count and tensor shapes."""
+        total_params = sum(p.numel() for p in model.parameters())
+        trainable_params = sum(p.numel() for p in model.parameters() if p.requires_grad)
+        
+        dummy_input = torch.randn(batch_size, seq_len, input_size)
+        layer_shapes = {}
+        
+        def hook_fn(module, input, output, name):
+            def get_tensor_shape(x):
+                if isinstance(x, torch.Tensor):
+                    return tuple(x.shape)
+                elif isinstance(x, tuple):
+                    return tuple(get_tensor_shape(t) for t in x if isinstance(t, torch.Tensor))
+                return None
+
+            layer_shapes[name] = {
+                'input_shape': [tuple(i.shape) for i in input],
+                'output_shape': get_tensor_shape(output)
+            }
+        
+        hooks = []
+        for name, layer in model.named_children():
+            hooks.append(layer.register_forward_hook(
+                lambda m, i, o, name=name: hook_fn(m, i, o, name)
+            ))
         
         model.eval()
-        total_val_loss = 0.0
         with torch.no_grad():
-            for x_seq, y_val in val_loader:
+            _ = model(dummy_input)
+        
+        for hook in hooks:
+            hook.remove()
+        
+        return {
+            'total_parameters': total_params,
+            'trainable_parameters': trainable_params,
+            'layer_shapes': layer_shapes
+        }
+
+    def train_model(model, train_loader, val_loader, epochs=20, lr=1e-3, device='cpu'):
+        criterion = nn.MSELoss()
+        optimizer = torch.optim.Adam(model.parameters(), lr=lr, weight_decay=1e-5)
+        scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
+            optimizer, mode='min', factor=0.5, patience=3
+        )
+        
+        def log_lr(optimizer):
+            for param_group in optimizer.param_groups:
+                return param_group['lr']
+        
+        early_stopping = EarlyStopping(patience=5)
+        
+        model.to(device)
+        train_losses = []
+        val_losses = []
+        
+        for epoch in range(epochs):
+            model.train()
+            total_train_loss = 0.0
+            for x_seq, y_val in train_loader:
                 x_seq, y_val = x_seq.to(device), y_val.to(device)
+                
+                optimizer.zero_grad()
                 y_pred = model(x_seq)
                 loss = criterion(y_pred, y_val)
-                total_val_loss += loss.item()
+                loss.backward()
+                
+                torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)
+                
+                optimizer.step()
+                total_train_loss += loss.item()
+            
+            avg_train_loss = total_train_loss / len(train_loader)
+            
+            model.eval()
+            total_val_loss = 0.0
+            with torch.no_grad():
+                for x_seq, y_val in val_loader:
+                    x_seq, y_val = x_seq.to(device), y_val.to(device)
+                    y_pred = model(x_seq)
+                    loss = criterion(y_pred, y_val)
+                    total_val_loss += loss.item()
+            
+            avg_val_loss = total_val_loss / len(val_loader)
+            
+            train_losses.append(avg_train_loss)
+            val_losses.append(avg_val_loss)
+            
+            scheduler.step(avg_val_loss)
+            current_lr = log_lr(optimizer)
+            
+            print(f"Epoch [{epoch+1}/{epochs}] | Train Loss: {avg_train_loss:.6f} | Val Loss: {avg_val_loss:.6f} | LR: {current_lr:.2e}")
+            
+            early_stopping(avg_val_loss)
+            if early_stopping.early_stop:
+                print("Early stopping triggered")
+                break
         
-        avg_val_loss = total_val_loss / len(val_loader)
-        
-        train_losses.append(avg_train_loss)
-        val_losses.append(avg_val_loss)
-        
-        scheduler.step(avg_val_loss)
-        current_lr = log_lr(optimizer)
-        
-        print(f"Epoch [{epoch+1}/{epochs}] | Train Loss: {avg_train_loss:.6f} | Val Loss: {avg_val_loss:.6f} | LR: {current_lr:.2e}")
-        
-        # Check early stopping (if triggered, break out)
-        early_stopping(avg_val_loss)
-        if early_stopping.early_stop:
-            print("Early stopping triggered")
-            break
-    
-    return train_losses, val_losses
-
-def train_option_model(data_path, ticker=None, seq_len=15, batch_size=128, epochs=20, 
-                       hidden_size_lstm=128, hidden_size_gru=128, num_layers=2,
-                       target_cols=["bid", "ask"]):
-    """
-    Train the option pricing model using the specified target columns.
-    This version partitions the data in chronological order.
-    """
+        return train_losses, val_losses
     device = 'cuda' if torch.cuda.is_available() else 'cpu'
     
     # Get available tickers and select one if not provided
     if ticker is None:
-        tickers, counts = get_available_tickers(data_path)
+        tickers, counts = get_available_tickers(data_dir)
         ticker = select_ticker(tickers, counts)
     
-    # Initialize dataset (the CSV file should already be sorted temporally)
-    dataset = StockOptionDataset(csv_file=data_path, ticker=ticker, seq_len=seq_len, target_cols=target_cols)
+    # Initialize dataset
+    dataset = StockOptionDataset(data_dir=data_dir, ticker=ticker, seq_len=seq_len, target_cols=target_cols)
     
     if len(dataset) < 1:
         raise ValueError("Insufficient data for sequence creation!")
     
-    # Instead of random_split, split the dataset by slicing indices to maintain temporal order
+    # Split dataset maintaining temporal order
     total_len = len(dataset)
     train_len = int(0.80 * total_len)
     val_len = int(0.10 * total_len)
@@ -320,18 +342,15 @@ def train_option_model(data_path, ticker=None, seq_len=15, batch_size=128, epoch
     val_indices = indices[train_len:train_len+val_len]
     test_indices = indices[train_len+val_len:]
     
-    from torch.utils.data import Subset  # in case it's not already imported
     train_ds = Subset(dataset, train_indices)
     val_ds = Subset(dataset, val_indices)
     test_ds = Subset(dataset, test_indices)
     
-    # You can choose whether to shuffle training batches or not.
-    # The key is that the partitioning itself remains in temporal order.
-    train_loader = DataLoader(train_ds, batch_size=batch_size, shuffle=True)  # set shuffle=False if needed
+    train_loader = DataLoader(train_ds, batch_size=batch_size, shuffle=True)
     val_loader = DataLoader(val_ds, batch_size=batch_size, shuffle=False)
     test_loader = DataLoader(test_ds, batch_size=batch_size, shuffle=False)
     
-    # Initialize model with output_size equal to the number of targets
+    # Initialize and train model
     model = ImprovedMixedRNNModel(
         input_size=dataset.n_features,
         hidden_size_lstm=hidden_size_lstm,
@@ -340,7 +359,6 @@ def train_option_model(data_path, ticker=None, seq_len=15, batch_size=128, epoch
         output_size=len(target_cols)
     )
     
-    # Analyze model architecture
     model_analysis = analyze_model_architecture(
         model, 
         input_size=dataset.n_features,
@@ -356,7 +374,7 @@ def train_option_model(data_path, ticker=None, seq_len=15, batch_size=128, epoch
         device=device
     )
     
-    # Final evaluation on the test set
+    # Final evaluation
     model.eval()
     test_loss = 0.0
     all_y_true = []
@@ -381,10 +399,9 @@ def train_option_model(data_path, ticker=None, seq_len=15, batch_size=128, epoch
     print(f"MAE: {errors['mae']:.6f}")
     print(f"MAPE: {errors['mape']:.2f}%")
     
-    # Return the ticker and target_cols so they can be used in naming the saved model.
     return model, {'train_losses': train_losses, 'val_losses': val_losses}, model_analysis, dataset.ticker, target_cols
 
-def save_and_display_results(model, history, analysis, ticker, target_cols, models_dir="/Users/bekheet/dev/option-ml-prediction/models"):
+def save_and_display_results(model, history, analysis, ticker, target_cols, models_dir="models"):
     """
     Save the model and training plots. The model filename will be suffixed by the
     target columns and ticker.
@@ -421,28 +438,24 @@ def save_and_display_results(model, history, analysis, ticker, target_cols, mode
         print(f"  Input shape: {shapes['input_shape']}")
         print(f"  Output shape: {shapes['output_shape']}")
 
-def load_model(model_path, input_size, hidden_size_lstm=128, hidden_size_gru=128, num_layers=2, output_size=1):
-    model = ImprovedMixedRNNModel(
-        input_size=input_size,
-        hidden_size_lstm=hidden_size_lstm,
-        hidden_size_gru=hidden_size_gru,
-        num_layers=num_layers,
-        output_size=output_size
-    )
-    model.load_state_dict(torch.load(model_path))
-    return model
-
-def run_existing_model(model_path, data_path, ticker=None, target_cols=["bid", "ask"]):
+def run_existing_model(model_path, data_dir, ticker=None, target_cols=["bid", "ask"]):
     """
-    Load and run predictions with an existing model.
+    Load and run predictions with an existing model on ticker-specific data.
     """
     if ticker is None:
-        tickers, counts = get_available_tickers(data_path)
+        tickers, counts = get_available_tickers(data_dir)
         ticker = select_ticker(tickers, counts)
     
-    dataset = StockOptionDataset(csv_file=data_path, ticker=ticker, target_cols=target_cols)
+    dataset = StockOptionDataset(data_dir=data_dir, ticker=ticker, target_cols=target_cols)
     
-    model = load_model(model_path, input_size=dataset.n_features, output_size=len(dataset.target_cols))
+    model = ImprovedMixedRNNModel(
+        input_size=dataset.n_features,
+        hidden_size_lstm=128,
+        hidden_size_gru=128,
+        num_layers=2,
+        output_size=len(target_cols)
+    )
+    model.load_state_dict(torch.load(model_path))
     model.eval()
     
     data_loader = DataLoader(dataset, batch_size=128, shuffle=False)
@@ -486,15 +499,56 @@ def display_menu():
         except ValueError:
             print("Invalid input. Please enter a number.")
 
+def analyze_model_architecture(model, input_size=23, seq_len=15, batch_size=32):
+    """
+    Analyze the architecture of the model, including parameter count and tensor shapes.
+    """
+    total_params = sum(p.numel() for p in model.parameters())
+    trainable_params = sum(p.numel() for p in model.parameters() if p.requires_grad)
+    
+    dummy_input = torch.randn(batch_size, seq_len, input_size)
+    layer_shapes = {}
+    
+    def hook_fn(module, input, output, name):
+        def get_tensor_shape(x):
+            if isinstance(x, torch.Tensor):
+                return tuple(x.shape)
+            elif isinstance(x, tuple):
+                return tuple(get_tensor_shape(t) for t in x if isinstance(t, torch.Tensor))
+            return None
+
+        layer_shapes[name] = {
+            'input_shape': [tuple(i.shape) for i in input],
+            'output_shape': get_tensor_shape(output)
+        }
+    
+    hooks = []
+    for name, layer in model.named_children():
+        hooks.append(layer.register_forward_hook(
+            lambda m, i, o, name=name: hook_fn(m, i, o, name)
+        ))
+    
+    model.eval()
+    with torch.no_grad():
+        _ = model(dummy_input)
+    
+    for hook in hooks:
+        hook.remove()
+    
+    return {
+        'total_parameters': total_params,
+        'trainable_parameters': trainable_params,
+        'layer_shapes': layer_shapes
+    }
+
 def main():
-    # Add target_cols to the configuration
     config = {
-        'data_path': "data_files/option_data_scaled.csv",
+        'data_dir': "data_files/split_data",  # Directory containing ticker-specific files
         'seq_len': 15,
         'batch_size': 32,
         'epochs': 20,
-        'hidden_size_lstm': 64,
-        'hidden_size_gru': 64,
+        'hidden_size_lstm': 128,
+        'hidden_size_gru': 128,
         'num_layers': 2,
         'ticker': None,  # if None, user will be prompted
         'target_cols': ["bid", "ask"]
@@ -505,11 +559,20 @@ def main():
         
         if choice == 1:
             print("\nTraining new model...")
-            model, history, analysis, ticker, target_cols = train_option_model(**config)
+            try:
+                model, history, analysis, ticker, target_cols = train_option_model(**config)
+            except FileNotFoundError as e:
+                print(e)
+                input("\nPress Enter to return to main menu...")
+                continue
             save_and_display_results(model, history, analysis, ticker, target_cols)
             
         elif choice == 2:
             models_dir = "models"
+            if not os.path.exists(models_dir):
+                print("\nNo models directory found. Please train a model first.")
+                continue
+                
             model_files = [f for f in os.listdir(models_dir) if f.endswith('.pth')]
             
             if not model_files:
@@ -530,11 +593,10 @@ def main():
                 except ValueError:
                     print("Please enter a valid number.")
             
-            run_existing_model(model_path, config['data_path'], ticker=config['ticker'], target_cols=config['target_cols'])
+            run_existing_model(model_path, config['data_dir'], ticker=config['ticker'], target_cols=config['target_cols'])
             
         elif choice == 3:
             print("\nAnalyzing network architecture...")
-            # Create a dummy model for analysis (input_size set to 23 as default)
             model = ImprovedMixedRNNModel(
                 input_size=23,
                 hidden_size_lstm=config['hidden_size_lstm'],

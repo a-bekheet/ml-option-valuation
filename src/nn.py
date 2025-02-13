@@ -1,128 +1,21 @@
-import pandas as pd
-import numpy as np
 import torch
 import torch.nn as nn
-from torch.utils.data import Dataset, DataLoader, Subset
-from datetime import datetime
+from torch.utils.data import DataLoader, Subset
 import os
+import logging
 from pathlib import Path
-import matplotlib.pyplot as plt
 
-def calculate_errors(y_true, y_pred):
-    """Calculate various error metrics between predicted and actual values."""
-    y_true = y_true.cpu().numpy()
-    y_pred = y_pred.cpu().numpy()
-    
-    # Calculate errors (averaged over both targets)
-    mse = np.mean((y_true - y_pred) ** 2)
-    rmse = np.sqrt(mse)
-    mae = np.mean(np.abs(y_true - y_pred))
-    mape = np.mean(np.abs((y_true - y_pred) / y_true)) * 100
-    
-    return {
-        'mse': mse,
-        'rmse': rmse,
-        'mae': mae,
-        'mape': mape
-    }
+from utils.data_utils import get_available_tickers, select_ticker, StockOptionDataset
+from utils.model_utils import (
+    train_model, analyze_model_architecture, load_model,
+    run_existing_model, calculate_errors, EarlyStopping
+)
+from utils.menu_utils import display_menu
+from utils.visualization_utils import save_and_display_results, display_model_analysis
 
-def get_available_tickers(data_dir):
-    """Load and return sorted list of available tickers from metadata file."""
-    if not os.path.exists(data_dir):
-        raise FileNotFoundError(
-            f"\nError: Data directory '{data_dir}' not found!\n"
-            f"Please run the split_data.py script first to prepare the data:\n"
-            f"  python split_data.py"
-        )
-        
-    metadata_file = os.path.join(data_dir, 'ticker_metadata.csv')
-    if not os.path.exists(metadata_file):
-        raise FileNotFoundError(
-            f"\nError: Metadata file not found at '{metadata_file}'!\n"
-            f"Please run the split_data.py script first to prepare the data:\n"
-            f"  python split_data.py"
-        )
-        
-    metadata = pd.read_csv(metadata_file)
-    return list(metadata['ticker']), list(metadata['count'])
-
-def select_ticker(tickers, counts):
-    """Display tickers with their data counts and get user selection."""
-    print("\nAvailable tickers and their data points:")
-    print("-" * 50)
-    print(f"{'#':<4} {'Ticker':<10} {'Data Points':>12}")
-    print("-" * 50)
-    
-    for i, (ticker, count) in enumerate(zip(tickers, counts), 1):
-        print(f"{i:<4} {ticker:<10} {count:>12,}")
-    
-    while True:
-        try:
-            choice = input("\nEnter the number of the ticker you want to analyze (or 'q' to quit): ")
-            if choice.lower() == 'q':
-                exit()
-            choice = int(choice)
-            if 1 <= choice <= len(tickers):
-                selected_ticker = tickers[choice-1]
-                selected_count = counts[choice-1]
-                print(f"\nSelected ticker: {selected_ticker} ({selected_count:,} data points)")
-                return selected_ticker
-            else:
-                print("Invalid selection. Please try again.")
-        except ValueError:
-            print("Please enter a valid number or 'q' to quit.")
-
-class StockOptionDataset(Dataset):
-    def __init__(self, data_dir, ticker, seq_len=15, target_cols=["bid", "ask"]):
-        """
-        Loads data for a given ticker from its specific file.
-        """
-        file_path = os.path.join(data_dir, f"option_data_scaled_{ticker}.csv")
-        print(f"Loading data from: {file_path}")
-        
-        if not os.path.exists(file_path):
-            raise FileNotFoundError(f"No data file found for ticker {ticker}")
-            
-        df = pd.read_csv(file_path)
-        
-        # Define the feature columns (excluding target columns)
-        feature_cols = [
-            "strike", "change", "percentChange", "volume",
-            "openInterest", "impliedVolatility", "daysToExpiry", "stockVolume",
-            "stockClose", "stockAdjClose", "stockOpen", "stockHigh", "stockLow",
-            "strikeDelta", "stockClose_ewm_5d", "stockClose_ewm_15d",
-            "stockClose_ewm_45d", "stockClose_ewm_135d",
-            "day_of_week", "day_of_month", "day_of_year"
-        ]
-        self.feature_cols = feature_cols
-        self.target_cols = target_cols
-        self.ticker = ticker
-
-        # Ensure that none of the required columns are missing
-        df.dropna(subset=feature_cols + target_cols, inplace=True)
-        
-        # Concatenate features and targets
-        data_np = df[feature_cols + target_cols].to_numpy(dtype=np.float32)
-        
-        self.data = data_np
-        self.n_features = len(feature_cols)
-        self.n_targets = len(target_cols)
-        self.seq_len = seq_len
-        self.n_samples = self.data.shape[0]
-        self.max_index = self.n_samples - self.seq_len - 1
-        
-    def __len__(self):
-        return max(0, self.max_index)
-    
-    def __getitem__(self, idx):
-        x_seq = self.data[idx : idx + self.seq_len, :self.n_features]
-        y_val = self.data[idx + self.seq_len, self.n_features : self.n_features + self.n_targets]
-        return torch.tensor(x_seq, dtype=torch.float32), torch.tensor(y_val, dtype=torch.float32)
-
-# [The ImprovedMixedRNNModel class remains exactly the same as in the original code]
-class ImprovedMixedRNNModel(nn.Module):
+class HybridRNNModel(nn.Module):
     def __init__(self, input_size, hidden_size_lstm=64, hidden_size_gru=64, num_layers=2, output_size=1):
-        super(ImprovedMixedRNNModel, self).__init__()
+        super(HybridRNNModel, self).__init__()
         
         self.input_bn = nn.BatchNorm1d(input_size)
         self.lstm = nn.LSTM(
@@ -173,151 +66,12 @@ class ImprovedMixedRNNModel(nn.Module):
         
         return final_out
 
-# [EarlyStopping, calculate_errors, and analyze_model_architecture functions remain the same]
-
-class EarlyStopping:
-    def __init__(self, patience=5, min_delta=1e-5):
-        self.patience = patience
-        self.min_delta = min_delta
-        self.counter = 0
-        self.best_loss = None
-        self.early_stop = False
-        
-    def __call__(self, val_loss):
-        if self.best_loss is None:
-            self.best_loss = val_loss
-        elif val_loss > self.best_loss - self.min_delta:
-            self.counter += 1
-            if self.counter >= self.patience:
-                self.early_stop = True
-        else:
-            self.best_loss = val_loss
-            self.counter = 0
-
 def train_option_model(data_dir, ticker=None, seq_len=15, batch_size=128, epochs=20, 
                       hidden_size_lstm=128, hidden_size_gru=128, num_layers=2,
                       target_cols=["bid", "ask"]):
     """
     Train the option pricing model using ticker-specific data files.
     """
-    def calculate_errors(y_true, y_pred):
-        """Calculate various error metrics between predicted and actual values."""
-        y_true = y_true.cpu().numpy()
-        y_pred = y_pred.cpu().numpy()
-        
-        # Calculate errors (averaged over both targets)
-        mse = np.mean((y_true - y_pred) ** 2)
-        rmse = np.sqrt(mse)
-        mae = np.mean(np.abs(y_true - y_pred))
-        mape = np.mean(np.abs((y_true - y_pred) / y_true)) * 100
-        
-        return {
-            'mse': mse,
-            'rmse': rmse,
-            'mae': mae,
-            'mape': mape
-        }
-
-    def analyze_model_architecture(model, input_size=23, seq_len=15, batch_size=32):
-        """Analyze the architecture of the model, including parameter count and tensor shapes."""
-        total_params = sum(p.numel() for p in model.parameters())
-        trainable_params = sum(p.numel() for p in model.parameters() if p.requires_grad)
-        
-        dummy_input = torch.randn(batch_size, seq_len, input_size)
-        layer_shapes = {}
-        
-        def hook_fn(module, input, output, name):
-            def get_tensor_shape(x):
-                if isinstance(x, torch.Tensor):
-                    return tuple(x.shape)
-                elif isinstance(x, tuple):
-                    return tuple(get_tensor_shape(t) for t in x if isinstance(t, torch.Tensor))
-                return None
-
-            layer_shapes[name] = {
-                'input_shape': [tuple(i.shape) for i in input],
-                'output_shape': get_tensor_shape(output)
-            }
-        
-        hooks = []
-        for name, layer in model.named_children():
-            hooks.append(layer.register_forward_hook(
-                lambda m, i, o, name=name: hook_fn(m, i, o, name)
-            ))
-        
-        model.eval()
-        with torch.no_grad():
-            _ = model(dummy_input)
-        
-        for hook in hooks:
-            hook.remove()
-        
-        return {
-            'total_parameters': total_params,
-            'trainable_parameters': trainable_params,
-            'layer_shapes': layer_shapes
-        }
-
-    def train_model(model, train_loader, val_loader, epochs=20, lr=1e-3, device='cpu'):
-        criterion = nn.MSELoss()
-        optimizer = torch.optim.Adam(model.parameters(), lr=lr, weight_decay=1e-5)
-        scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
-            optimizer, mode='min', factor=0.5, patience=3
-        )
-        
-        def log_lr(optimizer):
-            for param_group in optimizer.param_groups:
-                return param_group['lr']
-        
-        early_stopping = EarlyStopping(patience=5)
-        
-        model.to(device)
-        train_losses = []
-        val_losses = []
-        
-        for epoch in range(epochs):
-            model.train()
-            total_train_loss = 0.0
-            for x_seq, y_val in train_loader:
-                x_seq, y_val = x_seq.to(device), y_val.to(device)
-                
-                optimizer.zero_grad()
-                y_pred = model(x_seq)
-                loss = criterion(y_pred, y_val)
-                loss.backward()
-                
-                torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)
-                
-                optimizer.step()
-                total_train_loss += loss.item()
-            
-            avg_train_loss = total_train_loss / len(train_loader)
-            
-            model.eval()
-            total_val_loss = 0.0
-            with torch.no_grad():
-                for x_seq, y_val in val_loader:
-                    x_seq, y_val = x_seq.to(device), y_val.to(device)
-                    y_pred = model(x_seq)
-                    loss = criterion(y_pred, y_val)
-                    total_val_loss += loss.item()
-            
-            avg_val_loss = total_val_loss / len(val_loader)
-            
-            train_losses.append(avg_train_loss)
-            val_losses.append(avg_val_loss)
-            
-            scheduler.step(avg_val_loss)
-            current_lr = log_lr(optimizer)
-            
-            print(f"Epoch [{epoch+1}/{epochs}] | Train Loss: {avg_train_loss:.6f} | Val Loss: {avg_val_loss:.6f} | LR: {current_lr:.2e}")
-            
-            early_stopping(avg_val_loss)
-            if early_stopping.early_stop:
-                print("Early stopping triggered")
-                break
-        
-        return train_losses, val_losses
     device = 'cuda' if torch.cuda.is_available() else 'cpu'
     
     # Get available tickers and select one if not provided
@@ -351,7 +105,7 @@ def train_option_model(data_dir, ticker=None, seq_len=15, batch_size=128, epochs
     test_loader = DataLoader(test_ds, batch_size=batch_size, shuffle=False)
     
     # Initialize and train model
-    model = ImprovedMixedRNNModel(
+    model = HybridRNNModel(
         input_size=dataset.n_features,
         hidden_size_lstm=hidden_size_lstm,
         hidden_size_gru=hidden_size_gru,
@@ -401,148 +155,20 @@ def train_option_model(data_dir, ticker=None, seq_len=15, batch_size=128, epochs
     
     return model, {'train_losses': train_losses, 'val_losses': val_losses}, model_analysis, dataset.ticker, target_cols
 
-def save_and_display_results(model, history, analysis, ticker, target_cols, models_dir="models"):
-    """
-    Save the model and training plots. The model filename will be suffixed by the
-    target columns and ticker.
-    """
-    os.makedirs(models_dir, exist_ok=True)
-    timestamp = datetime.now().strftime("%m%d%H%M%S")
-    target_str = "-".join(target_cols)
-    
-    # Save model with filename indicating what it predicts and the ticker it was trained on
-    model_save_path = f"{models_dir}/mixed_lstm_gru_model_target_{target_str}_trained_{ticker}_{timestamp}.pth"
-    torch.save(model.state_dict(), model_save_path)
-    print(f"\nModel saved to {model_save_path}")
-    
-    plt.figure(figsize=(10, 6))
-    plt.plot(history['train_losses'], label="Train Loss", linewidth=2)
-    plt.plot(history['val_losses'], label="Validation Loss", linewidth=2)
-    plt.title("Training and Validation Loss Curves")
-    plt.xlabel("Epoch")
-    plt.ylabel("MSE Loss")
-    plt.legend()
-    plt.grid(True)
-    
-    plot_save_path = f"{models_dir}/training_plot_{target_str}_trained_{ticker}_{timestamp}.png"
-    plt.savefig(plot_save_path, dpi=300, bbox_inches='tight')
-    print(f"Plot saved to {plot_save_path}")
-    
-    print("\nModel Architecture Analysis:")
-    print("-" * 50)
-    print(f"Total parameters: {analysis['total_parameters']:,}")
-    print(f"Trainable parameters: {analysis['trainable_parameters']:,}")
-    print("\nLayer Shapes:")
-    for layer_name, shapes in analysis['layer_shapes'].items():
-        print(f"\n{layer_name}:")
-        print(f"  Input shape: {shapes['input_shape']}")
-        print(f"  Output shape: {shapes['output_shape']}")
-
-def run_existing_model(model_path, data_dir, ticker=None, target_cols=["bid", "ask"]):
-    """
-    Load and run predictions with an existing model on ticker-specific data.
-    """
-    if ticker is None:
-        tickers, counts = get_available_tickers(data_dir)
-        ticker = select_ticker(tickers, counts)
-    
-    dataset = StockOptionDataset(data_dir=data_dir, ticker=ticker, target_cols=target_cols)
-    
-    model = ImprovedMixedRNNModel(
-        input_size=dataset.n_features,
-        hidden_size_lstm=128,
-        hidden_size_gru=128,
-        num_layers=2,
-        output_size=len(target_cols)
+def setup_logging():
+    """Configure logging for the application."""
+    logging.basicConfig(
+        level=logging.INFO,
+        format='%(asctime)s - %(levelname)s - %(message)s',
+        handlers=[
+            logging.StreamHandler(),
+            logging.FileHandler('option_model.log')
+        ]
     )
-    model.load_state_dict(torch.load(model_path))
-    model.eval()
-    
-    data_loader = DataLoader(dataset, batch_size=128, shuffle=False)
-    
-    all_y_true = []
-    all_y_pred = []
-    device = 'cuda' if torch.cuda.is_available() else 'cpu'
-    model = model.to(device)
-    
-    print(f"\nMaking predictions for {ticker}...")
-    with torch.no_grad():
-        for x_seq, y_val in data_loader:
-            x_seq, y_val = x_seq.to(device), y_val.to(device)
-            y_pred = model(x_seq)
-            all_y_true.extend(y_val.cpu().numpy())
-            all_y_pred.extend(y_pred.cpu().numpy())
-    
-    errors = calculate_errors(torch.tensor(all_y_true), torch.tensor(all_y_pred))
-    print("\nPrediction Metrics:")
-    print("-" * 50)
-    print(f"MSE: {errors['mse']:.6f}")
-    print(f"RMSE: {errors['rmse']:.6f}")
-    print(f"MAE: {errors['mae']:.6f}")
-    print(f"MAPE: {errors['mape']:.2f}%")
 
-def display_menu():
-    """Display the main menu and get user choice."""
-    print("\nOption Trading Model - Main Menu")
-    print("-" * 50)
-    print("1. Train new model")
-    print("2. Run existing model")
-    print("3. Analyze network architecture")
-    print("4. Exit")
-    
-    while True:
-        try:
-            choice = input("\nEnter your choice (1-4): ")
-            if choice in ['1', '2', '3', '4']:
-                return int(choice)
-            print("Invalid choice. Please enter a number between 1 and 4.")
-        except ValueError:
-            print("Invalid input. Please enter a number.")
-
-def analyze_model_architecture(model, input_size=23, seq_len=15, batch_size=32):
-    """
-    Analyze the architecture of the model, including parameter count and tensor shapes.
-    """
-    total_params = sum(p.numel() for p in model.parameters())
-    trainable_params = sum(p.numel() for p in model.parameters() if p.requires_grad)
-    
-    dummy_input = torch.randn(batch_size, seq_len, input_size)
-    layer_shapes = {}
-    
-    def hook_fn(module, input, output, name):
-        def get_tensor_shape(x):
-            if isinstance(x, torch.Tensor):
-                return tuple(x.shape)
-            elif isinstance(x, tuple):
-                return tuple(get_tensor_shape(t) for t in x if isinstance(t, torch.Tensor))
-            return None
-
-        layer_shapes[name] = {
-            'input_shape': [tuple(i.shape) for i in input],
-            'output_shape': get_tensor_shape(output)
-        }
-    
-    hooks = []
-    for name, layer in model.named_children():
-        hooks.append(layer.register_forward_hook(
-            lambda m, i, o, name=name: hook_fn(m, i, o, name)
-        ))
-    
-    model.eval()
-    with torch.no_grad():
-        _ = model(dummy_input)
-    
-    for hook in hooks:
-        hook.remove()
-    
+def load_config():
+    """Load and return the configuration settings."""
     return {
-        'total_parameters': total_params,
-        'trainable_parameters': trainable_params,
-        'layer_shapes': layer_shapes
-    }
-
-def main():
-    config = {
         'data_dir': "data_files/split_data",  # Directory containing ticker-specific files
         'seq_len': 15,
         'batch_size': 32,
@@ -550,77 +176,164 @@ def main():
         'hidden_size_lstm': 128,
         'hidden_size_gru': 128,
         'num_layers': 2,
-        'ticker': None,  # if None, user will be prompted
-        'target_cols': ["bid", "ask"]
+        'ticker': None,
+        'target_cols': ["bid", "ask"],
+        'models_dir': "models"
     }
+
+def validate_paths(config):
+    """Validate and create necessary directories."""
+    data_path = Path(config['data_dir'])
+    models_dir = Path(config['models_dir'])
     
+    if not data_path.exists():
+        raise FileNotFoundError(f"Data directory not found: {data_path}")
+    
+    models_dir.mkdir(exist_ok=True)
+    return data_path, models_dir
+
+def handle_train_model(config):
+    """Handle the model training workflow."""
+    try:
+        logging.info("Starting model training...")
+        model, history, analysis, ticker, target_cols = train_option_model(**config)
+        save_and_display_results(model, history, analysis, ticker, target_cols)
+        logging.info("Model training completed successfully")
+    except Exception as e:
+        logging.error(f"Error during model training: {str(e)}")
+        print(f"\nError: {str(e)}")
+
+def list_available_models(models_dir):
+    """List and return available trained models."""
+    model_files = [f for f in os.listdir(models_dir) if f.endswith('.pth')]
+    if not model_files:
+        print("\nNo saved models found in", models_dir)
+        return None
+    
+    print("\nAvailable models:")
+    for i, model_file in enumerate(model_files, 1):
+        print(f"{i}. {model_file}")
+    return model_files
+
+def select_model(model_files):
+    """Let user select a model from the list."""
     while True:
-        choice = display_menu()
+        try:
+            model_choice = int(input("\nSelect a model number: "))
+            if 1 <= model_choice <= len(model_files):
+                return model_files[model_choice-1]
+            print("Invalid choice. Please try again.")
+        except ValueError:
+            print("Please enter a valid number.")
+        except KeyboardInterrupt:
+            print("\nModel selection cancelled")
+            return None
+
+def handle_run_model(config, models_dir):
+    """Handle the model prediction workflow."""
+    try:
+        model_files = list_available_models(models_dir)
+        if not model_files:
+            return
+
+        selected_model = select_model(model_files)
+        if not selected_model:
+            return
+
+        model_path = os.path.join(models_dir, selected_model)
         
-        if choice == 1:
-            print("\nTraining new model...")
+        # Get available tickers and select one
+        tickers, counts = get_available_tickers(config['data_dir'])
+        ticker = select_ticker(tickers, counts)
+        
+        # Create dataset for the selected ticker
+        dataset = StockOptionDataset(
+            data_dir=config['data_dir'],
+            ticker=ticker,
+            target_cols=config['target_cols']
+        )
+        
+        logging.info(f"Running predictions with model: {selected_model}")
+        run_existing_model(
+            model_path,
+            HybridRNNModel,
+            dataset,
+            target_cols=config['target_cols']
+        )
+        logging.info("Predictions completed successfully")
+    except Exception as e:
+        logging.error(f"Error during model prediction: {str(e)}")
+        print(f"\nError: {str(e)}")
+
+def handle_analyze_architecture(config):
+    """Handle the model architecture analysis workflow."""
+    try:
+        print("\nAnalyzing network architecture...")
+        model = HybridRNNModel(
+            input_size=23,
+            hidden_size_lstm=config['hidden_size_lstm'],
+            hidden_size_gru=config['hidden_size_gru'],
+            num_layers=config['num_layers'],
+            output_size=len(config['target_cols'])
+        )
+        analysis = analyze_model_architecture(model)
+        display_model_analysis(analysis)
+        logging.info("Architecture analysis completed")
+    except Exception as e:
+        logging.error(f"Error during architecture analysis: {str(e)}")
+        print(f"\nError: {str(e)}")
+
+def main():
+    """Main application entry point with improved error handling and user experience."""
+    try:
+        # Setup logging
+        setup_logging()
+        logging.info("Starting Option Trading Model application")
+        
+        # Load configuration
+        config = load_config()
+        
+        # Validate paths
+        try:
+            data_path, models_dir = validate_paths(config)
+        except FileNotFoundError as e:
+            logging.error(str(e))
+            print(f"\nError: {str(e)}")
+            return
+        
+        while True:
             try:
-                model, history, analysis, ticker, target_cols = train_option_model(**config)
-            except FileNotFoundError as e:
-                print(e)
-                input("\nPress Enter to return to main menu...")
-                continue
-            save_and_display_results(model, history, analysis, ticker, target_cols)
-            
-        elif choice == 2:
-            models_dir = "models"
-            if not os.path.exists(models_dir):
-                print("\nNo models directory found. Please train a model first.")
-                continue
+                choice = display_menu()
                 
-            model_files = [f for f in os.listdir(models_dir) if f.endswith('.pth')]
-            
-            if not model_files:
-                print("\nNo saved models found in", models_dir)
-                continue
-            
-            print("\nAvailable models:")
-            for i, model_file in enumerate(model_files, 1):
-                print(f"{i}. {model_file}")
-            
-            while True:
-                try:
-                    model_choice = int(input("\nSelect a model number: "))
-                    if 1 <= model_choice <= len(model_files):
-                        model_path = os.path.join(models_dir, model_files[model_choice-1])
-                        break
-                    print("Invalid choice. Please try again.")
-                except ValueError:
-                    print("Please enter a valid number.")
-            
-            run_existing_model(model_path, config['data_dir'], ticker=config['ticker'], target_cols=config['target_cols'])
-            
-        elif choice == 3:
-            print("\nAnalyzing network architecture...")
-            model = ImprovedMixedRNNModel(
-                input_size=23,
-                hidden_size_lstm=config['hidden_size_lstm'],
-                hidden_size_gru=config['hidden_size_gru'],
-                num_layers=config['num_layers'],
-                output_size=len(config['target_cols'])
-            )
-            analysis = analyze_model_architecture(model)
-            
-            print("\nNetwork Architecture Analysis:")
-            print("-" * 50)
-            print(f"Total parameters: {analysis['total_parameters']:,}")
-            print(f"Trainable parameters: {analysis['trainable_parameters']:,}")
-            print("\nLayer Shapes:")
-            for layer_name, shapes in analysis['layer_shapes'].items():
-                print(f"\n{layer_name}:")
-                print(f"  Input shape: {shapes['input_shape']}")
-                print(f"  Output shape: {shapes['output_shape']}")
+                if choice == 1:
+                    handle_train_model(config)
+                elif choice == 2:
+                    handle_run_model(config, config['models_dir'])
+                elif choice == 3:
+                    handle_analyze_architecture(config)
+                elif choice == 4:
+                    print("\nExiting program...")
+                    logging.info("Application terminated by user")
+                    break
                 
-        elif choice == 4:
-            print("\nExiting program...")
-            break
-        
-        input("\nPress Enter to continue...")
+                input("\nPress Enter to continue...")
+                
+            except KeyboardInterrupt:
+                print("\nOperation cancelled by user")
+                continue
+            except Exception as e:
+                logging.error(f"Unexpected error: {str(e)}")
+                print(f"\nAn unexpected error occurred: {str(e)}")
+                continue
+    
+    except KeyboardInterrupt:
+        print("\nApplication terminated by user")
+        logging.info("Application terminated by user")
+    except Exception as e:
+        logging.error(f"Critical error: {str(e)}")
+        print(f"\nA critical error occurred: {str(e)}")
+    finally:
+        logging.info("Application shutdown")
 
 if __name__ == "__main__":
     main()

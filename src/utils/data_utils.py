@@ -2,12 +2,27 @@ import pandas as pd
 import torch
 from torch.utils.data import Dataset
 import numpy as np
+import os
 
-def get_available_tickers(csv_file):
-    """Load and return sorted list of unique tickers with their data counts."""
-    df = pd.read_csv(csv_file)
-    ticker_counts = df['ticker'].value_counts().sort_index()
-    return list(ticker_counts.index), list(ticker_counts.values)
+def get_available_tickers(data_dir):
+    """Load and return sorted list of available tickers from metadata file."""
+    if not os.path.exists(data_dir):
+        raise FileNotFoundError(
+            f"\nError: Data directory '{data_dir}' not found!\n"
+            f"Please run the split_data.py script first to prepare the data:\n"
+            f"  python split_data.py"
+        )
+        
+    metadata_file = os.path.join(data_dir, 'ticker_metadata.csv')
+    if not os.path.exists(metadata_file):
+        raise FileNotFoundError(
+            f"\nError: Metadata file not found at '{metadata_file}'!\n"
+            f"Please run the split_data.py script first to prepare the data:\n"
+            f"  python split_data.py"
+        )
+        
+    metadata = pd.read_csv(metadata_file)
+    return list(metadata['ticker']), list(metadata['count'])
 
 def select_ticker(tickers, counts):
     """Display tickers with their data counts and get user selection."""
@@ -36,22 +51,19 @@ def select_ticker(tickers, counts):
             print("Please enter a valid number or 'q' to quit.")
 
 class StockOptionDataset(Dataset):
-    def __init__(self, csv_file, ticker="CGC", seq_len=15, target_cols=["bid", "ask"]):
+    def __init__(self, data_dir, ticker, seq_len=15, target_cols=["bid", "ask"]):
         """
-        Loads data for a given ticker and sets up the features and targets.
-        
-        IMPORTANT CHANGES:
-          - The feature columns have been re-ordered to *exclude* the target columns.
-          - The target columns are now a list (e.g. ["bid", "ask"]).
+        Loads data for a given ticker from its specific file.
         """
-        print(f"Loading data from: {csv_file}")
-        df = pd.read_csv(csv_file)
+        file_path = os.path.join(data_dir, f"option_data_scaled_{ticker}.csv")
+        print(f"Loading data from: {file_path}")
         
-        df = df[df['ticker'] == ticker].copy()
-        if df.empty:
-            raise ValueError(f"No data found for ticker: {ticker}")
+        if not os.path.exists(file_path):
+            raise FileNotFoundError(f"No data file found for ticker {ticker}")
+            
+        df = pd.read_csv(file_path)
         
-        # Define the feature columns (note: 'bid' and 'ask' have been removed)
+        # Define the feature columns (excluding target columns)
         feature_cols = [
             "strike", "change", "percentChange", "volume",
             "openInterest", "impliedVolatility", "daysToExpiry", "stockVolume",
@@ -67,7 +79,7 @@ class StockOptionDataset(Dataset):
         # Ensure that none of the required columns are missing
         df.dropna(subset=feature_cols + target_cols, inplace=True)
         
-        # Concatenate features and targets (features first, then targets)
+        # Concatenate features and targets
         data_np = df[feature_cols + target_cols].to_numpy(dtype=np.float32)
         
         self.data = data_np
@@ -81,8 +93,6 @@ class StockOptionDataset(Dataset):
         return max(0, self.max_index)
     
     def __getitem__(self, idx):
-        # Get a sequence of features
         x_seq = self.data[idx : idx + self.seq_len, :self.n_features]
-        # Get the target(s) from the next row; now a vector (e.g. [bid, ask])
         y_val = self.data[idx + self.seq_len, self.n_features : self.n_features + self.n_targets]
         return torch.tensor(x_seq, dtype=torch.float32), torch.tensor(y_val, dtype=torch.float32) 

@@ -1,8 +1,9 @@
 import matplotlib.pyplot as plt
 import os
 from datetime import datetime
+import torch
 
-def save_and_display_results(model, history, analysis, ticker, target_cols, models_dir="/Users/bekheet/dev/option-ml-prediction/models"):
+def save_and_display_results(model, history, analysis, ticker, target_cols, models_dir="models"):
     """
     Save the model and training plots. The model filename will be suffixed by the
     target columns and ticker.

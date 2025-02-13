@@ -71,22 +71,65 @@ class ImprovedMixedRNNModel(nn.Module):
         
         return final_out
 
-def train_option_model(data_path, ticker=None, seq_len=15, batch_size=128, epochs=20, 
-                       hidden_size_lstm=128, hidden_size_gru=128, num_layers=2,
-                       target_cols=["bid", "ask"]):
+def get_available_tickers(data_dir):
+    """Load and return sorted list of available tickers from metadata file."""
+    if not os.path.exists(data_dir):
+        raise FileNotFoundError(
+            f"\nError: Data directory '{data_dir}' not found!\n"
+            f"Please run the split_data.py script first to prepare the data:\n"
+            f"  python split_data.py"
+        )
+        
+    metadata_file = os.path.join(data_dir, 'ticker_metadata.csv')
+    if not os.path.exists(metadata_file):
+        raise FileNotFoundError(
+            f"\nError: Metadata file not found at '{metadata_file}'!\n"
+            f"Please run the split_data.py script first to prepare the data:\n"
+            f"  python split_data.py"
+        )
+        
+    metadata = pd.read_csv(metadata_file)
+    return list(metadata['ticker']), list(metadata['count'])
+
+class StockOptionDataset(Dataset):
+    def __init__(self, data_dir, ticker, seq_len=15, target_cols=["bid", "ask"]):
+        """
+        Loads data for a given ticker from its specific file.
+        """
+        file_path = os.path.join(data_dir, f"option_data_scaled_{ticker}.csv")
+        print(f"Loading data from: {file_path}")
+        
+        if not os.path.exists(file_path):
+            raise FileNotFoundError(f"No data file found for ticker {ticker}")
+            
+        df = pd.read_csv(file_path)
+        
+        # Rest of initialization remains the same
+        self.data = df[target_cols].values
+        self.seq_len = seq_len
+        self.n_features = self.data.shape[1]
+
+    def __len__(self):
+        return len(self.data) - self.seq_len + 1
+
+    def __getitem__(self, idx):
+        return self.data[idx:idx+self.seq_len], self.data[idx+self.seq_len-1]
+
+def train_option_model(data_dir, ticker=None, seq_len=15, batch_size=128, epochs=20, 
+                      hidden_size_lstm=128, hidden_size_gru=128, num_layers=2,
+                      target_cols=["bid", "ask"]):
     """
-    Train the option pricing model using the specified target columns.
-    This version partitions the data in chronological order.
+    Train the option pricing model using ticker-specific data files.
     """
     device = 'cuda' if torch.cuda.is_available() else 'cpu'
     
     # Get available tickers and select one if not provided
     if ticker is None:
-        tickers, counts = get_available_tickers(data_path)
+        tickers, counts = get_available_tickers(data_dir)
         ticker = select_ticker(tickers, counts)
     
-    # Initialize dataset (the CSV file should already be sorted temporally)
-    dataset = StockOptionDataset(csv_file=data_path, ticker=ticker, seq_len=seq_len, target_cols=target_cols)
+    # Initialize dataset with new data_dir parameter
+    dataset = StockOptionDataset(data_dir=data_dir, ticker=ticker, seq_len=seq_len, target_cols=target_cols)
     
     if len(dataset) < 1:
         raise ValueError("Insufficient data for sequence creation!")
@@ -152,28 +195,28 @@ def setup_logging():
 def load_config():
     """Load and return the configuration settings."""
     return {
-        'data_path': "data_files/option_data_scaled.csv",
+        'data_dir': "data_files/split_data",  # Directory containing ticker-specific files
         'seq_len': 15,
         'batch_size': 32,
         'epochs': 20,
         'hidden_size_lstm': 64,
         'hidden_size_gru': 64,
         'num_layers': 2,
-        'ticker': None,
+        'ticker': None,  # if None, user will be prompted
         'target_cols': ["bid", "ask"],
         'models_dir': "models"
     }
 
 def validate_paths(config):
     """Validate and create necessary directories."""
-    data_path = Path(config['data_path'])
+    data_dir = Path(config['data_dir'])
     models_dir = Path(config['models_dir'])
     
-    if not data_path.exists():
-        raise FileNotFoundError(f"Data file not found: {data_path}")
+    if not data_dir.exists():
+        raise FileNotFoundError(f"Data directory not found: {data_dir}")
     
     models_dir.mkdir(exist_ok=True)
-    return data_path, models_dir
+    return data_dir, models_dir
 
 def handle_train_model(config):
     """Handle the model training workflow."""
@@ -226,12 +269,12 @@ def handle_run_model(config, models_dir):
         model_path = os.path.join(models_dir, selected_model)
         
         # Get available tickers and select one
-        tickers, counts = get_available_tickers(config['data_path'])
+        tickers, counts = get_available_tickers(config['data_dir'])
         ticker = select_ticker(tickers, counts)
         
         # Create dataset for the selected ticker
         dataset = StockOptionDataset(
-            csv_file=config['data_path'],
+            data_dir=config['data_dir'],
             ticker=ticker,
             target_cols=config['target_cols']
         )
@@ -278,7 +321,7 @@ def main():
         
         # Validate paths
         try:
-            data_path, models_dir = validate_paths(config)
+            data_dir, models_dir = validate_paths(config)
         except FileNotFoundError as e:
             logging.error(str(e))
             print(f"\nError: {str(e)}")

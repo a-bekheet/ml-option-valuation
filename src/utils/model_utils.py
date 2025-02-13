@@ -4,6 +4,8 @@ import os
 from datetime import datetime
 from torch.utils.data import DataLoader, Subset
 import numpy as np
+from pathlib import Path
+from tqdm import tqdm
 
 class EarlyStopping:
     def __init__(self, patience=5, min_delta=1e-5):
@@ -99,10 +101,16 @@ def train_model(model, train_loader, val_loader, epochs=20, lr=1e-3, device='cpu
     train_losses = []
     val_losses = []
     
+    print("\nStarting training...")
     for epoch in range(epochs):
         model.train()
         total_train_loss = 0.0
-        for x_seq, y_val in train_loader:
+        
+        # Create progress bar for training
+        train_pbar = tqdm(train_loader, desc=f'Epoch {epoch+1}/{epochs} [Train]',
+                         leave=False, unit='batch')
+        
+        for x_seq, y_val in train_pbar:
             x_seq, y_val = x_seq.to(device), y_val.to(device)
             
             optimizer.zero_grad()
@@ -114,17 +122,28 @@ def train_model(model, train_loader, val_loader, epochs=20, lr=1e-3, device='cpu
             
             optimizer.step()
             total_train_loss += loss.item()
+            
+            # Update progress bar with current loss
+            train_pbar.set_postfix({'loss': f'{loss.item():.6f}'})
         
         avg_train_loss = total_train_loss / len(train_loader)
         
         model.eval()
         total_val_loss = 0.0
+        
+        # Create progress bar for validation
+        val_pbar = tqdm(val_loader, desc=f'Epoch {epoch+1}/{epochs} [Valid]',
+                       leave=False, unit='batch')
+        
         with torch.no_grad():
-            for x_seq, y_val in val_loader:
+            for x_seq, y_val in val_pbar:
                 x_seq, y_val = x_seq.to(device), y_val.to(device)
                 y_pred = model(x_seq)
                 loss = criterion(y_pred, y_val)
                 total_val_loss += loss.item()
+                
+                # Update progress bar with current loss
+                val_pbar.set_postfix({'loss': f'{loss.item():.6f}'})
         
         avg_val_loss = total_val_loss / len(val_loader)
         
@@ -134,15 +153,42 @@ def train_model(model, train_loader, val_loader, epochs=20, lr=1e-3, device='cpu
         scheduler.step(avg_val_loss)
         current_lr = log_lr(optimizer)
         
-        print(f"Epoch [{epoch+1}/{epochs}] | Train Loss: {avg_train_loss:.6f} | Val Loss: {avg_val_loss:.6f} | LR: {current_lr:.2e}")
+        # Print epoch summary
+        print(f"\nEpoch [{epoch+1}/{epochs}] | Train Loss: {avg_train_loss:.6f} | Val Loss: {avg_val_loss:.6f} | LR: {current_lr:.2e}")
         
         early_stopping(avg_val_loss)
         if early_stopping.early_stop:
-            print("Early stopping triggered")
+            print("\nEarly stopping triggered")
             break
     
     return train_losses, val_losses
 
+def list_available_models(models_dir):
+    """List and return available trained models."""
+    model_files = [f for f in os.listdir(models_dir) if f.endswith('.pth')]
+    if not model_files:
+        print("\nNo saved models found in", models_dir)
+        return None
+    
+    print("\nAvailable models:")
+    for i, model_file in enumerate(model_files, 1):
+        print(f"{i}. {model_file}")
+    return model_files
+
+def select_model(model_files):
+    """Let user select a model from the list."""
+    while True:
+        try:
+            model_choice = int(input("\nSelect a model number: "))
+            if 1 <= model_choice <= len(model_files):
+                return model_files[model_choice-1]
+            print("Invalid choice. Please try again.")
+        except ValueError:
+            print("Please enter a valid number.")
+        except KeyboardInterrupt:
+            print("\nModel selection cancelled")
+            return None
+        
 def load_model(model_path, model_class, input_size, hidden_size_lstm=128, hidden_size_gru=128, num_layers=2, output_size=1):
     model = model_class(
         input_size=input_size,

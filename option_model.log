@@ -1,2 +1,27 @@
 2025-02-11 20:21:42,849 - INFO - Starting Option Trading Model application
 2025-02-12 11:34:09,224 - INFO - Application shutdown
+2025-02-13 14:01:25,238 - INFO - Starting Option Trading Model application
+2025-02-13 14:01:25,238 - ERROR - Critical error: name 'Path' is not defined
+2025-02-13 14:01:25,238 - INFO - Application shutdown
+2025-02-13 14:01:49,764 - INFO - Starting Option Trading Model application
+2025-02-13 14:01:49,764 - ERROR - Critical error: name 'Path' is not defined
+2025-02-13 14:01:49,764 - INFO - Application shutdown
+2025-02-13 14:03:00,793 - INFO - Starting Option Trading Model application
+2025-02-13 14:03:00,793 - ERROR - Critical error: name 'Path' is not defined
+2025-02-13 14:03:00,793 - INFO - Application shutdown
+2025-02-13 14:04:59,628 - INFO - Starting Option Trading Model application
+2025-02-13 14:05:01,319 - INFO - Starting model training...
+2025-02-13 14:05:01,319 - ERROR - Error during model training: train_option_model() got an unexpected keyword argument 'models_dir'
+2025-02-13 14:05:51,345 - INFO - Starting model training...
+2025-02-13 14:05:51,346 - ERROR - Error during model training: train_option_model() got an unexpected keyword argument 'models_dir'
+2025-02-13 14:06:42,466 - INFO - Starting model training...
+2025-02-13 14:06:42,466 - ERROR - Error during model training: train_option_model() got an unexpected keyword argument 'models_dir'
+2025-02-13 14:06:47,789 - INFO - Application terminated by user
+2025-02-13 14:06:47,790 - INFO - Application shutdown
+2025-02-13 14:06:51,398 - INFO - Starting Option Trading Model application
+2025-02-13 14:06:52,506 - INFO - Starting model training...
+2025-02-13 14:07:41,138 - INFO - Model training completed successfully
+2025-02-13 14:07:47,540 - INFO - Application terminated by user
+2025-02-13 14:07:47,540 - INFO - Application shutdown
+2025-02-13 14:08:37,241 - INFO - Starting Option Trading Model application
+2025-02-13 14:08:39,316 - INFO - Starting model training...

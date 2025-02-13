@@ -5,10 +5,10 @@ import os
 import logging
 from pathlib import Path
 
-from utils.data_utils import get_available_tickers, select_ticker, StockOptionDataset
+from utils.data_utils import get_available_tickers, select_ticker, validate_paths, StockOptionDataset
 from utils.model_utils import (
     train_model, analyze_model_architecture, load_model,
-    run_existing_model, calculate_errors, EarlyStopping
+    run_existing_model, calculate_errors, list_available_models, select_model, EarlyStopping
 )
 from utils.menu_utils import display_menu
 from utils.visualization_utils import save_and_display_results, display_model_analysis
@@ -181,53 +181,28 @@ def load_config():
         'models_dir': "models"
     }
 
-def validate_paths(config):
-    """Validate and create necessary directories."""
-    data_path = Path(config['data_dir'])
-    models_dir = Path(config['models_dir'])
-    
-    if not data_path.exists():
-        raise FileNotFoundError(f"Data directory not found: {data_path}")
-    
-    models_dir.mkdir(exist_ok=True)
-    return data_path, models_dir
-
 def handle_train_model(config):
     """Handle the model training workflow."""
     try:
         logging.info("Starting model training...")
-        model, history, analysis, ticker, target_cols = train_option_model(**config)
-        save_and_display_results(model, history, analysis, ticker, target_cols)
+        # Create a copy of config without models_dir
+        training_config = {
+            'data_dir': config['data_dir'],
+            'seq_len': config['seq_len'],
+            'batch_size': config['batch_size'],
+            'epochs': config['epochs'],
+            'hidden_size_lstm': config['hidden_size_lstm'],
+            'hidden_size_gru': config['hidden_size_gru'],
+            'num_layers': config['num_layers'],
+            'ticker': config['ticker'],
+            'target_cols': config['target_cols']
+        }
+        model, history, analysis, ticker, target_cols = train_option_model(**training_config)
+        save_and_display_results(model, history, analysis, ticker, target_cols, models_dir=config['models_dir'])
         logging.info("Model training completed successfully")
     except Exception as e:
         logging.error(f"Error during model training: {str(e)}")
         print(f"\nError: {str(e)}")
-
-def list_available_models(models_dir):
-    """List and return available trained models."""
-    model_files = [f for f in os.listdir(models_dir) if f.endswith('.pth')]
-    if not model_files:
-        print("\nNo saved models found in", models_dir)
-        return None
-    
-    print("\nAvailable models:")
-    for i, model_file in enumerate(model_files, 1):
-        print(f"{i}. {model_file}")
-    return model_files
-
-def select_model(model_files):
-    """Let user select a model from the list."""
-    while True:
-        try:
-            model_choice = int(input("\nSelect a model number: "))
-            if 1 <= model_choice <= len(model_files):
-                return model_files[model_choice-1]
-            print("Invalid choice. Please try again.")
-        except ValueError:
-            print("Please enter a valid number.")
-        except KeyboardInterrupt:
-            print("\nModel selection cancelled")
-            return None
 
 def handle_run_model(config, models_dir):
     """Handle the model prediction workflow."""

@@ -143,6 +143,32 @@ def train_model(model, train_loader, val_loader, epochs=20, lr=1e-3, device='cpu
     
     return train_losses, val_losses
 
+def list_available_models(models_dir):
+    """List and return available trained models."""
+    model_files = [f for f in os.listdir(models_dir) if f.endswith('.pth')]
+    if not model_files:
+        print("\nNo saved models found in", models_dir)
+        return None
+    
+    print("\nAvailable models:")
+    for i, model_file in enumerate(model_files, 1):
+        print(f"{i}. {model_file}")
+    return model_files
+
+def select_model(model_files):
+    """Let user select a model from the list."""
+    while True:
+        try:
+            model_choice = int(input("\nSelect a model number: "))
+            if 1 <= model_choice <= len(model_files):
+                return model_files[model_choice-1]
+            print("Invalid choice. Please try again.")
+        except ValueError:
+            print("Please enter a valid number.")
+        except KeyboardInterrupt:
+            print("\nModel selection cancelled")
+            return None
+        
 def load_model(model_path, model_class, input_size, hidden_size_lstm=128, hidden_size_gru=128, num_layers=2, output_size=1):
     model = model_class(
         input_size=input_size,

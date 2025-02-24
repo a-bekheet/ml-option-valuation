@@ -25,3 +25,24 @@
 2025-02-13 14:07:47,540 - INFO - Application shutdown
 2025-02-13 14:08:37,241 - INFO - Starting Option Trading Model application
 2025-02-13 14:08:39,316 - INFO - Starting model training...
+2025-02-13 15:18:00,216 - INFO - Starting Option Trading Model application
+2025-02-13 15:18:12,152 - INFO - Running predictions with model: mixed_lstm_gru_model_target_bid-ask_trained_AMZN_0205041249.pth
+2025-02-13 15:20:01,949 - INFO - Predictions completed successfully
+2025-02-13 15:20:55,272 - INFO - Architecture analysis completed
+2025-02-13 15:20:59,701 - INFO - Application terminated by user
+2025-02-13 15:20:59,702 - INFO - Application shutdown
+2025-02-24 14:07:36,220 - INFO - Starting Option Trading Model application
+2025-02-24 14:07:47,550 - INFO - Architecture analysis completed
+2025-02-24 14:07:55,065 - INFO - Starting model training...
+2025-02-24 14:17:48,643 - INFO - Performance metrics saved to performance_logs/HybridRNNModel_CAT_20250224_140808.txt
+2025-02-24 14:17:49,118 - INFO - Model training completed successfully
+2025-02-24 14:19:00,950 - INFO - Starting model training...
+2025-02-24 14:20:25,761 - INFO - Starting Option Trading Model application
+2025-02-24 14:20:28,270 - INFO - Starting architecture benchmarking...
+2025-02-24 14:28:15,979 - INFO - Performance metrics saved to performance_logs/LSTM-GRU Hybrid_META_20250224_142115.txt
+2025-02-24 14:34:29,043 - INFO - Performance metrics saved to performance_logs/GRU-GRU_META_20250224_142815.txt
+2025-02-24 14:42:09,090 - INFO - Performance metrics saved to performance_logs/LSTM-LSTM_META_20250224_143429.txt
+2025-02-24 14:42:09,092 - INFO - Architecture comparison saved to performance_logs/architecture_comparison_20250224_144209.txt
+2025-02-24 14:42:10,863 - INFO - Architecture visualizations saved to performance_logs
+2025-02-24 14:42:10,863 - INFO - Architecture benchmarking completed successfully
+2025-02-24 14:53:32,224 - INFO - Starting architecture benchmarking...

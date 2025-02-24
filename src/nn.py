@@ -1,18 +1,22 @@
 import torch
 import torch.nn as nn
-from torch.utils.data import DataLoader, Subset
-import os
 import logging
-from pathlib import Path
 
 from utils.data_utils import get_available_tickers, select_ticker, validate_paths, StockOptionDataset
 from utils.model_utils import (
-    train_model, analyze_model_architecture, load_model,
-    run_existing_model, calculate_errors, list_available_models, select_model, EarlyStopping
+    train_model, analyze_model_architecture, load_model, 
+    run_existing_model, calculate_errors, list_available_models, select_model,
+    handle_train_model, handle_run_model, handle_analyze_architecture, handle_benchmark_architectures
 )
-from utils.menu_utils import display_menu
+from utils.menu_utils import display_menu, run_application_loop
 from utils.visualization_utils import save_and_display_results, display_model_analysis
+from utils.performance_utils import (
+    track_performance, benchmark_architectures, generate_architecture_comparison,
+    visualize_architectures, extended_train_model_with_tracking,
+    calculate_directional_accuracy, calculate_max_error
+)
 
+# Model Architecture Classes
 class HybridRNNModel(nn.Module):
     def __init__(self, input_size, hidden_size_lstm=64, hidden_size_gru=64, num_layers=2, output_size=1):
         super(HybridRNNModel, self).__init__()
@@ -66,94 +70,113 @@ class HybridRNNModel(nn.Module):
         
         return final_out
 
-def train_option_model(data_dir, ticker=None, seq_len=15, batch_size=128, epochs=20, 
-                      hidden_size_lstm=128, hidden_size_gru=128, num_layers=2,
-                      target_cols=["bid", "ask"]):
-    """
-    Train the option pricing model using ticker-specific data files.
-    """
-    device = 'cuda' if torch.cuda.is_available() else 'cpu'
-    
-    # Get available tickers and select one if not provided
-    if ticker is None:
-        tickers, counts = get_available_tickers(data_dir)
-        ticker = select_ticker(tickers, counts)
-    
-    # Initialize dataset
-    dataset = StockOptionDataset(data_dir=data_dir, ticker=ticker, seq_len=seq_len, target_cols=target_cols)
-    
-    if len(dataset) < 1:
-        raise ValueError("Insufficient data for sequence creation!")
-    
-    # Split dataset maintaining temporal order
-    total_len = len(dataset)
-    train_len = int(0.80 * total_len)
-    val_len = int(0.10 * total_len)
-    test_len = total_len - train_len - val_len
-    
-    indices = list(range(total_len))
-    train_indices = indices[:train_len]
-    val_indices = indices[train_len:train_len+val_len]
-    test_indices = indices[train_len+val_len:]
-    
-    train_ds = Subset(dataset, train_indices)
-    val_ds = Subset(dataset, val_indices)
-    test_ds = Subset(dataset, test_indices)
-    
-    train_loader = DataLoader(train_ds, batch_size=batch_size, shuffle=True)
-    val_loader = DataLoader(val_ds, batch_size=batch_size, shuffle=False)
-    test_loader = DataLoader(test_ds, batch_size=batch_size, shuffle=False)
-    
-    # Initialize and train model
-    model = HybridRNNModel(
-        input_size=dataset.n_features,
-        hidden_size_lstm=hidden_size_lstm,
-        hidden_size_gru=hidden_size_gru,
-        num_layers=num_layers,
-        output_size=len(target_cols)
-    )
-    
-    model_analysis = analyze_model_architecture(
-        model, 
-        input_size=dataset.n_features,
-        seq_len=seq_len
-    )
-    
-    train_losses, val_losses = train_model(
-        model=model,
-        train_loader=train_loader,
-        val_loader=val_loader,
-        epochs=epochs,
-        lr=1e-3,
-        device=device
-    )
-    
-    # Final evaluation
-    model.eval()
-    test_loss = 0.0
-    all_y_true = []
-    all_y_pred = []
-    criterion = nn.MSELoss()
-    
-    with torch.no_grad():
-        for x_seq, y_val in test_loader:
-            x_seq, y_val = x_seq.to(device), y_val.to(device)
-            y_pred = model(x_seq)
-            loss = criterion(y_pred, y_val)
-            test_loss += loss.item()
-            
-            all_y_true.extend(y_val.cpu().numpy())
-            all_y_pred.extend(y_pred.cpu().numpy())
-    
-    errors = calculate_errors(torch.tensor(all_y_true), torch.tensor(all_y_pred))
-    print("\nFinal Test Set Metrics:")
-    print("-" * 50)
-    print(f"MSE: {errors['mse']:.6f}")
-    print(f"RMSE: {errors['rmse']:.6f}")
-    print(f"MAE: {errors['mae']:.6f}")
-    print(f"MAPE: {errors['mape']:.2f}%")
-    
-    return model, {'train_losses': train_losses, 'val_losses': val_losses}, model_analysis, dataset.ticker, target_cols
+class GRUGRUModel(nn.Module):
+    """GRU-GRU architecture for comparison"""
+    def __init__(self, input_size, hidden_size_gru1=64, hidden_size_gru2=64, num_layers=2, output_size=1):
+        super(GRUGRUModel, self).__init__()
+        
+        self.input_bn = nn.BatchNorm1d(input_size)
+        self.gru1 = nn.GRU(
+            input_size=input_size,
+            hidden_size=hidden_size_gru1,
+            num_layers=num_layers,
+            batch_first=True,
+            dropout=0.2 if num_layers > 1 else 0
+        )
+        
+        self.mid_bn = nn.BatchNorm1d(hidden_size_gru1)
+        self.dropout = nn.Dropout(0.2)
+        
+        self.gru2 = nn.GRU(
+            input_size=hidden_size_gru1,
+            hidden_size=hidden_size_gru2,
+            num_layers=num_layers,
+            batch_first=True,
+            dropout=0.2 if num_layers > 1 else 0
+        )
+        
+        self.bn_final = nn.BatchNorm1d(hidden_size_gru2)
+        self.fc1 = nn.Linear(hidden_size_gru2, hidden_size_gru2 // 2)
+        self.fc2 = nn.Linear(hidden_size_gru2 // 2, output_size)
+        
+    def forward(self, x):
+        batch_size, seq_len, features = x.size()
+        x = x.view(-1, features)
+        x = self.input_bn(x)
+        x = x.view(batch_size, seq_len, features)
+        
+        gru1_out, _ = self.gru1(x)
+        
+        gru1_out = gru1_out.contiguous()
+        batch_size, seq_len, hidden_size = gru1_out.size()
+        gru1_out = gru1_out.view(-1, hidden_size)
+        gru1_out = self.mid_bn(gru1_out)
+        gru1_out = gru1_out.view(batch_size, seq_len, hidden_size)
+        gru1_out = self.dropout(gru1_out)
+        
+        gru2_out, _ = self.gru2(gru1_out)
+        
+        final_out = gru2_out[:, -1, :]
+        final_out = self.bn_final(final_out)
+        final_out = self.dropout(final_out)
+        final_out = torch.relu(self.fc1(final_out))
+        final_out = self.fc2(final_out)
+        
+        return final_out
+
+class LSTMLSTMModel(nn.Module):
+    """LSTM-LSTM architecture for comparison"""
+    def __init__(self, input_size, hidden_size_lstm1=64, hidden_size_lstm2=64, num_layers=2, output_size=1):
+        super(LSTMLSTMModel, self).__init__()
+        
+        self.input_bn = nn.BatchNorm1d(input_size)
+        self.lstm1 = nn.LSTM(
+            input_size=input_size,
+            hidden_size=hidden_size_lstm1,
+            num_layers=num_layers,
+            batch_first=True,
+            dropout=0.2 if num_layers > 1 else 0
+        )
+        
+        self.mid_bn = nn.BatchNorm1d(hidden_size_lstm1)
+        self.dropout = nn.Dropout(0.2)
+        
+        self.lstm2 = nn.LSTM(
+            input_size=hidden_size_lstm1,
+            hidden_size=hidden_size_lstm2,
+            num_layers=num_layers,
+            batch_first=True,
+            dropout=0.2 if num_layers > 1 else 0
+        )
+        
+        self.bn_final = nn.BatchNorm1d(hidden_size_lstm2)
+        self.fc1 = nn.Linear(hidden_size_lstm2, hidden_size_lstm2 // 2)
+        self.fc2 = nn.Linear(hidden_size_lstm2 // 2, output_size)
+        
+    def forward(self, x):
+        batch_size, seq_len, features = x.size()
+        x = x.view(-1, features)
+        x = self.input_bn(x)
+        x = x.view(batch_size, seq_len, features)
+        
+        lstm1_out, _ = self.lstm1(x)
+        
+        lstm1_out = lstm1_out.contiguous()
+        batch_size, seq_len, hidden_size = lstm1_out.size()
+        lstm1_out = lstm1_out.view(-1, hidden_size)
+        lstm1_out = self.mid_bn(lstm1_out)
+        lstm1_out = lstm1_out.view(batch_size, seq_len, hidden_size)
+        lstm1_out = self.dropout(lstm1_out)
+        
+        lstm2_out, _ = self.lstm2(lstm1_out)
+        
+        final_out = lstm2_out[:, -1, :]
+        final_out = self.bn_final(final_out)
+        final_out = self.dropout(final_out)
+        final_out = torch.relu(self.fc1(final_out))
+        final_out = self.fc2(final_out)
+        
+        return final_out
 
 def setup_logging():
     """Configure logging for the application."""
@@ -178,137 +201,66 @@ def load_config():
         'num_layers': 2,
         'ticker': None,
         'target_cols': ["bid", "ask"],
-        'models_dir': "models"
+        'models_dir': "models",
+        'performance_logs_dir': "performance_logs"
     }
 
-def handle_train_model(config):
-    """Handle the model training workflow."""
-    try:
-        logging.info("Starting model training...")
-        # Create a copy of config without models_dir
-        training_config = {
-            'data_dir': config['data_dir'],
-            'seq_len': config['seq_len'],
-            'batch_size': config['batch_size'],
-            'epochs': config['epochs'],
-            'hidden_size_lstm': config['hidden_size_lstm'],
-            'hidden_size_gru': config['hidden_size_gru'],
-            'num_layers': config['num_layers'],
-            'ticker': config['ticker'],
-            'target_cols': config['target_cols']
-        }
-        model, history, analysis, ticker, target_cols = train_option_model(**training_config)
-        save_and_display_results(model, history, analysis, ticker, target_cols, models_dir=config['models_dir'])
-        logging.info("Model training completed successfully")
-    except Exception as e:
-        logging.error(f"Error during model training: {str(e)}")
-        print(f"\nError: {str(e)}")
-
-def handle_run_model(config, models_dir):
-    """Handle the model prediction workflow."""
-    try:
-        model_files = list_available_models(models_dir)
-        if not model_files:
-            return
-
-        selected_model = select_model(model_files)
-        if not selected_model:
-            return
-
-        model_path = os.path.join(models_dir, selected_model)
-        
-        # Get available tickers and select one
-        tickers, counts = get_available_tickers(config['data_dir'])
-        ticker = select_ticker(tickers, counts)
-        
-        # Create dataset for the selected ticker
-        dataset = StockOptionDataset(
-            data_dir=config['data_dir'],
-            ticker=ticker,
-            target_cols=config['target_cols']
-        )
-        
-        logging.info(f"Running predictions with model: {selected_model}")
-        run_existing_model(
-            model_path,
-            HybridRNNModel,
-            dataset,
-            target_cols=config['target_cols']
-        )
-        logging.info("Predictions completed successfully")
-    except Exception as e:
-        logging.error(f"Error during model prediction: {str(e)}")
-        print(f"\nError: {str(e)}")
-
-def handle_analyze_architecture(config):
-    """Handle the model architecture analysis workflow."""
-    try:
-        print("\nAnalyzing network architecture...")
-        model = HybridRNNModel(
-            input_size=23,
-            hidden_size_lstm=config['hidden_size_lstm'],
-            hidden_size_gru=config['hidden_size_gru'],
-            num_layers=config['num_layers'],
-            output_size=len(config['target_cols'])
-        )
-        analysis = analyze_model_architecture(model)
-        display_model_analysis(analysis)
-        logging.info("Architecture analysis completed")
-    except Exception as e:
-        logging.error(f"Error during architecture analysis: {str(e)}")
-        print(f"\nError: {str(e)}")
-
 def main():
-    """Main application entry point with improved error handling and user experience."""
-    try:
-        # Setup logging
-        setup_logging()
-        logging.info("Starting Option Trading Model application")
-        
-        # Load configuration
-        config = load_config()
-        
-        # Validate paths
-        try:
-            data_path, models_dir = validate_paths(config)
-        except FileNotFoundError as e:
-            logging.error(str(e))
-            print(f"\nError: {str(e)}")
-            return
-        
-        while True:
-            try:
-                choice = display_menu()
-                
-                if choice == 1:
-                    handle_train_model(config)
-                elif choice == 2:
-                    handle_run_model(config, config['models_dir'])
-                elif choice == 3:
-                    handle_analyze_architecture(config)
-                elif choice == 4:
-                    print("\nExiting program...")
-                    logging.info("Application terminated by user")
-                    break
-                
-                input("\nPress Enter to continue...")
-                
-            except KeyboardInterrupt:
-                print("\nOperation cancelled by user")
-                continue
-            except Exception as e:
-                logging.error(f"Unexpected error: {str(e)}")
-                print(f"\nAn unexpected error occurred: {str(e)}")
-                continue
+    """Main application entry point."""
+    # Setup logging
+    setup_logging()
+    logging.info("Starting Option Trading Model application")
     
-    except KeyboardInterrupt:
-        print("\nApplication terminated by user")
-        logging.info("Application terminated by user")
-    except Exception as e:
-        logging.error(f"Critical error: {str(e)}")
-        print(f"\nA critical error occurred: {str(e)}")
-    finally:
-        logging.info("Application shutdown")
+    # Load configuration
+    config = load_config()
+    
+    # Package model classes
+    models = {
+        'HybridRNNModel': HybridRNNModel,
+        'GRUGRUModel': GRUGRUModel,
+        'LSTMLSTMModel': LSTMLSTMModel
+    }
+    
+    # Package handler functions
+    handlers = {
+        'handle_train_model': handle_train_model,
+        'handle_run_model': handle_run_model,
+        'handle_analyze_architecture': handle_analyze_architecture,
+        'handle_benchmark_architectures': handle_benchmark_architectures
+    }
+    
+    # Package data utilities
+    data_utils = {
+        'get_available_tickers': get_available_tickers,
+        'select_ticker': select_ticker,
+        'validate_paths': validate_paths,
+        'StockOptionDataset': StockOptionDataset
+    }
+    
+    # Package visualization utilities
+    visualization_utils = {
+        'save_and_display_results': save_and_display_results,
+        'display_model_analysis': display_model_analysis
+    }
+    
+    # Package performance utilities
+    performance_utils = {
+        'track_performance': track_performance,
+        'benchmark_architectures': benchmark_architectures,
+        'generate_architecture_comparison': generate_architecture_comparison,
+        'visualize_architectures': visualize_architectures,
+        'extended_train_model_with_tracking': extended_train_model_with_tracking
+    }
+    
+    # Run application loop
+    run_application_loop(
+        config, 
+        models, 
+        handlers, 
+        data_utils, 
+        visualization_utils, 
+        performance_utils
+    )
 
 if __name__ == "__main__":
     main()

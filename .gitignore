@@ -13,3 +13,6 @@ venv/
 models
 archive/
 old_code/
+*.txt
+*.png
+*.log

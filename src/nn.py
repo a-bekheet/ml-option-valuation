@@ -1,6 +1,8 @@
 import torch
 import torch.nn as nn
 import logging
+import os
+import platform
 
 from utils.data_utils import get_available_tickers, select_ticker, validate_paths, StockOptionDataset
 from utils.model_utils import (
@@ -19,7 +21,6 @@ from utils.performance_utils import (
 # Model Architecture Classes
 class HybridRNNModel(nn.Module):
     def __init__(self, input_size, hidden_size_lstm=64, hidden_size_gru=64, num_layers=2, output_size=1):
-        super(HybridRNNModel, self).__init__()
         super(HybridRNNModel, self).__init__()
         
         self.input_bn = nn.BatchNorm1d(input_size)
@@ -179,6 +180,88 @@ class LSTMLSTMModel(nn.Module):
         
         return final_out
 
+def check_gpu():
+    """
+    Check if GPU acceleration is available and display information.
+    Supports both CUDA (NVIDIA) and MPS (Apple Silicon) GPUs.
+    
+    Returns:
+        tuple: (using_gpu, device_type) where device_type is 'cuda', 'mps', or 'cpu'
+    """
+    # Check for Apple Silicon Mac (M1/M2/M3)
+    is_mac = platform.system() == 'Darwin'
+    is_apple_silicon = is_mac and platform.processor() == 'arm'
+    
+    # Define variables with default values
+    using_gpu = False
+    device_type = 'cpu'
+    
+    # Check for MPS (Metal Performance Shaders) for Apple Silicon
+    has_mps = False
+    if is_apple_silicon:
+        # Need to check if PyTorch was built with MPS support
+        if hasattr(torch, 'has_mps') and torch.has_mps:
+            has_mps = torch.backends.mps.is_available() if hasattr(torch.backends, 'mps') else False
+        # For newer PyTorch versions
+        elif hasattr(torch.backends, 'mps') and hasattr(torch.backends.mps, 'is_available'):
+            has_mps = torch.backends.mps.is_available()
+    
+    # Check for CUDA (NVIDIA GPUs)
+    has_cuda = torch.cuda.is_available()
+    
+    # Prioritize GPU based on what's available
+    if has_cuda:
+        using_gpu = True
+        device_type = 'cuda'
+        
+        # Display CUDA GPU information
+        gpu_count = torch.cuda.device_count()
+        gpu_name = torch.cuda.get_device_name(0) if gpu_count > 0 else "Unknown"
+        cuda_version = torch.version.cuda
+        
+        print(f"\n{'='*80}")
+        print(f"NVIDIA GPU ACCELERATION AVAILABLE")
+        print(f"{'='*80}")
+        print(f"GPU Count: {gpu_count}")
+        print(f"GPU Device: {gpu_name}")
+        print(f"CUDA Version: {cuda_version}")
+        
+        # Print memory information if available
+        try:
+            memory_allocated = torch.cuda.memory_allocated(0)
+            memory_reserved = torch.cuda.memory_reserved(0)
+            print(f"Memory Allocated: {memory_allocated / 1024**2:.2f} MB")
+            print(f"Memory Reserved: {memory_reserved / 1024**2:.2f} MB")
+        except:
+            pass
+        
+    elif has_mps:
+        using_gpu = True
+        device_type = 'mps'
+        
+        # Display Apple Silicon GPU information
+        print(f"\n{'='*80}")
+        print(f"APPLE SILICON GPU ACCELERATION AVAILABLE")
+        print(f"{'='*80}")
+        print(f"Device: Apple {platform.processor().capitalize()} GPU")
+        print(f"PyTorch MPS: {has_mps}")
+        print(f"Operating System: {platform.system()} {platform.mac_ver()[0] if is_mac else ''}")
+        
+    else:
+        # No GPU acceleration available
+        print(f"\n{'='*80}")
+        print(f"NO GPU ACCELERATION AVAILABLE - RUNNING ON CPU")
+        print(f"{'='*80}")
+        print("Training will be significantly slower on CPU.")
+        if is_apple_silicon:
+            print("Your Mac has Apple Silicon, but PyTorch MPS acceleration is not available.")
+            print("Consider installing PyTorch with MPS support.")
+        else:
+            print("Consider running on a system with a GPU.")
+        
+    print(f"{'='*80}")
+    return using_gpu, device_type
+
 def setup_logging():
     """Configure logging for the application."""
     logging.basicConfig(
@@ -192,7 +275,11 @@ def setup_logging():
 
 def load_config():
     """Load and return the configuration settings."""
-    return {
+    # Check GPU availability and determine device type
+    using_gpu, device_type = check_gpu()
+    
+    # Set default values
+    config = {
         'data_dir': "data_files/split_data",  # Directory containing ticker-specific files
         'seq_len': 15,
         'batch_size': 32,
@@ -203,8 +290,30 @@ def load_config():
         'ticker': None,
         'target_cols': ["bid", "ask"],
         'models_dir': "models",
-        'performance_logs_dir': "performance_logs"
+        'performance_logs_dir': "performance_logs",
+        'device': device_type  # Set to 'cuda', 'mps', or 'cpu' based on availability
     }
+    
+    # Adjust batch size based on device
+    if device_type == 'cuda':
+        # For CUDA GPUs, adjust based on available memory
+        try:
+            gpu_memory = torch.cuda.get_device_properties(0).total_memory / (1024**3)
+            if gpu_memory < 4:  # Less than 4GB
+                config['batch_size'] = 16
+                print(f"Low GPU memory ({gpu_memory:.1f}GB), reducing batch size to {config['batch_size']}")
+            elif gpu_memory >= 8:  # 8GB or more
+                config['batch_size'] = 64
+                print(f"High GPU memory ({gpu_memory:.1f}GB), increasing batch size to {config['batch_size']}")
+        except:
+            pass
+    elif device_type == 'mps':
+        # For Apple Silicon, use a moderate batch size
+        # Apple Silicon shares memory with the system, so we're more conservative
+        config['batch_size'] = 48
+        print(f"Using batch size {config['batch_size']} for Apple Silicon GPU")
+    
+    return config
 
 def main():
     """Main application entry point."""
@@ -212,8 +321,15 @@ def main():
     setup_logging()
     logging.info("Starting Option Trading Model application")
     
-    # Load configuration
+    # Load configuration with appropriate device settings
     config = load_config()
+    
+    # Log device being used
+    logging.info(f"Using device: {config['device']}")
+    
+    # Set PyTorch to benchmark mode for better performance (if using CUDA)
+    if config['device'] == 'cuda':
+        torch.backends.cudnn.benchmark = True
     
     # Package model classes
     models = {

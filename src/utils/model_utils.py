@@ -7,6 +7,7 @@ import numpy as np
 from pathlib import Path
 from tqdm import tqdm
 import logging
+import time
 
 class EarlyStopping:
     def __init__(self, patience=5, min_delta=1e-5):
@@ -519,17 +520,27 @@ def handle_benchmark_architectures(config, HybridRNNModel, GRUGRUModel, LSTMLSTM
                                   benchmark_architectures, generate_architecture_comparison, 
                                   visualize_architectures, get_available_tickers, 
                                   select_ticker, StockOptionDataset):
-    """Handle architecture benchmarking workflow."""
+    """Handle architecture benchmarking workflow with detailed progress output."""
     try:
         logging.info("Starting architecture benchmarking...")
-        print("\nBenchmarking Different RNN Architectures")
-        print("-" * 50)
+        print("\n" + "="*70)
+        print(f"{'BENCHMARKING MULTIPLE ARCHITECTURES':^70}")
+        print("="*70)
         
         # Get ticker
+        print("\n" + "-"*70)
+        print("STEP 1: SELECT TICKER")
+        print("-"*70)
         tickers, counts = get_available_tickers(config['data_dir'])
         ticker = select_ticker(tickers, counts)
         
         # Initialize dataset
+        print("\n" + "-"*70)
+        print("STEP 2: LOADING DATASET")
+        print("-"*70)
+        print(f"Loading dataset for {ticker}...")
+        
+        start_time = time.time()
         dataset = StockOptionDataset(
             data_dir=config['data_dir'], 
             ticker=ticker, 
@@ -540,7 +551,17 @@ def handle_benchmark_architectures(config, HybridRNNModel, GRUGRUModel, LSTMLSTM
         if len(dataset) < 1:
             raise ValueError("Insufficient data for sequence creation!")
             
+        print(f"✓ Dataset loaded successfully: {len(dataset):,} data points")
+        print(f"✓ Input features: {dataset.n_features}")
+        print(f"✓ Target columns: {', '.join(config['target_cols'])}")
+        print(f"✓ Time taken: {time.time() - start_time:.2f} seconds")
+            
         # Split dataset
+        print("\n" + "-"*70)
+        print("STEP 3: PREPARING DATA LOADERS")
+        print("-"*70)
+        
+        print("Splitting dataset into train, validation, and test sets...")
         total_len = len(dataset)
         train_len = int(0.80 * total_len)
         val_len = int(0.10 * total_len)
@@ -555,9 +576,19 @@ def handle_benchmark_architectures(config, HybridRNNModel, GRUGRUModel, LSTMLSTM
         val_ds = Subset(dataset, val_indices)
         test_ds = Subset(dataset, test_indices)
         
+        print(f"✓ Training set: {len(train_ds):,} samples ({train_len/total_len*100:.1f}%)")
+        print(f"✓ Validation set: {len(val_ds):,} samples ({val_len/total_len*100:.1f}%)")
+        print(f"✓ Test set: {len(test_ds):,} samples ({test_len/total_len*100:.1f}%)")
+        
+        # Get benchmark parameters
+        print("\n" + "-"*70)
+        print("STEP 4: CONFIGURE BENCHMARK PARAMETERS")
+        print("-"*70)
+        
         batch_size = int(input("\nEnter batch size (default: 32): ") or "32")
         epochs = int(input("Enter number of epochs (default: 20): ") or "20")
         
+        print("\nCreating data loaders...")
         train_loader = DataLoader(train_ds, batch_size=batch_size, shuffle=True)
         val_loader = DataLoader(val_ds, batch_size=batch_size, shuffle=False)
         test_loader = DataLoader(test_ds, batch_size=batch_size, shuffle=False)
@@ -568,12 +599,20 @@ def handle_benchmark_architectures(config, HybridRNNModel, GRUGRUModel, LSTMLSTM
             'test': test_loader
         }
         
+        print(f"✓ Data loaders created with batch size: {batch_size}")
+        print(f"✓ Each epoch will process {len(train_loader)} training batches")
+        
         # Create the models to benchmark
+        print("\n" + "-"*70)
+        print("STEP 5: INITIALIZING MODEL ARCHITECTURES")
+        print("-"*70)
+        
         hidden_size = config['hidden_size_lstm']  # Use same hidden size for fair comparison
         num_layers = config['num_layers']
         input_size = dataset.n_features
         output_size = len(config['target_cols'])
         
+        print("\nInitializing LSTM-GRU Hybrid architecture...")
         lstm_gru_model = HybridRNNModel(
             input_size=input_size,
             hidden_size_lstm=hidden_size,
@@ -581,7 +620,10 @@ def handle_benchmark_architectures(config, HybridRNNModel, GRUGRUModel, LSTMLSTM
             num_layers=num_layers,
             output_size=output_size
         )
+        lstm_gru_params = sum(p.numel() for p in lstm_gru_model.parameters())
+        print(f"✓ LSTM-GRU model initialized with {lstm_gru_params:,} parameters")
         
+        print("\nInitializing GRU-GRU architecture...")
         gru_gru_model = GRUGRUModel(
             input_size=input_size,
             hidden_size_gru1=hidden_size,
@@ -589,7 +631,10 @@ def handle_benchmark_architectures(config, HybridRNNModel, GRUGRUModel, LSTMLSTM
             num_layers=num_layers,
             output_size=output_size
         )
+        gru_gru_params = sum(p.numel() for p in gru_gru_model.parameters())
+        print(f"✓ GRU-GRU model initialized with {gru_gru_params:,} parameters")
         
+        print("\nInitializing LSTM-LSTM architecture...")
         lstm_lstm_model = LSTMLSTMModel(
             input_size=input_size,
             hidden_size_lstm1=hidden_size,
@@ -597,6 +642,8 @@ def handle_benchmark_architectures(config, HybridRNNModel, GRUGRUModel, LSTMLSTM
             num_layers=num_layers,
             output_size=output_size
         )
+        lstm_lstm_params = sum(p.numel() for p in lstm_lstm_model.parameters())
+        print(f"✓ LSTM-LSTM model initialized with {lstm_lstm_params:,} parameters")
         
         # Prepare model configurations
         models = [
@@ -605,10 +652,36 @@ def handle_benchmark_architectures(config, HybridRNNModel, GRUGRUModel, LSTMLSTM
             {'name': 'LSTM-LSTM', 'model': lstm_lstm_model}
         ]
         
-        # Run benchmarks
-        print("\nStarting benchmark of 3 different architectures...")
-        print("This may take some time. A detailed log will be created for each architecture.")
+        print("\nAll architectures will be trained with:")
+        print(f"- Hidden size: {hidden_size}")
+        print(f"- Number of layers: {num_layers}")
+        print(f"- Input features: {input_size}")
+        print(f"- Output size: {output_size}")
+        print(f"- Epochs: {epochs}")
+        print(f"- Batch size: {batch_size}")
         
+        # Run benchmarks
+        print("\n" + "-"*70)
+        print("STEP 6: RUNNING ARCHITECTURE BENCHMARKS")
+        print("-"*70)
+        
+        print("\nStarting benchmark process for all architectures...")
+        print("⚠ This may take considerable time. A detailed log will be created for each architecture.")
+        print("\nTraining and evaluation sequence:")
+        for i, model_config in enumerate(models, 1):
+            print(f"  {i}. {model_config['name']}")
+        
+        benchmark_start_time = time.time()
+        
+        # First announce that we're starting benchmarks
+        for i, model_config in enumerate(models, 1):
+            arch_name = model_config['name']
+            print(f"\n[{i}/{len(models)}] Benchmarking {arch_name}...")
+            print("  This architecture will now be trained, validated, and tested.")
+            print("  Progress will be shown for each epoch.")
+            print("  A detailed performance log will be saved at the end.")
+            print("  " + "-"*66)
+            
         log_paths = benchmark_architectures(
             models=models,
             data_loaders=data_loaders,
@@ -618,19 +691,42 @@ def handle_benchmark_architectures(config, HybridRNNModel, GRUGRUModel, LSTMLSTM
             save_dir=config['performance_logs_dir']
         )
         
+        benchmark_time = time.time() - benchmark_start_time
+        hours, remainder = divmod(benchmark_time, 3600)
+        minutes, seconds = divmod(remainder, 60)
+        
+        print("\n" + "-"*70)
+        print("STEP 7: GENERATING COMPARISON REPORT")
+        print("-"*70)
+        
+        print(f"\nBenchmarking completed in {int(hours):02d}:{int(minutes):02d}:{seconds:.2f}")
+        print("\nGenerating architecture comparison summary...")
+        
         # Generate comparison summary
         summary_path = generate_architecture_comparison(log_paths)
-        print(f"\nArchitecture comparison saved to: {summary_path}")
+        print(f"\n✓ Architecture comparison saved to: {summary_path}")
         
+        print("\n" + "-"*70)
+        print("STEP 8: CREATING VISUALIZATION CHARTS")
+        print("-"*70)
+        
+        print("\nCreating performance visualization charts...")
         # Create visualizations
         viz_paths = visualize_architectures(log_paths, output_dir=config['performance_logs_dir'])
+        
         if viz_paths:
-            print(f"\nVisualization charts created:")
-            for path in viz_paths:
-                print(f"- {path}")
+            print(f"\n✓ Visualization charts created:")
+            for i, path in enumerate(viz_paths, 1):
+                print(f"  {i}. {path}")
+            
+        print("\n" + "="*70)
+        print(f"{'BENCHMARKING COMPLETE':^70}")
+        print("="*70)
+        print("\nYou can now analyze the results to determine which architecture")
+        print("performs best for your specific option pricing task.")
                 
         logging.info("Architecture benchmarking completed successfully")
         
     except Exception as e:
         logging.error(f"Error during architecture benchmarking: {str(e)}")
-        print(f"\nError: {str(e)}")
+        print(f"\n❌ Error: {str(e)}")

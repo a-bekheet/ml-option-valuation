@@ -1,2 +1,23 @@
 2025-02-11 20:21:42,849 - INFO - Starting Option Trading Model application
 2025-02-12 11:34:09,224 - INFO - Application shutdown
+2025-02-24 16:27:20,682 - INFO - Starting Option Trading Model application
+2025-02-24 16:27:26,777 - INFO - Starting architecture benchmarking...
+2025-02-24 16:28:25,444 - INFO - Performance metrics saved to performance_logs/LSTM-GRU Hybrid_TU_20250224_162737.txt
+2025-02-24 16:29:16,218 - INFO - Performance metrics saved to performance_logs/GRU-GRU_TU_20250224_162825.txt
+2025-02-24 16:30:18,925 - INFO - Performance metrics saved to performance_logs/LSTM-LSTM_TU_20250224_162916.txt
+2025-02-24 16:30:18,927 - INFO - Architecture comparison saved to performance_logs/architecture_comparison_20250224_163018.txt
+2025-02-24 16:30:20,771 - INFO - Architecture visualizations saved to performance_logs
+2025-02-24 16:30:20,772 - INFO - Architecture benchmarking completed successfully
+2025-02-24 16:31:14,043 - INFO - Starting architecture benchmarking...
+2025-02-24 16:32:23,554 - INFO - Performance metrics saved to performance_logs/LSTM-GRU Hybrid_SLF_20250224_163120.txt
+2025-02-24 16:33:32,547 - INFO - Performance metrics saved to performance_logs/GRU-GRU_SLF_20250224_163223.txt
+2025-02-24 16:34:41,435 - INFO - Application terminated by user
+2025-02-24 16:34:41,437 - INFO - Application shutdown
+2025-02-24 16:34:46,833 - INFO - Starting Option Trading Model application
+2025-02-24 16:34:49,026 - INFO - Starting architecture benchmarking...
+2025-02-24 16:37:06,071 - INFO - Performance metrics saved to performance_logs/LSTM-GRU Hybrid_BAM_20250224_163514.txt
+2025-02-24 16:37:44,827 - INFO - Performance metrics saved to performance_logs/GRU-GRU_BAM_20250224_163706.txt
+2025-02-24 16:39:42,701 - INFO - Performance metrics saved to performance_logs/LSTM-LSTM_BAM_20250224_163744.txt
+2025-02-24 16:39:42,703 - INFO - Architecture comparison saved to performance_logs/architecture_comparison_20250224_163942.txt
+2025-02-24 16:39:44,509 - INFO - Architecture visualizations saved to performance_logs
+2025-02-24 16:39:44,509 - INFO - Architecture benchmarking completed successfully

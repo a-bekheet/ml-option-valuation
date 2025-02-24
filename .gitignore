@@ -14,3 +14,4 @@ models
 archive/
 old_code/
 performance_logs
+*.log

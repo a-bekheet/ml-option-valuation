@@ -3,6 +3,7 @@ import torch
 from torch.utils.data import Dataset
 import numpy as np
 import os
+from pathlib import Path
 
 def get_available_tickers(data_dir):
     """Load and return sorted list of available tickers from metadata file."""
@@ -49,6 +50,17 @@ def select_ticker(tickers, counts):
                 print("Invalid selection. Please try again.")
         except ValueError:
             print("Please enter a valid number or 'q' to quit.")
+
+def validate_paths(config):
+    """Validate and create necessary directories."""
+    data_path = Path(config['data_dir'])
+    models_dir = Path(config['models_dir'])
+    
+    if not data_path.exists():
+        raise FileNotFoundError(f"Data directory not found: {data_path}")
+    
+    models_dir.mkdir(exist_ok=True)
+    return data_path, models_dir
 
 class StockOptionDataset(Dataset):
     def __init__(self, data_dir, ticker, seq_len=15, target_cols=["bid", "ask"]):

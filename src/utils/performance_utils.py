@@ -12,11 +12,59 @@ import seaborn as sns
 from tqdm import tqdm
 import pandas as pd
 
-from utils.model_utils import calculate_errors
+def calculate_directional_accuracy(y_true: np.ndarray, y_pred: np.ndarray) -> float:
+    """
+    Calculate the directional accuracy (percentage of correctly predicted price movements).
+    
+    Args:
+        y_true: Ground truth values
+        y_pred: Predicted values
+        
+    Returns:
+        Directional accuracy as a percentage
+    """
+    # Convert arrays to ensure proper shape
+    y_true = np.array(y_true)
+    y_pred = np.array(y_pred)
+    
+    if len(y_true.shape) == 1:
+        y_true = y_true.reshape(-1, 1)
+    if len(y_pred.shape) == 1:
+        y_pred = y_pred.reshape(-1, 1)
+    
+    # Calculate the direction of movement (up or down)
+    if len(y_true) <= 1:
+        return np.nan
+    
+    y_true_direction = np.diff(y_true, axis=0) > 0
+    y_pred_direction = np.diff(y_pred, axis=0) > 0
+    
+    # Calculate percentage of correct directional predictions
+    correct_predictions = np.sum(y_true_direction == y_pred_direction)
+    total_predictions = y_true_direction.size
+    
+    accuracy = (correct_predictions / total_predictions) * 100
+    return accuracy
+
+def calculate_max_error(y_true: np.ndarray, y_pred: np.ndarray) -> float:
+    """
+    Calculate the maximum prediction error.
+    
+    Args:
+        y_true: Ground truth values
+        y_pred: Predicted values
+        
+    Returns:
+        Maximum absolute error
+    """
+    y_true = np.array(y_true)
+    y_pred = np.array(y_pred)
+    return float(np.max(np.abs(y_true - y_pred)))
 
 def track_performance(model, train_loader, val_loader, test_loader, 
                      epochs: int, ticker: str, architecture_name: str,
-                     target_cols: List[str], save_dir: str = "performance_logs") -> str:
+                     target_cols: List[str], save_dir: str = "performance_logs",
+                     verbose: bool = True) -> str:
     """
     Track and log comprehensive model performance metrics to a text file.
     
@@ -30,6 +78,7 @@ def track_performance(model, train_loader, val_loader, test_loader,
         architecture_name: Name of the model architecture
         target_cols: Target columns being predicted
         save_dir: Directory to save performance logs
+        verbose: Whether to print detailed progress to terminal
         
     Returns:
         Path to the created log file
@@ -96,14 +145,37 @@ def track_performance(model, train_loader, val_loader, test_loader,
         f.write(f"{'Epoch':^6}|{'Train Loss':^12}|{'Val Loss':^12}|{'Time (s)':^10}|{'Memory (MB)':^12}\n")
         f.write(f"{'-'*6}|{'-'*12}|{'-'*12}|{'-'*10}|{'-'*12}\n")
         
+        if verbose:
+            print(f"\n{'-' * 80}")
+            print(f"{architecture_name} - TRAINING PHASE")
+            print(f"{'-' * 80}")
+            print(f"Parameters: {trainable_params:,}")
+            print(f"Device: {device}")
+            print(f"Training samples: {len(train_loader.dataset):,}")
+            print(f"Validation samples: {len(val_loader.dataset):,}")
+            print(f"Batches per epoch: {len(train_loader):,}")
+            print(f"{'-' * 50}")
+        
         for epoch in range(epochs):
             # Track epoch start time
             epoch_start = time.time()
             
+            if verbose:
+                print(f"\nEpoch {epoch+1}/{epochs}")
+                print(f"{'-' * 20}")
+            
             # Training
             model.train()
             train_loss = 0.0
-            for x_seq, y_true in train_loader:
+            batch_count = 0
+            
+            # Progress bar
+            if verbose:
+                train_iter = tqdm(train_loader, desc="Training", unit="batch")
+            else:
+                train_iter = train_loader
+                
+            for x_seq, y_true in train_iter:
                 x_seq, y_true = x_seq.to(device), y_true.to(device)
                 
                 optimizer.zero_grad()
@@ -113,6 +185,11 @@ def track_performance(model, train_loader, val_loader, test_loader,
                 optimizer.step()
                 
                 train_loss += loss.item()
+                batch_count += 1
+                
+                # Update progress bar with current loss
+                if verbose and batch_count % 10 == 0:
+                    train_iter.set_postfix({"loss": f"{loss.item():.6f}"})
             
             # Calculate average train loss
             train_loss /= len(train_loader)
@@ -121,11 +198,19 @@ def track_performance(model, train_loader, val_loader, test_loader,
             # Validation
             model.eval()
             val_loss = 0.0
+            
+            # Progress bar
+            if verbose:
+                val_iter = tqdm(val_loader, desc="Validation", unit="batch")
+            else:
+                val_iter = val_loader
+                
             with torch.no_grad():
-                for x_seq, y_true in val_loader:
+                for x_seq, y_true in val_iter:
                     x_seq, y_true = x_seq.to(device), y_true.to(device)
                     y_pred = model(x_seq)
-                    val_loss += criterion(y_pred, y_true).item()
+                    loss = criterion(y_pred, y_true)
+                    val_loss += loss.item()
             
             # Calculate average validation loss
             val_loss /= len(val_loader)
@@ -143,8 +228,10 @@ def track_performance(model, train_loader, val_loader, test_loader,
             if val_loss < best_val_loss:
                 best_val_loss = val_loss
                 epochs_without_improvement = 0
+                improvement = "✓ (improved)"
             else:
                 epochs_without_improvement += 1
+                improvement = f"(no improvement: {epochs_without_improvement})"
             
             # If we have convergence and haven't recorded it yet
             if epochs_without_improvement >= 5 and convergence_epoch is None:
@@ -152,6 +239,19 @@ def track_performance(model, train_loader, val_loader, test_loader,
             
             # Write epoch results to log
             f.write(f"{epoch+1:^6}|{train_loss:^12.6f}|{val_loss:^12.6f}|{epoch_time:^10.2f}|{memory_usage:^12.2f}\n")
+            
+            # Print status to terminal if verbose
+            if verbose:
+                print(f"Train Loss: {train_loss:.6f}")
+                print(f"Val Loss: {val_loss:.6f} {improvement}")
+                print(f"Time: {epoch_time:.2f}s")
+                print(f"Memory: {memory_usage:.1f} MB")
+                
+            # Early stopping check
+            if epochs_without_improvement >= 5:
+                if verbose:
+                    print(f"\nEarly stopping triggered after {epoch+1} epochs")
+                break
         
         # Calculate average training time
         avg_epoch_time = sum(epoch_times) / len(epoch_times)
@@ -168,6 +268,12 @@ def track_performance(model, train_loader, val_loader, test_loader,
         f.write(f"TEST SET EVALUATION\n")
         f.write(f"{'-'*80}\n\n")
         
+        if verbose:
+            print(f"\n{'-' * 80}")
+            print(f"{architecture_name} - TESTING PHASE")
+            print(f"{'-' * 80}")
+            print(f"Test samples: {len(test_loader.dataset):,}")
+        
         # Start timing for inference
         inference_start = time.time()
         
@@ -178,7 +284,13 @@ def track_performance(model, train_loader, val_loader, test_loader,
         all_y_pred = []
         
         with torch.no_grad():
-            for x_seq, y_true in test_loader:
+            # Progress bar for test set
+            if verbose:
+                test_iter = tqdm(test_loader, desc="Testing", unit="batch")
+            else:
+                test_iter = test_loader
+                
+            for x_seq, y_true in test_iter:
                 x_seq, y_true = x_seq.to(device), y_true.to(device)
                 y_pred = model(x_seq)
                 loss = criterion(y_pred, y_true)
@@ -199,21 +311,34 @@ def track_performance(model, train_loader, val_loader, test_loader,
         inference_time = time.time() - inference_start
         inference_time_per_sample = inference_time / total_samples
         
-        # Calculate standard error metrics using the existing function
-        errors = calculate_errors(torch.tensor(all_y_true), torch.tensor(all_y_pred))
+        # Calculate error metrics
+        mse = np.mean((y_true_np - y_pred_np) ** 2)
+        rmse = np.sqrt(mse)
+        mae = np.mean(np.abs(y_true_np - y_pred_np))
         
-        # Calculate directional accuracy
-        directional_accuracy = calculate_directional_accuracy(y_true_np, y_pred_np)
+        # Calculate MAPE with handling for zero values
+        epsilon = 1e-10  # Small value to avoid division by zero
+        abs_percentage_error = np.abs((y_true_np - y_pred_np) / np.maximum(np.abs(y_true_np), epsilon)) * 100
+        mape = np.mean(abs_percentage_error)
+        
+        # Calculate directional accuracy if we have enough data
+        if len(y_true_np) > 1:
+            directional_accuracy = calculate_directional_accuracy(y_true_np, y_pred_np)
+        else:
+            directional_accuracy = None
         
         # Calculate maximum error
         max_error = calculate_max_error(y_true_np, y_pred_np)
         
         # Write error metrics
-        f.write(f"MSE: {errors['mse']:.6f}\n")
-        f.write(f"RMSE: {errors['rmse']:.6f}\n")
-        f.write(f"MAE: {errors['mae']:.6f}\n")
-        f.write(f"MAPE: {errors['mape']:.2f}%\n")
-        f.write(f"Directional Accuracy: {directional_accuracy:.2f}%\n")
+        f.write(f"MSE: {mse:.6f}\n")
+        f.write(f"RMSE: {rmse:.6f}\n")
+        f.write(f"MAE: {mae:.6f}\n")
+        f.write(f"MAPE: {mape:.2f}%\n")
+        
+        if directional_accuracy is not None:
+            f.write(f"Directional Accuracy: {directional_accuracy:.2f}%\n")
+        
         f.write(f"Maximum Error: {max_error:.6f}\n\n")
         
         # Write inference performance
@@ -228,57 +353,23 @@ def track_performance(model, train_loader, val_loader, test_loader,
         minutes, seconds = divmod(remainder, 60)
         f.write(f"Total Duration: {int(hours):02d}:{int(minutes):02d}:{seconds:.2f}\n")
         
+        if verbose:
+            print(f"\nTest Results:")
+            print(f"{'-' * 30}")
+            print(f"MSE: {mse:.6f}")
+            print(f"RMSE: {rmse:.6f}")
+            print(f"MAE: {mae:.6f}")
+            print(f"MAPE: {mape:.2f}%")
+            if directional_accuracy is not None:
+                print(f"Directional Accuracy: {directional_accuracy:.2f}%")
+            print(f"Maximum Error: {max_error:.6f}")
+            print(f"Inference Time per Sample: {inference_time_per_sample*1000:.4f} ms")
+            print(f"\nTotal Duration: {int(hours):02d}:{int(minutes):02d}:{seconds:.2f}")
+            print(f"Log saved to: {log_path}")
+            print(f"{'-' * 80}\n")
+    
     logging.info(f"Performance metrics saved to {log_path}")
     return log_path
-
-def calculate_directional_accuracy(y_true: np.ndarray, y_pred: np.ndarray) -> float:
-    """
-    Calculate the directional accuracy (percentage of correctly predicted price movements).
-    
-    Args:
-        y_true: Ground truth values
-        y_pred: Predicted values
-        
-    Returns:
-        Directional accuracy as a percentage
-    """
-    # Convert arrays to ensure proper shape
-    y_true = np.array(y_true)
-    y_pred = np.array(y_pred)
-    
-    if len(y_true.shape) == 1:
-        y_true = y_true.reshape(-1, 1)
-    if len(y_pred.shape) == 1:
-        y_pred = y_pred.reshape(-1, 1)
-    
-    # Calculate the direction of movement (up or down)
-    if len(y_true) <= 1:
-        return np.nan
-    
-    y_true_direction = np.diff(y_true, axis=0) > 0
-    y_pred_direction = np.diff(y_pred, axis=0) > 0
-    
-    # Calculate percentage of correct directional predictions
-    correct_predictions = np.sum(y_true_direction == y_pred_direction)
-    total_predictions = y_true_direction.size
-    
-    accuracy = (correct_predictions / total_predictions) * 100
-    return accuracy
-
-def calculate_max_error(y_true: np.ndarray, y_pred: np.ndarray) -> float:
-    """
-    Calculate the maximum prediction error.
-    
-    Args:
-        y_true: Ground truth values
-        y_pred: Predicted values
-        
-    Returns:
-        Maximum absolute error
-    """
-    y_true = np.array(y_true)
-    y_pred = np.array(y_pred)
-    return float(np.max(np.abs(y_true - y_pred)))
 
 def benchmark_architectures(models: List[Dict[str, Any]], 
                           data_loaders: Dict[str, Any],
@@ -301,13 +392,39 @@ def benchmark_architectures(models: List[Dict[str, Any]],
         List of paths to the created log files
     """
     log_paths = []
+    total_models = len(models)
     
-    for model_config in models:
+    # Print benchmark header
+    print(f"\n{'=' * 80}")
+    print(f"BENCHMARK COMPARISON: {total_models} ARCHITECTURES ON {ticker}")
+    print(f"{'=' * 80}")
+    print(f"Target columns: {', '.join(target_cols)}")
+    print(f"Training for {epochs} epochs per architecture")
+    print(f"Training samples: {len(data_loaders['train'].dataset):,}")
+    print(f"Validation samples: {len(data_loaders['val'].dataset):,}")
+    print(f"Test samples: {len(data_loaders['test'].dataset):,}")
+    
+    # Record start time for entire benchmark
+    benchmark_start = time.time()
+    
+    # Run each model
+    for i, model_config in enumerate(models, 1):
         model_name = model_config['name']
         model = model_config['model']
         
-        print(f"\nEvaluating {model_name} architecture...")
+        # Clear separator between models
+        print(f"\n{'=' * 80}")
+        print(f"[{i}/{total_models}] BENCHMARKING: {model_name}")
+        print(f"{'=' * 80}")
         
+        # Display parameter count
+        param_count = sum(p.numel() for p in model.parameters() if p.requires_grad)
+        print(f"Model parameters: {param_count:,}")
+        
+        # Record start time for this model
+        model_start = time.time()
+        
+        # Run performance tracking with verbose output
         log_path = track_performance(
             model=model,
             train_loader=data_loaders['train'],
@@ -317,11 +434,35 @@ def benchmark_architectures(models: List[Dict[str, Any]],
             ticker=ticker,
             architecture_name=model_name,
             target_cols=target_cols,
-            save_dir=save_dir
+            save_dir=save_dir,
+            verbose=True  # Enable verbose output
         )
         
         log_paths.append(log_path)
+        
+        # Calculate and display time taken for this model
+        model_time = time.time() - model_start
+        hours, remainder = divmod(model_time, 3600)
+        minutes, seconds = divmod(remainder, 60)
+        
+        print(f"\nCompleted {model_name} in {int(hours):02d}:{int(minutes):02d}:{seconds:.2f}")
         print(f"Performance log saved to: {log_path}")
+        
+        # Show progress through benchmark
+        if i < total_models:
+            remaining = total_models - i
+            print(f"\n{remaining} architecture(s) remaining...\n")
+    
+    # Calculate and display total benchmark time
+    benchmark_time = time.time() - benchmark_start
+    hours, remainder = divmod(benchmark_time, 3600)
+    minutes, seconds = divmod(remainder, 60)
+    
+    print(f"\n{'=' * 80}")
+    print(f"BENCHMARK COMPLETE")
+    print(f"{'=' * 80}")
+    print(f"Total time: {int(hours):02d}:{int(minutes):02d}:{seconds:.2f}")
+    print(f"Generated {len(log_paths)} performance logs")
     
     return log_paths
 
@@ -399,6 +540,8 @@ def generate_architecture_comparison(log_paths: List[str], output_path: Optional
         except Exception as e:
             logging.error(f"Error parsing log file {log_path}: {str(e)}")
             continue
+    
+    print(f"\nGenerating comparison summary for {len(architectures)} architectures...")
     
     # Write summary to file
     with open(output_path, 'w') as f:
@@ -484,6 +627,8 @@ def visualize_architectures(log_paths: List[str], output_dir: str = "performance
     
     saved_paths = []
     
+    print(f"\nCreating visualization charts for {len(architectures)} architectures...")
+    
     # Set style
     plt.style.use('ggplot')
     
@@ -565,6 +710,7 @@ def visualize_architectures(log_paths: List[str], output_dir: str = "performance
     plt.close()
     saved_paths.append(complexity_path)
     
+    print(f"Created {len(saved_paths)} visualization charts")
     logging.info(f"Architecture visualizations saved to {output_dir}")
     return saved_paths
 
@@ -591,12 +737,6 @@ def extended_train_model_with_tracking(model, train_loader, val_loader, test_loa
     Returns:
         Tuple of (trained_model, history, log_path)
     """
-    criterion = torch.nn.MSELoss()
-    optimizer = torch.optim.Adam(model.parameters(), lr=lr, weight_decay=1e-5)
-    scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
-        optimizer, mode='min', factor=0.5, patience=3
-    )
-    
     # Create log file
     timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
     log_dir = "performance_logs"
@@ -604,263 +744,47 @@ def extended_train_model_with_tracking(model, train_loader, val_loader, test_loa
     log_filename = f"{architecture_name}_{ticker}_{timestamp}.txt"
     log_path = os.path.join(log_dir, log_filename)
     
-    with open(log_path, 'w') as f:
-        # Write header information
-        f.write(f"{'='*80}\n")
-        f.write(f"MODEL PERFORMANCE REPORT\n")
-        f.write(f"{'='*80}\n\n")
-        
-        f.write(f"Model Architecture: {architecture_name}\n")
-        f.write(f"Ticker: {ticker}\n")
-        f.write(f"Target Columns: {', '.join(target_cols)}\n")
-        start_time = datetime.datetime.now()
-        f.write(f"Run Started: {start_time.strftime('%Y-%m-%d %H:%M:%S')}\n\n")
-        
-        # Model complexity metrics
-        f.write(f"{'-'*80}\n")
-        f.write(f"MODEL COMPLEXITY METRICS\n")
-        f.write(f"{'-'*80}\n\n")
-        
-        # Count parameters
-        trainable_params = sum(p.numel() for p in model.parameters() if p.requires_grad)
-        total_params = sum(p.numel() for p in model.parameters())
-        
-        f.write(f"Trainable Parameters: {trainable_params:,}\n")
-        f.write(f"Total Parameters: {total_params:,}\n")
-        
-        # Memory usage estimate
-        param_memory = total_params * 4 / (1024 * 1024)
-        f.write(f"Estimated Model Size: {param_memory:.2f} MB\n\n")
-        
-        # Training metrics
-        f.write(f"{'-'*80}\n")
-        f.write(f"TRAINING METRICS\n")
-        f.write(f"{'-'*80}\n\n")
-        
-        # Write table header
-        f.write(f"{'Epoch':^6}|{'Train Loss':^12}|{'Val Loss':^12}|{'Time (s)':^10}|{'Memory (MB)':^12}|{'LR':^10}\n")
-        f.write(f"{'-'*6}|{'-'*12}|{'-'*12}|{'-'*10}|{'-'*12}|{'-'*10}\n")
+    # Use track_performance for consistent behavior
+    log_path = track_performance(
+        model=model,
+        train_loader=train_loader,
+        val_loader=val_loader,
+        test_loader=test_loader,
+        epochs=epochs,
+        ticker=ticker,
+        architecture_name=architecture_name,
+        target_cols=target_cols,
+        save_dir=log_dir,
+        verbose=True  # Enable verbose output
+    )
     
-    # Early stopping setup
-    early_stopping = torch.utils.data.DataLoader
-    early_stopping_counter = 0
-    best_val_loss = float('inf')
-    convergence_epoch = None
-    
-    model.to(device)
-    train_losses = []
-    val_losses = []
-    epoch_times = []
-    
-    print("\nStarting training with performance tracking...")
-    for epoch in range(epochs):
-        # Track epoch start time
-        epoch_start = time.time()
-        
-        # Training
-        model.train()
-        total_train_loss = 0.0
-        
-        # Create progress bar for training
-        train_pbar = tqdm(train_loader, desc=f'Epoch {epoch+1}/{epochs} [Train]',
-                         leave=False, unit='batch')
-        
-        for x_seq, y_val in train_pbar:
-            x_seq, y_val = x_seq.to(device), y_val.to(device)
+    # Get history for visualization
+    try:
+        with open(log_path, 'r') as f:
+            content = f.read()
+            # Extract train and validation losses
+            train_loss_lines = [line for line in content.split('\n') if '|' in line and not line.startswith('-')]
+            train_losses = []
+            val_losses = []
             
-            optimizer.zero_grad()
-            y_pred = model(x_seq)
-            loss = criterion(y_pred, y_val)
-            loss.backward()
+            for line in train_loss_lines:
+                if line[0].isdigit():  # Skip header line
+                    parts = line.split('|')
+                    if len(parts) >= 3:
+                        try:
+                            train_loss = float(parts[1].strip())
+                            val_loss = float(parts[2].strip())
+                            train_losses.append(train_loss)
+                            val_losses.append(val_loss)
+                        except ValueError:
+                            pass
             
-            torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)
-            
-            optimizer.step()
-            total_train_loss += loss.item()
-            
-            # Update progress bar with current loss
-            train_pbar.set_postfix({'loss': f'{loss.item():.6f}'})
-        
-        avg_train_loss = total_train_loss / len(train_loader)
-        
-        # Validation
-        model.eval()
-        total_val_loss = 0.0
-        
-        # Create progress bar for validation
-        val_pbar = tqdm(val_loader, desc=f'Epoch {epoch+1}/{epochs} [Valid]',
-                       leave=False, unit='batch')
-        
-        with torch.no_grad():
-            for x_seq, y_val in val_pbar:
-                x_seq, y_val = x_seq.to(device), y_val.to(device)
-                y_pred = model(x_seq)
-                loss = criterion(y_pred, y_val)
-                total_val_loss += loss.item()
-                
-                # Update progress bar with current loss
-                val_pbar.set_postfix({'loss': f'{loss.item():.6f}'})
-        
-        avg_val_loss = total_val_loss / len(val_loader)
-        
-        train_losses.append(avg_train_loss)
-        val_losses.append(avg_val_loss)
-        
-        # Update learning rate
-        scheduler.step(avg_val_loss)
-        current_lr = optimizer.param_groups[0]['lr']
-        
-        # Calculate epoch time
-        epoch_time = time.time() - epoch_start
-        epoch_times.append(epoch_time)
-        
-        # Get current memory usage
-        memory_usage = psutil.Process(os.getpid()).memory_info().rss / (1024 * 1024)
-        
-        # Early stopping check
-        if avg_val_loss < best_val_loss:
-            best_val_loss = avg_val_loss
-            early_stopping_counter = 0
-        else:
-            early_stopping_counter += 1
-            if early_stopping_counter >= 5 and convergence_epoch is None:
-                convergence_epoch = epoch - 5
-        
-        # Print epoch summary
-        print(f"\nEpoch [{epoch+1}/{epochs}] | Train Loss: {avg_train_loss:.6f} | Val Loss: {avg_val_loss:.6f} | LR: {current_lr:.2e}")
-        
-        # Write to log file
-        with open(log_path, 'a') as f:
-            f.write(f"{epoch+1:^6}|{avg_train_loss:^12.6f}|{avg_val_loss:^12.6f}|{epoch_time:^10.2f}|{memory_usage:^12.2f}|{current_lr:^10.2e}\n")
-        
-        # Early stopping check
-        if early_stopping_counter >= 5:
-            print("\nEarly stopping triggered")
-            break
+            history = {
+                'train_losses': train_losses,
+                'val_losses': val_losses
+            }
+    except Exception as e:
+        logging.error(f"Error extracting history from log: {str(e)}")
+        history = {'train_losses': [], 'val_losses': []}
     
-    # Finish training section in log
-    with open(log_path, 'a') as f:
-        # Calculate average training time
-        avg_epoch_time = sum(epoch_times) / len(epoch_times)
-        f.write(f"\nAverage Time per Epoch: {avg_epoch_time:.2f} seconds\n")
-        
-        # Record convergence information
-        if convergence_epoch is not None:
-            f.write(f"Convergence at Epoch: {convergence_epoch + 1} (no improvement for 5 epochs after)\n")
-        else:
-            f.write(f"No clear convergence detected within {epochs} epochs\n")
-        
-        # Model evaluation on test set
-        f.write(f"\n{'-'*80}\n")
-        f.write(f"TEST SET EVALUATION\n")
-        f.write(f"{'-'*80}\n\n")
-    
-    # Evaluate on test set
-    model.eval()
-    test_loss = 0.0
-    all_y_true = []
-    all_y_pred = []
-    
-    # Start timing for inference
-    inference_start = time.time()
-    
-    with torch.no_grad():
-        for x_seq, y_true in test_loader:
-            x_seq, y_true = x_seq.to(device), y_true.to(device)
-            y_pred = model(x_seq)
-            loss = criterion(y_pred, y_true)
-            test_loss += loss.item()
-            
-            all_y_true.extend(y_true.cpu().numpy())
-            all_y_pred.extend(y_pred.cpu().numpy())
-    
-    # Calculate test loss
-    test_loss /= len(test_loader)
-    
-    # Calculate inference time
-    total_samples = len(test_loader.dataset)
-    inference_time = time.time() - inference_start
-    inference_time_per_sample = inference_time / total_samples
-    
-    # Calculate standard error metrics
-    errors = calculate_errors(torch.tensor(all_y_true), torch.tensor(all_y_pred))
-    
-    # Calculate additional metrics
-    y_true_np = np.array(all_y_true)
-    y_pred_np = np.array(all_y_pred)
-    directional_accuracy = calculate_directional_accuracy(y_true_np, y_pred_np)
-    max_error = calculate_max_error(y_true_np, y_pred_np)
-    
-    # Write to log file
-    with open(log_path, 'a') as f:
-        f.write(f"MSE: {errors['mse']:.6f}\n")
-        f.write(f"RMSE: {errors['rmse']:.6f}\n")
-        f.write(f"MAE: {errors['mae']:.6f}\n")
-        f.write(f"MAPE: {errors['mape']:.2f}%\n")
-        f.write(f"Directional Accuracy: {directional_accuracy:.2f}%\n")
-        f.write(f"Maximum Error: {max_error:.6f}\n\n")
-        
-        # Write inference performance
-        f.write(f"Total Inference Time: {inference_time:.4f} seconds\n")
-        f.write(f"Inference Time per Sample: {inference_time_per_sample*1000:.4f} ms\n\n")
-        
-        # Write closing timestamp
-        end_time = datetime.datetime.now()
-        f.write(f"Run Completed: {end_time.strftime('%Y-%m-%d %H:%M:%S')}\n")
-        duration = end_time - start_time
-        hours, remainder = divmod(duration.total_seconds(), 3600)
-        minutes, seconds = divmod(remainder, 60)
-        f.write(f"Total Duration: {int(hours):02d}:{int(minutes):02d}:{seconds:.2f}\n")
-    
-    # Print test results to console
-    print("\nTest Set Metrics:")
-    print("-" * 50)
-    print(f"MSE: {errors['mse']:.6f}")
-    print(f"RMSE: {errors['rmse']:.6f}")
-    print(f"MAE: {errors['mae']:.6f}")
-    print(f"MAPE: {errors['mape']:.2f}%")
-    print(f"Directional Accuracy: {directional_accuracy:.2f}%")
-    print(f"Maximum Error: {max_error:.6f}")
-    print(f"Inference Time per Sample: {inference_time_per_sample*1000:.4f} ms")
-    
-    # Prepare history dictionary
-    history = {
-        'train_losses': train_losses,
-        'val_losses': val_losses
-    }
-    
-    logging.info(f"Performance metrics saved to {log_path}")
     return model, history, log_path
-
-def add_architecture_benchmark_to_menu(menu_utils_module):
-    """
-    Extends the menu_utils module with an architecture benchmarking option.
-    
-    Args:
-        menu_utils_module: The imported menu_utils module
-    """
-    # Store the original display_menu function
-    original_display_menu = menu_utils_module.display_menu
-    
-    # Define the extended menu function
-    def extended_display_menu():
-        """Display the extended main menu with architecture benchmarking."""
-        print("\nOption Trading Model - Main Menu")
-        print("-" * 50)
-        print("1. Train new model")
-        print("2. Run existing model")
-        print("3. Analyze network architecture")
-        print("4. Benchmark multiple architectures")
-        print("5. Exit")
-        
-        while True:
-            try:
-                choice = input("\nEnter your choice (1-5): ")
-                if choice in ['1', '2', '3', '4', '5']:
-                    return int(choice)
-                print("Invalid choice. Please enter a number between 1 and 5.")
-            except ValueError:
-                print("Invalid input. Please enter a number.")
-    
-    # Replace the original function with the extended one
-    menu_utils_module.display_menu = extended_display_menu

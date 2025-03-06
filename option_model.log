@@ -21,3 +21,108 @@
 2025-02-24 16:39:42,703 - INFO - Architecture comparison saved to performance_logs/architecture_comparison_20250224_163942.txt
 2025-02-24 16:39:44,509 - INFO - Architecture visualizations saved to performance_logs
 2025-02-24 16:39:44,509 - INFO - Architecture benchmarking completed successfully
+2025-02-24 16:41:23,701 - INFO - Application terminated by user
+2025-02-24 16:41:23,701 - INFO - Application shutdown
+2025-02-24 17:06:54,491 - INFO - Starting Option Trading Model application
+2025-02-24 17:06:56,281 - INFO - Application terminated by user
+2025-02-24 17:06:56,282 - INFO - Application shutdown
+2025-02-24 17:07:02,371 - INFO - Starting Option Trading Model application
+2025-02-24 17:07:10,612 - INFO - Starting architecture benchmarking...
+2025-02-24 17:23:21,136 - INFO - Starting Option Trading Model application
+2025-02-24 17:23:21,136 - INFO - Using CPU for training (no GPU available)
+2025-02-24 17:25:12,134 - INFO - Application terminated by user
+2025-02-24 17:25:12,134 - INFO - Application shutdown
+2025-02-24 17:25:18,291 - INFO - Starting Option Trading Model application
+2025-02-24 17:25:18,319 - INFO - Using device: mps
+2025-02-24 17:25:25,039 - INFO - Starting architecture benchmarking...
+2025-02-24 19:33:57,582 - INFO - Performance metrics saved to performance_logs/LSTM-GRU Hybrid_AMZN_20250224_172542.txt
+2025-02-25 15:34:13,247 - INFO - Performance metrics saved to performance_logs/GRU-GRU_AMZN_20250224_193357.txt
+2025-02-25 17:16:55,557 - INFO - Performance metrics saved to performance_logs/LSTM-LSTM_AMZN_20250225_153413.txt
+2025-02-25 17:16:55,575 - INFO - Architecture comparison saved to performance_logs/architecture_comparison_20250225_171655.txt
+2025-02-25 17:16:57,280 - INFO - Architecture visualizations saved to performance_logs
+2025-02-25 17:16:57,280 - INFO - Architecture benchmarking completed successfully
+2025-02-25 19:14:14,570 - INFO - Starting architecture benchmarking...
+2025-02-25 19:19:19,598 - INFO - Performance metrics saved to performance_logs/LSTM-GRU Hybrid_HSBC_20250225_191436.txt
+2025-02-25 19:23:24,950 - INFO - Performance metrics saved to performance_logs/GRU-GRU_HSBC_20250225_191919.txt
+2025-02-25 19:27:38,725 - INFO - Performance metrics saved to performance_logs/LSTM-LSTM_HSBC_20250225_192324.txt
+2025-02-25 19:27:38,727 - INFO - Architecture comparison saved to performance_logs/architecture_comparison_20250225_192738.txt
+2025-02-25 19:27:40,744 - INFO - Architecture visualizations saved to performance_logs
+2025-02-25 19:27:40,744 - INFO - Architecture benchmarking completed successfully
+2025-02-25 19:30:24,624 - INFO - Application terminated by user
+2025-02-25 19:30:24,624 - INFO - Application shutdown
+2025-02-26 19:47:57,228 - INFO - Starting Option Trading Model application
+2025-02-26 19:47:57,254 - INFO - Using device: mps
+2025-02-26 19:48:05,642 - INFO - Architecture analysis completed
+2025-02-26 19:48:19,183 - INFO - Starting architecture benchmarking...
+2025-02-26 20:47:09,136 - INFO - Performance metrics saved to performance_logs/LSTM-GRU Hybrid_AMZN_20250226_194857.txt
+2025-02-26 21:39:04,286 - INFO - Performance metrics saved to performance_logs/GRU-GRU_AMZN_20250226_204709.txt
+2025-02-26 21:44:01,259 - INFO - Application terminated by user
+2025-02-26 21:44:01,259 - INFO - Application shutdown
+2025-03-01 14:28:32,987 - INFO - Starting Option Trading Model application
+2025-03-01 14:28:33,014 - INFO - Using device: mps
+2025-03-01 14:28:35,278 - INFO - Starting architecture benchmarking...
+2025-03-01 14:35:26,800 - INFO - Performance metrics saved to performance_logs/LSTM-GRU Hybrid_VALE_20250301_142905.txt
+2025-03-01 14:41:51,924 - INFO - Performance metrics saved to performance_logs/GRU-GRU_VALE_20250301_143526.txt
+2025-03-01 14:49:50,755 - INFO - Performance metrics saved to performance_logs/LSTM-LSTM_VALE_20250301_144151.txt
+2025-03-01 14:49:50,757 - INFO - Architecture comparison saved to performance_logs/architecture_comparison_20250301_144950.txt
+2025-03-01 14:49:53,031 - INFO - Architecture visualizations saved to performance_logs
+2025-03-01 14:49:53,031 - INFO - Architecture benchmarking completed successfully
+2025-03-01 14:59:33,103 - INFO - Application terminated by user
+2025-03-01 14:59:33,104 - INFO - Application shutdown
+2025-03-04 20:10:21,888 - INFO - Starting Option Trading Model application
+2025-03-04 20:10:21,917 - INFO - Using device: mps
+2025-03-04 20:10:30,623 - INFO - Starting architecture benchmarking...
+2025-03-04 20:28:49,953 - INFO - Performance metrics saved to performance_logs/LSTM-GRU Hybrid_AAPL_20250304_201050.txt
+2025-03-04 20:47:44,893 - INFO - Performance metrics saved to performance_logs/GRU-GRU_AAPL_20250304_202849.txt
+2025-03-04 21:08:20,652 - INFO - Performance metrics saved to performance_logs/LSTM-LSTM_AAPL_20250304_204744.txt
+2025-03-04 21:08:20,658 - INFO - Architecture comparison saved to performance_logs/architecture_comparison_20250304_210820.txt
+2025-03-04 21:08:22,482 - INFO - Architecture visualizations saved to performance_logs
+2025-03-04 21:08:22,482 - INFO - Architecture benchmarking completed successfully
+2025-03-04 21:09:20,419 - INFO - Starting architecture benchmarking...
+2025-03-04 23:36:57,712 - INFO - Performance metrics saved to performance_logs/LSTM-GRU Hybrid_AMZN_20250304_210933.txt
+2025-03-04 23:52:39,736 - INFO - Starting Option Trading Model application
+2025-03-04 23:52:39,764 - INFO - Using device: mps
+2025-03-04 23:52:45,452 - INFO - Architecture analysis completed
+2025-03-04 23:53:30,582 - INFO - Starting model training...
+2025-03-04 23:53:46,384 - ERROR - Error during model training: could not convert string to float: 'AMZN220218C01760000'
+2025-03-04 23:54:24,108 - INFO - Application terminated by user
+2025-03-04 23:54:24,108 - INFO - Application shutdown
+2025-03-04 23:55:01,487 - INFO - Starting Option Trading Model application
+2025-03-04 23:55:01,508 - INFO - Using device: mps
+2025-03-04 23:55:02,924 - INFO - Starting model training...
+2025-03-04 23:58:43,497 - INFO - Performance metrics saved to performance_logs/LSTM-GRU_BMO_20250304_235514.txt
+2025-03-04 23:58:43,887 - INFO - Model training completed successfully
+2025-03-04 23:59:29,073 - INFO - Starting model training...
+2025-03-05 01:30:19,356 - INFO - Performance metrics saved to performance_logs/LSTM-GRU_AMZN_20250304_235950.txt
+2025-03-05 01:30:19,723 - INFO - Model training completed successfully
+2025-03-05 02:40:32,603 - INFO - Application terminated by user
+2025-03-05 02:40:32,603 - INFO - Application shutdown
+2025-03-05 02:40:35,780 - INFO - Starting Option Trading Model application
+2025-03-05 02:40:35,801 - INFO - Using device: mps
+2025-03-05 02:40:37,116 - INFO - Starting model training...
+2025-03-05 02:44:28,603 - ERROR - Error during model training: Insufficient data for sequence creation!
+2025-03-05 02:46:02,400 - INFO - Application terminated by user
+2025-03-05 02:46:02,401 - INFO - Application shutdown
+2025-03-05 02:46:07,490 - INFO - Starting Option Trading Model application
+2025-03-05 02:46:07,512 - INFO - Using device: mps
+2025-03-05 02:46:10,498 - INFO - Application terminated by user
+2025-03-05 02:46:10,499 - INFO - Application shutdown
+2025-03-05 02:46:14,978 - INFO - Starting Option Trading Model application
+2025-03-05 02:46:14,998 - INFO - Using device: mps
+2025-03-05 02:46:21,476 - INFO - Starting model training...
+2025-03-05 02:50:59,933 - INFO - Starting Option Trading Model application
+2025-03-05 02:50:59,955 - INFO - Using device: mps
+2025-03-05 02:51:02,818 - INFO - Starting model training...
+2025-03-05 02:52:36,321 - INFO - Starting model training...
+2025-03-05 02:58:09,899 - ERROR - Error during model training: Insufficient data for sequence creation!
+2025-03-05 19:02:52,376 - INFO - Application terminated by user
+2025-03-05 19:02:52,377 - INFO - Application shutdown
+2025-03-05 19:02:57,192 - INFO - Starting Option Trading Model application
+2025-03-05 19:02:57,218 - INFO - Using device: mps
+2025-03-05 19:02:58,952 - INFO - Starting model training...
+2025-03-05 19:05:50,650 - INFO - Starting Option Trading Model application
+2025-03-05 19:05:50,675 - INFO - Using device: mps
+2025-03-05 19:05:52,504 - INFO - Starting model training...
+2025-03-05 19:07:00,196 - INFO - Starting Option Trading Model application
+2025-03-05 19:07:00,220 - INFO - Using device: mps
+2025-03-05 19:07:02,544 - INFO - Starting model training...

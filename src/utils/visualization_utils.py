@@ -51,3 +51,4 @@ def display_model_analysis(analysis):
         print(f"\n{layer_name}:")
         print(f"  Input shape: {shapes['input_shape']}")
         print(f"  Output shape: {shapes['output_shape']}") 
+        

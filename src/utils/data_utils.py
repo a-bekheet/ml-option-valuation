@@ -96,7 +96,8 @@ class StockOptionDataset(Dataset):
         base_feature_cols = [col for col in base_feature_cols if col in numeric_cols]
         
         # Define features that should NOT be subject to rolling window operations.
-        no_rolling_features = {"day_of_week", "day_of_month", "day_of_year", "daysToExpiry"}
+        no_rolling_features = {"day_of_week", "day_of_month", "day_of_year", "daysToExpiry","stockClose_ewm_5d", "stockClose_ewm_15d",
+                               "stockClose_ewm_45d", "stockClose_ewm_135d"}
         # Create a list of features eligible for rolling computations.
         rolling_base_feature_cols = [col for col in base_feature_cols if col not in no_rolling_features]
         

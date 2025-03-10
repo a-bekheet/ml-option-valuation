@@ -1,7 +1,7 @@
 import pandas as pd
 import time
 
-def process_full_dataset(input_file: str, output_file: str, chunksize: int = 100000) -> None:
+def datatype_adjustor(input_file: str, output_file: str, chunksize: int = 100000) -> None:
     total_rows = sum(1 for _ in open(input_file)) - 1
     dtypes = {
         'strike': 'float32',

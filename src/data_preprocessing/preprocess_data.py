@@ -4,7 +4,7 @@ from typing import List, Dict, Optional
 from pathlib import Path
 import os
 import json
-from drops import Drop
+from drops import prelim_dropping
 from dtypes_adjustor import datatype_adjustor
 from splits_adjustor import adjust_for_stock_splits
 from cyclic_encoding import encode_dataframe
@@ -18,18 +18,29 @@ def preprocess_data(
     drop_config: Dict[str, List[str]],
     normalize_per_ticker: bool = True
 ) -> None:
-    # Adjust data types
-    datatype_adjustor(input_file, output_file)
-    
-    # Adjust for stock splits
-    adjust_for_stock_splits(output_file, splits_file)
-    
-    # Drop columns
-    drop_config = Drop(drop_config)
-    drop_config.drop_columns(output_file, output_file)
-    
-    # Encode cyclical features
-    encode_dataframe(output_file, output_file)
+    # Create intermediate file paths
+    base_dir = os.path.dirname(output_file)
+    temp_file1 = os.path.join(base_dir, 'temp_datatypes.csv')
+    temp_file2 = os.path.join(base_dir, 'temp_splits.csv')
+    temp_file3 = os.path.join(base_dir, 'temp_dropped.csv')
+
+    try:
+        # Adjust data types
+        datatype_adjustor(input_file, temp_file1)
+        
+        # Adjust for stock splits
+        adjust_for_stock_splits(temp_file1, splits_file, temp_file2)
+        
+        # Drop columns using prelim_dropping function
+        prelim_dropping(temp_file2, temp_file3, drop_config)
+        
+        # Encode cyclical features
+        encode_dataframe(temp_file3, output_file)
+    finally:
+        # Clean up temporary files
+        for temp_file in [temp_file1, temp_file2, temp_file3]:
+            if os.path.exists(temp_file):
+                os.remove(temp_file)
     
     if normalize_per_ticker:
         # Create directory for split normalized files

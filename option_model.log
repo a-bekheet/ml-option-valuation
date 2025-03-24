@@ -149,3 +149,15 @@
 2025-03-06 05:26:31,005 - INFO - Architecture benchmarking completed successfully
 2025-03-06 14:51:27,603 - INFO - Application terminated by user
 2025-03-06 14:51:27,603 - INFO - Application shutdown
+2025-03-10 19:41:29,495 - INFO - Starting Option Trading Model application
+2025-03-10 19:41:29,518 - INFO - Using device: mps
+2025-03-10 19:41:33,220 - INFO - Starting model training...
+2025-03-21 00:52:15,756 - INFO - Starting Option Trading Model application
+2025-03-21 00:52:15,792 - INFO - Using device: mps
+2025-03-21 00:52:22,977 - INFO - Starting architecture benchmarking...
+2025-03-21 03:00:15,650 - INFO - Performance metrics saved to performance_logs/LSTM-GRU Hybrid_AMZN_20250321_010206.txt
+2025-03-21 05:41:56,684 - INFO - Performance metrics saved to performance_logs/GRU-GRU_AMZN_20250321_030015.txt
+2025-03-21 10:07:29,240 - INFO - Performance metrics saved to performance_logs/LSTM-LSTM_AMZN_20250321_054156.txt
+2025-03-21 10:07:29,260 - INFO - Architecture comparison saved to performance_logs/architecture_comparison_20250321_100729.txt
+2025-03-21 10:07:34,239 - INFO - Architecture visualizations saved to performance_logs
+2025-03-21 10:07:34,239 - INFO - Architecture benchmarking completed successfully

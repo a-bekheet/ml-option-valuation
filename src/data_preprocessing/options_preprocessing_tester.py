@@ -13,7 +13,7 @@ import argparse
 
 # Import preprocessing components
 try:
-    from drops import Drop
+    from drops import prelim_dropping
     from dtypes_adjustor import datatype_adjustor
     from splits_adjustor import adjust_for_stock_splits
     from cyclic_encoding import encode_dataframe

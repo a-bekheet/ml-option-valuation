@@ -281,7 +281,7 @@ def load_config():
     # Set default values
     config = {
         'data_dir': "data_files/split_data",  # Directory containing ticker-specific files
-        'seq_len': 15,
+        'seq_len': 30,
         'batch_size': 32,
         'epochs': 20,
         'hidden_size_lstm': 64,

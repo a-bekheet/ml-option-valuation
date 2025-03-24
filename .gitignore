@@ -16,3 +16,4 @@ old_code/
 performance_logs
 *.log
 option_model.log
+*.png

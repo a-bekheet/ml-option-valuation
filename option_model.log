@@ -161,3 +161,7 @@
 2025-03-21 10:07:29,260 - INFO - Architecture comparison saved to performance_logs/architecture_comparison_20250321_100729.txt
 2025-03-21 10:07:34,239 - INFO - Architecture visualizations saved to performance_logs
 2025-03-21 10:07:34,239 - INFO - Architecture benchmarking completed successfully
+2025-03-24 10:40:46,942 - INFO - Starting Option Trading Model application
+2025-03-24 10:40:46,964 - INFO - Using device: mps
+2025-03-24 10:47:17,342 - INFO - Application terminated by user
+2025-03-24 10:47:17,343 - INFO - Application shutdown

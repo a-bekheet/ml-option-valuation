@@ -1,13 +1,19 @@
-import torch
-import torch.nn as nn
+import json
 import os
-from datetime import datetime
-from torch.utils.data import DataLoader, Subset
-import numpy as np
-from pathlib import Path
-from tqdm import tqdm
 import logging
 import time
+import numpy as np
+import pandas as pd
+import matplotlib.pyplot as plt
+import seaborn as sns
+from pathlib import Path
+import torch
+from datetime import datetime
+from typing import Dict, List, Optional, Union, Tuple, Any
+from torch.utils.data import DataLoader
+from torch.utils.data.dataset import Subset
+from tqdm import tqdm
+
 
 class EarlyStopping:
     def __init__(self, patience=5, min_delta=1e-5):
@@ -274,6 +280,261 @@ def run_existing_model(model_path, model_class, dataset, target_cols=["bid", "as
     print(f"MAE: {errors['mae']:.6f}")
     print(f"MAPE: {errors['mape']:.2f}%")
 
+def load_scaling_params(ticker: str, data_dir: str) -> Dict[str, Dict[str, float]]:
+    """
+    Load the scaling parameters for a specific ticker.
+    
+    Args:
+        ticker: The ticker symbol
+        data_dir: Directory containing data files
+        
+    Returns:
+        Dictionary of scaling parameters
+    """
+    params_path = os.path.join(data_dir, 'by_ticker', 'scaling_params', f"{ticker}_scaling_params.json")
+    
+    if not os.path.exists(params_path):
+        raise FileNotFoundError(f"Scaling parameters not found for {ticker} at {params_path}")
+    
+    with open(params_path, 'r') as f:
+        scaling_params = json.load(f)
+    
+    return scaling_params
+
+def recover_original_values(normalized_values: np.ndarray, 
+                          column_names: List[str],
+                          scaling_params: Dict[str, Dict[str, float]]) -> np.ndarray:
+    """
+    Recover original values from normalized values using scaling parameters.
+    
+    Args:
+        normalized_values: Array of normalized values
+        column_names: List of column names corresponding to the values
+        scaling_params: Dictionary of scaling parameters
+        
+    Returns:
+        Array with recovered original values
+    """
+    original_values = normalized_values.copy()
+    
+    for i, col in enumerate(column_names):
+        if col in scaling_params:
+            # Get parameters for this column
+            mean = scaling_params[col]['mean'] if 'mean' in scaling_params[col] else scaling_params[col].get('mean', 0)
+            scale = scaling_params[col]['scale'] if 'scale' in scaling_params[col] else scaling_params[col].get('std', 1)
+            
+            # Apply inverse transform: X_orig = X_scaled * scale + mean
+            original_values[:, i] = normalized_values[:, i] * scale + mean
+    
+    return original_values
+
+def visualize_predictions(y_true: np.ndarray, 
+                         y_pred: np.ndarray, 
+                         target_cols: List[str],
+                         ticker: str,
+                         scaling_params: Optional[Dict[str, Dict[str, float]]] = None,
+                         output_dir: str = "prediction_visualizations",
+                         show_plot: bool = True,
+                         n_samples: int = 100) -> Dict[str, str]:
+    """
+    Visualize model predictions against actual values, optionally recovering original values.
+    
+    Args:
+        y_true: Ground truth values (normalized)
+        y_pred: Predicted values (normalized)
+        target_cols: Names of target columns
+        ticker: Ticker symbol
+        scaling_params: Optional scaling parameters for recovery to original values
+        output_dir: Directory to save visualizations
+        show_plot: Whether to display the plots
+        n_samples: Number of samples to visualize
+        
+    Returns:
+        Dictionary mapping target columns to saved plot file paths
+    """
+    Path(output_dir).mkdir(parents=True, exist_ok=True)
+    
+    y_true_np = y_true if isinstance(y_true, np.ndarray) else y_true.cpu().numpy()
+    y_pred_np = y_pred if isinstance(y_pred, np.ndarray) else y_pred.cpu().numpy()
+    
+    # Ensure arrays are 2D
+    if len(y_true_np.shape) == 1:
+        y_true_np = y_true_np.reshape(-1, 1)
+    if len(y_pred_np.shape) == 1:
+        y_pred_np = y_pred_np.reshape(-1, 1)
+    
+    # Limit to the specified number of samples
+    if n_samples < y_true_np.shape[0]:
+        y_true_np = y_true_np[:n_samples]
+        y_pred_np = y_pred_np[:n_samples]
+    
+    # Recover original values if scaling parameters are provided
+    if scaling_params:
+        y_true_original = recover_original_values(y_true_np, target_cols, scaling_params)
+        y_pred_original = recover_original_values(y_pred_np, target_cols, scaling_params)
+    else:
+        y_true_original = y_true_np
+        y_pred_original = y_pred_np
+    
+    # Create visualizations for each target column
+    plot_files = {}
+    
+    for i, col in enumerate(target_cols):
+        # Extract the values for this column
+        true_values = y_true_original[:, i]
+        pred_values = y_pred_original[:, i]
+        
+        # Create figure
+        plt.figure(figsize=(14, 8))
+        
+        # Create the main plot with actual and predicted values
+        plt.subplot(2, 1, 1)
+        plt.plot(true_values, label=f'Actual {col}', linewidth=2)
+        plt.plot(pred_values, label=f'Predicted {col}', linewidth=2, linestyle='--')
+        plt.title(f'{ticker} - {col} Predictions vs Actual Values')
+        plt.legend()
+        plt.grid(True, alpha=0.3)
+        
+        # Add prediction error plot
+        plt.subplot(2, 1, 2)
+        errors = pred_values - true_values
+        plt.bar(range(len(errors)), errors, alpha=0.7)
+        plt.axhline(y=0, color='r', linestyle='-', alpha=0.3)
+        plt.title(f'Prediction Error ({col})')
+        plt.xlabel('Sample Index')
+        plt.ylabel('Error')
+        plt.grid(True, alpha=0.3)
+        
+        plt.tight_layout()
+        
+        # Save the plot
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        plot_file = os.path.join(output_dir, f"{ticker}_{col}_predictions_{timestamp}.png")
+        plt.savefig(plot_file, dpi=300, bbox_inches='tight')
+        plot_files[col] = plot_file
+        
+        if not show_plot:
+            plt.close()
+    
+    # Create a summary visualization with all targets
+    if len(target_cols) > 1:
+        plt.figure(figsize=(14, 10))
+        
+        for i, col in enumerate(target_cols):
+            plt.subplot(len(target_cols), 1, i+1)
+            true_values = y_true_original[:, i]
+            pred_values = y_pred_original[:, i]
+            
+            plt.plot(true_values, label=f'Actual {col}', linewidth=2)
+            plt.plot(pred_values, label=f'Predicted {col}', linewidth=2, linestyle='--')
+            plt.title(f'{col}')
+            plt.legend()
+            plt.grid(True, alpha=0.3)
+        
+        plt.suptitle(f'{ticker} - Model Predictions Summary', fontsize=16)
+        plt.tight_layout(rect=[0, 0, 1, 0.97])  # Adjust layout to accommodate suptitle
+        
+        # Save summary plot
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        summary_file = os.path.join(output_dir, f"{ticker}_predictions_summary_{timestamp}.png")
+        plt.savefig(summary_file, dpi=300, bbox_inches='tight')
+        plot_files['summary'] = summary_file
+        
+        if not show_plot:
+            plt.close()
+    
+    return plot_files
+
+def run_existing_model_with_visualization(
+    model_path: str, 
+    model_class: Any, 
+    dataset: Any, 
+    target_cols: List[str] = ["bid", "ask"],
+    visualize: bool = True,
+    n_samples: int = 100,
+    data_dir: Optional[str] = None,
+    output_dir: str = "prediction_visualizations"
+) -> Tuple[Dict[str, float], Optional[Dict[str, str]]]:
+    """
+    Load and run predictions with an existing model, with optional visualization.
+    
+    Args:
+        model_path: Path to the saved model
+        model_class: Model class to use
+        dataset: Dataset containing the features and targets
+        target_cols: Target columns being predicted
+        visualize: Whether to create visualization plots
+        n_samples: Number of samples to visualize
+        data_dir: Path to data directory (needed for scaling parameters)
+        output_dir: Directory to save visualizations
+        
+    Returns:
+        Tuple of (error metrics, visualization file paths)
+    """
+    model = load_model(
+        model_path, 
+        model_class,
+        input_size=dataset.n_features, 
+        output_size=len(dataset.target_cols)
+    )
+    model.eval()
+    
+    data_loader = DataLoader(dataset, batch_size=128, shuffle=False)
+    
+    all_y_true = []
+    all_y_pred = []
+    device = 'cuda' if torch.cuda.is_available() else 'mps' if torch.backends.mps.is_available() else 'cpu'
+    model = model.to(device)
+    
+    print(f"\nMaking predictions for {dataset.ticker}...")
+    with torch.no_grad():
+        for x_seq, y_val in data_loader:
+            x_seq, y_val = x_seq.to(device), y_val.to(device)
+            y_pred = model(x_seq)
+            all_y_true.extend(y_val.cpu().numpy())
+            all_y_pred.extend(y_pred.cpu().numpy())
+    
+    # Calculate error metrics
+    errors = calculate_errors(torch.tensor(all_y_true), torch.tensor(all_y_pred))
+    
+    # Print error metrics
+    print("\nPrediction Metrics:")
+    print("-" * 50)
+    print(f"MSE: {errors['mse']:.6f}")
+    print(f"RMSE: {errors['rmse']:.6f}")
+    print(f"MAE: {errors['mae']:.6f}")
+    print(f"MAPE: {errors['mape']:.2f}%")
+    
+    # Create visualizations if requested
+    viz_files = None
+    if visualize:
+        # Try to load scaling parameters if data_dir is provided
+        scaling_params = None
+        if data_dir:
+            try:
+                scaling_params = load_scaling_params(dataset.ticker, data_dir)
+                print(f"\nLoaded scaling parameters for {dataset.ticker} for visualization with original values")
+            except FileNotFoundError:
+                print(f"\nScaling parameters not found for {dataset.ticker}. Using normalized values for visualization.")
+        
+        # Create visualizations
+        viz_files = visualize_predictions(
+            y_true=np.array(all_y_true),
+            y_pred=np.array(all_y_pred),
+            target_cols=target_cols,
+            ticker=dataset.ticker,
+            scaling_params=scaling_params,
+            output_dir=output_dir,
+            show_plot=True,
+            n_samples=n_samples
+        )
+        
+        # Print visualization file paths
+        print("\nVisualizations saved to:")
+        for target, file_path in viz_files.items():
+            print(f"  {target}: {file_path}")
+    
+    return errors, viz_files
 # Handler Functions moved from nn.py
 def handle_train_model(config, HybridRNNModel, GRUGRUModel, LSTMLSTMModel, save_and_display_results, extended_train_model_with_tracking, get_available_tickers, select_ticker, StockOptionDataset):
     """Handle the model training workflow."""
@@ -466,6 +727,114 @@ def handle_run_model(config, models_dir, HybridRNNModel, GRUGRUModel, LSTMLSTMMo
             target_cols=config['target_cols']
         )
         logging.info("Predictions completed successfully")
+    except Exception as e:
+        logging.error(f"Error during model prediction: {str(e)}")
+        print(f"\nError: {str(e)}")
+
+def handle_run_model_enhanced(config, models_dir, HybridRNNModel, GRUGRUModel, LSTMLSTMModel, 
+                         get_available_tickers, select_ticker, StockOptionDataset, 
+                         run_existing_model_with_visualization=None):
+    """
+    Enhanced handler for the model prediction workflow with visualization capability.
+    
+    Args:
+        config: Application configuration
+        models_dir: Directory containing saved models
+        HybridRNNModel, GRUGRUModel, LSTMLSTMModel: Model classes
+        get_available_tickers, select_ticker: Data utility functions
+        StockOptionDataset: Dataset class
+        run_existing_model_with_visualization: Function for running with visualization
+    """
+    try:
+        import logging
+        from pathlib import Path
+        
+        # Create visualization directory
+        viz_dir = "prediction_visualizations"
+        Path(viz_dir).mkdir(parents=True, exist_ok=True)
+        
+        # List available models
+        model_files = list_available_models(models_dir)
+        if not model_files:
+            return
+
+        # Select a model
+        selected_model = select_model(model_files)
+        if not selected_model:
+            return
+
+        model_path = os.path.join(models_dir, selected_model)
+        
+        # Determine model architecture based on filename
+        model_class, architecture_name = get_model_class_from_name(
+            selected_model, 
+            HybridRNNModel, 
+            GRUGRUModel, 
+            LSTMLSTMModel
+        )
+        print(f"\nDetected {architecture_name} architecture")
+        
+        # Get available tickers and select one
+        tickers, counts = get_available_tickers(config['data_dir'])
+        ticker = select_ticker(tickers, counts)
+        
+        # Create dataset for the selected ticker
+        dataset = StockOptionDataset(
+            data_dir=config['data_dir'],
+            ticker=ticker,
+            target_cols=config['target_cols']
+        )
+        
+        # Ask if user wants to visualize predictions
+        visualize = input("\nVisualize predictions with original values? (y/n): ").lower().startswith('y')
+        
+        if visualize:
+            # Ask for number of samples to visualize
+            try:
+                n_samples = int(input("\nNumber of samples to visualize (default: 100): ") or 100)
+            except ValueError:
+                n_samples = 100
+                print("Invalid input. Using default value of 100 samples.")
+                
+            # Run the model with visualization
+            logging.info(f"Running predictions with model: {selected_model} (with visualization)")
+            
+            if run_existing_model_with_visualization:
+                errors, viz_files = run_existing_model_with_visualization(
+                    model_path=model_path,
+                    model_class=model_class,
+                    dataset=dataset,
+                    target_cols=config['target_cols'],
+                    visualize=True,
+                    n_samples=n_samples,
+                    data_dir=config['data_dir'],
+                    output_dir=viz_dir
+                )
+                
+                print("\nPrediction visualization complete!")
+                if viz_files and 'summary' in viz_files:
+                    print(f"\nSummary visualization saved to: {viz_files['summary']}")
+            else:
+                # Fallback to standard run if visualization function not available
+                print("\nVisualization function not available. Running standard prediction.")
+                run_existing_model(
+                    model_path,
+                    model_class,
+                    dataset,
+                    target_cols=config['target_cols']
+                )
+        else:
+            # Run standard prediction without visualization
+            logging.info(f"Running predictions with model: {selected_model}")
+            run_existing_model(
+                model_path,
+                model_class,
+                dataset,
+                target_cols=config['target_cols']
+            )
+            
+        logging.info("Predictions completed successfully")
+        
     except Exception as e:
         logging.error(f"Error during model prediction: {str(e)}")
         print(f"\nError: {str(e)}")

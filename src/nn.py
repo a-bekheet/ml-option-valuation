@@ -8,7 +8,8 @@ from utils.data_utils import get_available_tickers, select_ticker, validate_path
 from utils.model_utils import (
     train_model, analyze_model_architecture, load_model, 
     run_existing_model, calculate_errors, list_available_models, select_model,
-    handle_train_model, handle_run_model, handle_analyze_architecture, handle_benchmark_architectures
+    handle_train_model, handle_run_model, handle_analyze_architecture, handle_benchmark_architectures,
+    run_existing_model_with_visualization, visualize_predictions
 )
 from utils.menu_utils import display_menu, run_application_loop
 from utils.visualization_utils import save_and_display_results, display_model_analysis

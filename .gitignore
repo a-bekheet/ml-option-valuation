@@ -17,3 +17,4 @@ performance_logs
 *.log
 option_model.log
 *.png
+*.svg

@@ -199,12 +199,23 @@ def select_model(model_files):
 
 def get_model_class_from_name(model_name, HybridRNNModel, GRUGRUModel, LSTMLSTMModel):
     """Determine the model class based on the model name."""
-    model_name = model_name.lower()
-    if "gru-gru" in model_name:
-        return GRUGRUModel, "GRU-GRU"
-    elif "lstm-lstm" in model_name:
-        return LSTMLSTMModel, "LSTM-LSTM"
-    else:
+    try:
+        logging.info(f"Determining model class from name: {model_name}")
+        model_name = model_name.lower()
+        
+        if "gru-gru" in model_name:
+            logging.info("Selected GRU-GRU model architecture")
+            return GRUGRUModel, "GRU-GRU"
+        elif "lstm-lstm" in model_name:
+            logging.info("Selected LSTM-LSTM model architecture")
+            return LSTMLSTMModel, "LSTM-LSTM"
+        else:
+            logging.info("Selected LSTM-GRU hybrid model architecture (default)")
+            return HybridRNNModel, "LSTM-GRU"
+            
+    except Exception as e:
+        logging.error(f"Error in get_model_class_from_name: {str(e)}")
+        # Default to HybridRNNModel if there's an error
         return HybridRNNModel, "LSTM-GRU"
         
 def load_model(model_path, model_class, input_size, 
@@ -216,69 +227,111 @@ def load_model(model_path, model_class, input_size,
     Load a saved model with proper architecture class.
     Supports all three architecture types.
     """
-    # Import needed here to avoid circular import
-    from nn import HybridRNNModel, GRUGRUModel, LSTMLSTMModel
-    
-    if model_class == HybridRNNModel:
-        model = model_class(
-            input_size=input_size,
-            hidden_size_lstm=hidden_size_lstm,
-            hidden_size_gru=hidden_size_gru,
-            num_layers=num_layers,
-            output_size=output_size
-        )
-    elif model_class == GRUGRUModel:
-        model = model_class(
-            input_size=input_size,
-            hidden_size_gru1=hidden_size_gru1,
-            hidden_size_gru2=hidden_size_gru2,
-            num_layers=num_layers,
-            output_size=output_size
-        )
-    elif model_class == LSTMLSTMModel:
-        model = model_class(
-            input_size=input_size,
-            hidden_size_lstm1=hidden_size_lstm1,
-            hidden_size_lstm2=hidden_size_lstm2,
-            num_layers=num_layers,
-            output_size=output_size
-        )
-    
-    model.load_state_dict(torch.load(model_path))
-    return model
+    try:
+        logging.info(f"Loading model from: {model_path}")
+        logging.info(f"Model class: {model_class.__name__}")
+        logging.info(f"Input size: {input_size}, Output size: {output_size}")
+        
+        # Create the model instance
+        if model_class.__name__ == 'HybridRNNModel':
+            logging.info(f"Creating HybridRNNModel with hidden sizes: LSTM={hidden_size_lstm}, GRU={hidden_size_gru}")
+            model = model_class(
+                input_size=input_size,
+                hidden_size_lstm=hidden_size_lstm,
+                hidden_size_gru=hidden_size_gru,
+                num_layers=num_layers,
+                output_size=output_size
+            )
+        elif model_class.__name__ == 'GRUGRUModel':
+            logging.info(f"Creating GRUGRUModel with hidden sizes: GRU1={hidden_size_gru1}, GRU2={hidden_size_gru2}")
+            model = model_class(
+                input_size=input_size,
+                hidden_size_gru1=hidden_size_gru1,
+                hidden_size_gru2=hidden_size_gru2,
+                num_layers=num_layers,
+                output_size=output_size
+            )
+        elif model_class.__name__ == 'LSTMLSTMModel':
+            logging.info(f"Creating LSTMLSTMModel with hidden sizes: LSTM1={hidden_size_lstm1}, LSTM2={hidden_size_lstm2}")
+            model = model_class(
+                input_size=input_size,
+                hidden_size_lstm1=hidden_size_lstm1,
+                hidden_size_lstm2=hidden_size_lstm2,
+                num_layers=num_layers,
+                output_size=output_size
+            )
+        else:
+            raise ValueError(f"Unknown model class: {model_class.__name__}")
+            
+        # Load the model weights
+        logging.info("Loading model state dict")
+        model.load_state_dict(torch.load(model_path))
+        logging.info("Model loaded successfully")
+        return model
+        
+    except Exception as e:
+        logging.error(f"Error loading model: {str(e)}")
+        raise
 
 def run_existing_model(model_path, model_class, dataset, target_cols=["bid", "ask"]):
     """Load and run predictions with an existing model."""
-    model = load_model(
-        model_path, 
-        model_class,
-        input_size=dataset.n_features, 
-        output_size=len(dataset.target_cols)
-    )
-    model.eval()
-    
-    data_loader = DataLoader(dataset, batch_size=128, shuffle=False)
-    
-    all_y_true = []
-    all_y_pred = []
-    device = 'cuda' if torch.cuda.is_available() else 'cpu'
-    model = model.to(device)
-    
-    print(f"\nMaking predictions for {dataset.ticker}...")
-    with torch.no_grad():
-        for x_seq, y_val in data_loader:
-            x_seq, y_val = x_seq.to(device), y_val.to(device)
-            y_pred = model(x_seq)
-            all_y_true.extend(y_val.cpu().numpy())
-            all_y_pred.extend(y_pred.cpu().numpy())
-    
-    errors = calculate_errors(torch.tensor(all_y_true), torch.tensor(all_y_pred))
-    print("\nPrediction Metrics:")
-    print("-" * 50)
-    print(f"MSE: {errors['mse']:.6f}")
-    print(f"RMSE: {errors['rmse']:.6f}")
-    print(f"MAE: {errors['mae']:.6f}")
-    print(f"MAPE: {errors['mape']:.2f}%")
+    try:
+        if not os.path.exists(model_path):
+            logging.error(f"Model file not found: {model_path}")
+            raise FileNotFoundError(f"Model file not found: {model_path}")
+            
+        logging.info(f"Running model for {dataset.ticker} with {len(dataset)} samples")
+        logging.info(f"Dataset features: {dataset.n_features}, targets: {len(dataset.target_cols)}")
+        
+        # Load the model
+        model = load_model(
+            model_path, 
+            model_class,
+            input_size=dataset.n_features, 
+            output_size=len(dataset.target_cols)
+        )
+        
+        if model is None:
+            raise ValueError("Model could not be loaded")
+            
+        model.eval()
+        
+        data_loader = DataLoader(dataset, batch_size=128, shuffle=False)
+        
+        all_y_true = []
+        all_y_pred = []
+        device = 'cuda' if torch.cuda.is_available() else 'cpu'
+        model = model.to(device)
+        
+        print(f"\nMaking predictions for {dataset.ticker}...")
+        with torch.no_grad():
+            for x_seq, y_val in data_loader:
+                x_seq, y_val = x_seq.to(device), y_val.to(device)
+                y_pred = model(x_seq)
+                all_y_true.extend(y_val.cpu().numpy())
+                all_y_pred.extend(y_pred.cpu().numpy())
+        
+        errors = calculate_errors(torch.tensor(all_y_true), torch.tensor(all_y_pred))
+        print("\nPrediction Metrics:")
+        print("-" * 50)
+        print(f"MSE: {errors['mse']:.6f}")
+        print(f"RMSE: {errors['rmse']:.6f}")
+        print(f"MAE: {errors['mae']:.6f}")
+        print(f"MAPE: {errors['mape']:.2f}%")
+        
+        # Import visualization_utils here to avoid circular imports
+        from utils.visualization_utils import plot_predictions
+        
+        # Create plots for predicted vs actual values
+        models_dir = os.path.dirname(model_path)
+        timestamp = datetime.datetime.now().strftime("%m%d%H%M%S")
+        plot_predictions(all_y_true, all_y_pred, target_cols, dataset.ticker, models_dir, timestamp)
+        
+        return all_y_true, all_y_pred
+        
+    except Exception as e:
+        logging.error(f"Error in run_existing_model: {str(e)}")
+        raise
 
 def load_scaling_params(ticker: str, data_dir: str) -> Dict[str, Dict[str, float]]:
     """
@@ -679,6 +732,9 @@ def handle_train_model(config, HybridRNNModel, GRUGRUModel, LSTMLSTMModel, save_
             print(f"RMSE: {errors['rmse']:.6f}")
             print(f"MAE: {errors['mae']:.6f}")
             print(f"MAPE: {errors['mape']:.2f}%")
+            
+            history['y_true'] = all_y_true
+            history['y_pred'] = all_y_pred
             
         save_and_display_results(model, history, model_analysis, ticker, config['target_cols'], models_dir=config['models_dir'])
         logging.info("Model training completed successfully")

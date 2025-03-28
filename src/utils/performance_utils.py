@@ -12,6 +12,7 @@ import seaborn as sns
 from tqdm import tqdm
 import pandas as pd
 from utils.visualization_utils import plot_predictions
+from torch.utils.data import DataLoader
 
 def calculate_directional_accuracy(y_true: np.ndarray, y_pred: np.ndarray) -> float:
     """
@@ -132,6 +133,9 @@ def track_performance(model, train_loader, val_loader, test_loader,
         # Prepare for training
         optimizer = torch.optim.Adam(model.parameters(), lr=0.001)
         criterion = torch.nn.MSELoss()
+        scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
+            optimizer, mode='min', factor=0.5, patience=3
+        )
         
         # Initialize tracking variables
         train_losses = []
@@ -157,10 +161,110 @@ def track_performance(model, train_loader, val_loader, test_loader,
             print(f"Batches per epoch: {len(train_loader):,}")
             print(f"{'-' * 50}")
         
+        total_train_time = 0.0
+        early_stopping = EarlyStopping(patience=5)
+        
         for epoch in range(epochs):
-            # Training loop code...
-            # [Omitting the training loop for brevity, no changes needed here]
-            pass
+            epoch_start = time.time()
+            
+            # Training phase
+            model.train()
+            total_train_loss = 0.0
+            
+            # Display progress bar for training
+            if verbose:
+                train_iter = tqdm(train_loader, desc=f"Epoch {epoch+1}/{epochs} [Train]", unit="batch")
+            else:
+                train_iter = train_loader
+                
+            for x_seq, y_val in train_iter:
+                x_seq, y_val = x_seq.to(device), y_val.to(device)
+                
+                optimizer.zero_grad()
+                y_pred = model(x_seq)
+                loss = criterion(y_pred, y_val)
+                loss.backward()
+                
+                # Gradient clipping to prevent explosion
+                torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)
+                
+                optimizer.step()
+                total_train_loss += loss.item()
+            
+            avg_train_loss = total_train_loss / len(train_loader)
+            train_losses.append(avg_train_loss)
+            
+            # Validation phase
+            model.eval()
+            total_val_loss = 0.0
+            
+            # Display progress bar for validation
+            if verbose:
+                val_iter = tqdm(val_loader, desc=f"Epoch {epoch+1}/{epochs} [Valid]", unit="batch")
+            else:
+                val_iter = val_loader
+                
+            with torch.no_grad():
+                for x_seq, y_val in val_iter:
+                    x_seq, y_val = x_seq.to(device), y_val.to(device)
+                    y_pred = model(x_seq)
+                    loss = criterion(y_pred, y_val)
+                    total_val_loss += loss.item()
+            
+            avg_val_loss = total_val_loss / len(val_loader)
+            val_losses.append(avg_val_loss)
+            
+            # Update LR scheduler
+            scheduler.step(avg_val_loss)
+            
+            # Record epoch time
+            epoch_time = time.time() - epoch_start
+            epoch_times.append(epoch_time)
+            total_train_time += epoch_time
+            
+            # Record memory usage
+            if device.startswith('cuda'):
+                memory_allocated = torch.cuda.memory_allocated(device) / (1024 * 1024)  # MB
+            else:
+                memory_allocated = psutil.Process(os.getpid()).memory_info().rss / (1024 * 1024)  # MB
+                
+            epoch_memory_usage.append(memory_allocated)
+            
+            # Check for convergence
+            if avg_val_loss < best_val_loss:
+                best_val_loss = avg_val_loss
+                epochs_without_improvement = 0
+            else:
+                epochs_without_improvement += 1
+                
+            if convergence_epoch is None and epochs_without_improvement >= 5:
+                convergence_epoch = epoch + 1
+            
+            # Write epoch metrics to log
+            f.write(f"{epoch+1:^6}|{avg_train_loss:^12.6f}|{avg_val_loss:^12.6f}|{epoch_time:^10.2f}|{memory_allocated:^12.2f}\n")
+            
+            # Print epoch summary if verbose
+            if verbose:
+                current_lr = optimizer.param_groups[0]['lr']
+                print(f"\nEpoch [{epoch+1}/{epochs}] | Train Loss: {avg_train_loss:.6f} | Val Loss: {avg_val_loss:.6f} | LR: {current_lr:.2e}")
+                print(f"Time: {epoch_time:.2f}s | Mem: {memory_allocated:.2f} MB")
+            
+            # Early stopping check
+            early_stopping(avg_val_loss)
+            if early_stopping.early_stop:
+                if verbose:
+                    print("\nEarly stopping triggered")
+                break
+        
+        # Training summary
+        avg_epoch_time = sum(epoch_times) / len(epoch_times) if epoch_times else 0
+        f.write(f"\nTraining Summary:\n")
+        f.write(f"Total Training Time: {total_train_time:.2f} seconds\n")
+        f.write(f"Average Time per Epoch: {avg_epoch_time:.2f} seconds\n")
+        f.write(f"Best Validation Loss: {best_val_loss:.6f}\n")
+        
+        if convergence_epoch:
+            f.write(f"Convergence detected at epoch {convergence_epoch}\n")
         
         # Model evaluation on test set
         f.write(f"\n{'-'*80}\n")
@@ -337,6 +441,10 @@ def benchmark_architectures(models: List[Dict[str, Any]],
         model_name = model_config['name']
         model = model_config['model']
         
+        # Determine device to use
+        device = 'cuda' if torch.cuda.is_available() else 'mps' if (hasattr(torch.backends, 'mps') and torch.backends.mps.is_available()) else 'cpu'
+        model = model.to(device)
+        
         # Clear separator between models
         print(f"\n{'=' * 80}")
         print(f"[{i}/{total_models}] BENCHMARKING: {model_name}")
@@ -345,6 +453,7 @@ def benchmark_architectures(models: List[Dict[str, Any]],
         # Display parameter count
         param_count = sum(p.numel() for p in model.parameters() if p.requires_grad)
         print(f"Model parameters: {param_count:,}")
+        print(f"Using device: {device}")
         
         # Record start time for this model
         model_start = time.time()

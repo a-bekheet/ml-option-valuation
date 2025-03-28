@@ -219,9 +219,9 @@ def get_model_class_from_name(model_name, HybridRNNModel, GRUGRUModel, LSTMLSTMM
         return HybridRNNModel, "LSTM-GRU"
         
 def load_model(model_path, model_class, input_size, 
-               hidden_size_lstm=128, hidden_size_gru=128, 
-               hidden_size_lstm1=128, hidden_size_lstm2=128,
-               hidden_size_gru1=128, hidden_size_gru2=128,
+               hidden_size_lstm=64, hidden_size_gru=64,  # Change from 128 to 64
+               hidden_size_lstm1=64, hidden_size_lstm2=64,  # Change from 128 to 64
+               hidden_size_gru1=64, hidden_size_gru2=64,  # Change from 128 to 64
                num_layers=2, output_size=1):
     """
     Load a saved model with proper architecture class.
@@ -380,7 +380,6 @@ def recover_original_values(normalized_values: np.ndarray,
             original_values[:, i] = normalized_values[:, i] * scale + mean
     
     return original_values
-
 def visualize_predictions(y_true: np.ndarray, 
                          y_pred: np.ndarray, 
                          target_cols: List[str],
@@ -425,9 +424,45 @@ def visualize_predictions(y_true: np.ndarray,
     if scaling_params:
         y_true_original = recover_original_values(y_true_np, target_cols, scaling_params)
         y_pred_original = recover_original_values(y_pred_np, target_cols, scaling_params)
+        
+        # Add debugging for recovery process
+        print("\n=== RECOVERY PROCESS DEBUG INFO ===")
+        print(f"Recovery for {y_true_np.shape[0]} samples and {len(target_cols)} target columns")
+        
+        # Print a sample of before/after recovery
+        sample_size = min(3, y_true_np.shape[0])
+        for i in range(sample_size):
+            print(f"\nSample {i+1}:")
+            for j, col in enumerate(target_cols):
+                norm_true = y_true_np[i, j] if len(y_true_np.shape) > 1 else y_true_np[i]
+                norm_pred = y_pred_np[i, j] if len(y_pred_np.shape) > 1 else y_pred_np[i]
+                
+                orig_true = y_true_original[i, j] if len(y_true_original.shape) > 1 else y_true_original[i]
+                orig_pred = y_pred_original[i, j] if len(y_pred_original.shape) > 1 else y_pred_original[i]
+                
+                print(f"  {col}: normalized [true={norm_true:.6f}, pred={norm_pred:.6f}] → "
+                      f"original [true={orig_true:.6f}, pred={orig_pred:.6f}]")
+                
+                # Double-check the recovery calculation
+                if col in scaling_params:
+                    mean = scaling_params[col].get('mean', 0)
+                    scale = scaling_params[col].get('scale', 1)
+                    manual_true = norm_true * scale + mean
+                    manual_pred = norm_pred * scale + mean
+                    
+                    # Check if our manual calculation matches the function's output
+                    true_match = np.isclose(manual_true, orig_true)
+                    pred_match = np.isclose(manual_pred, orig_pred)
+                    
+                    if not true_match or not pred_match:
+                        print(f"    WARNING: Recovery mismatch!")
+                        print(f"    Manual calculation: true={manual_true:.6f}, pred={manual_pred:.6f}")
+                        print(f"    Function output:   true={orig_true:.6f}, pred={orig_pred:.6f}")
+                        print(f"    Scaling parameters: mean={mean}, scale={scale}")
     else:
         y_true_original = y_true_np
         y_pred_original = y_pred_np
+    
     
     # Create visualizations for each target column
     plot_files = {}
@@ -567,8 +602,78 @@ def run_existing_model_with_visualization(
             try:
                 scaling_params = load_scaling_params(dataset.ticker, data_dir)
                 print(f"\nLoaded scaling parameters for {dataset.ticker} for visualization with original values")
+                
+                # Debug scaling parameters
+                print("\n=== SCALING PARAMETERS DEBUG INFO ===")
+                # Print all available target columns in the scaling params
+                all_available_cols = list(scaling_params.keys())
+                print(f"All columns available in scaling parameters: {all_available_cols}")
+                
+                # Check each target column
+                for col in target_cols:
+                    if col in scaling_params:
+                        print(f"Scaling params for {col}: mean={scaling_params[col].get('mean', 'MISSING')}, "
+                              f"scale={scaling_params[col].get('scale', 'MISSING')}")
+                    else:
+                        print(f"WARNING: No scaling parameters found for column '{col}'")
+                
             except FileNotFoundError:
                 print(f"\nScaling parameters not found for {dataset.ticker}. Using normalized values for visualization.")
+        
+        # Add debugging for prediction values before visualization
+        print("\n=== PREDICTION VALUES DEBUG INFO ===")
+        # Convert to numpy for consistent handling
+        y_true_np = np.array(all_y_true)
+        y_pred_np = np.array(all_y_pred)
+
+        # Ensure arrays are 2D for consistent indexing
+        if len(y_true_np.shape) == 1:
+            y_true_np = y_true_np.reshape(-1, 1)
+        if len(y_pred_np.shape) == 1:
+            y_pred_np = y_pred_np.reshape(-1, 1)
+
+        # Print statistics about the normalized predictions
+        print("Normalized prediction statistics:")
+        for i, col in enumerate(target_cols):
+            mean_true = np.mean(y_true_np[:, i])
+            std_true = np.std(y_true_np[:, i])
+            min_true = np.min(y_true_np[:, i])
+            max_true = np.max(y_true_np[:, i])
+            
+            mean_pred = np.mean(y_pred_np[:, i])
+            std_pred = np.std(y_pred_np[:, i])
+            min_pred = np.min(y_pred_np[:, i])
+            max_pred = np.max(y_pred_np[:, i])
+            
+            print(f"\nColumn: {col}")
+            print(f"  True - mean: {mean_true:.6f}, std: {std_true:.6f}, min: {min_true:.6f}, max: {max_true:.6f}")
+            print(f"  Pred - mean: {mean_pred:.6f}, std: {std_pred:.6f}, min: {min_pred:.6f}, max: {max_pred:.6f}")
+
+        # Check a few samples
+        print("\nSample of normalized predictions (first 5):")
+        for i in range(min(5, len(y_pred_np))):
+            true_values = y_true_np[i]
+            pred_values = y_pred_np[i]
+            print(f"  Sample {i+1}:")
+            for j, col in enumerate(target_cols):
+                print(f"    {col} - True: {true_values[j]:.6f}, Pred: {pred_values[j]:.6f}")
+
+        # Try recovery ourselves to double check
+        if scaling_params:
+            print("\nManually recovered values (sample):")
+            for i in range(min(5, len(y_pred_np))):
+                true_values = y_true_np[i]
+                pred_values = y_pred_np[i]
+                print(f"  Sample {i+1}:")
+                for j, col in enumerate(target_cols):
+                    if col in scaling_params:
+                        mean = scaling_params[col].get('mean', 0)
+                        scale = scaling_params[col].get('scale', 1)
+                        true_orig = true_values[j] * scale + mean
+                        pred_orig = pred_values[j] * scale + mean
+                        print(f"    {col} - True: {true_orig:.6f}, Pred: {pred_orig:.6f}")
+                    else:
+                        print(f"    {col} - MISSING SCALING PARAMETERS")
         
         # Create visualizations
         viz_files = visualize_predictions(
@@ -1155,3 +1260,61 @@ def handle_benchmark_architectures(config, HybridRNNModel, GRUGRUModel, LSTMLSTM
     except Exception as e:
         logging.error(f"Error during architecture benchmarking: {str(e)}")
         print(f"\n❌ Error: {str(e)}")
+
+def debug_scaling_parameters(ticker: str, data_dir: str) -> None:
+    """
+    Debug function to examine scaling parameters file for a specific ticker.
+    
+    Args:
+        ticker: Ticker symbol
+        data_dir: Data directory path
+    """
+    try:
+        # Try different possible paths
+        possible_paths = [
+            os.path.join(data_dir, 'by_ticker', 'scaling_params', f"{ticker}_scaling_params.json"),
+            os.path.join(data_dir, 'scaling_params', f"{ticker}_scaling_params.json"),
+            os.path.join(data_dir, f"{ticker}_scaling_params.json")
+        ]
+        
+        found = False
+        for path in possible_paths:
+            if os.path.exists(path):
+                print(f"\nFound scaling parameters at: {path}")
+                with open(path, 'r') as f:
+                    params = json.load(f)
+                
+                # Print target column parameters if they exist
+                target_cols = ['bid', 'ask']  # Adjust as needed
+                for col in target_cols:
+                    if col in params:
+                        print(f"Parameters for {col}: {params[col]}")
+                    else:
+                        print(f"Column {col} not found in parameters")
+                
+                # Print a sample of 5 columns
+                print("\nSample of scaling parameters (5 columns):")
+                for i, (col, values) in enumerate(params.items()):
+                    if i >= 5:
+                        break
+                    print(f"  {col}: {values}")
+                
+                found = True
+                break
+        
+        if not found:
+            print("\nNo scaling parameters file found at any of these locations:")
+            for path in possible_paths:
+                print(f"  - {path}")
+            
+            # Check directory structure
+            parent_dir = os.path.dirname(possible_paths[0])
+            if os.path.exists(parent_dir):
+                print(f"\nContents of directory {parent_dir}:")
+                for item in os.listdir(parent_dir):
+                    print(f"  - {item}")
+            else:
+                print(f"\nDirectory does not exist: {parent_dir}")
+                
+    except Exception as e:
+        print(f"Error examining scaling parameters: {str(e)}")

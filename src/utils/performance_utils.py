@@ -13,6 +13,7 @@ from tqdm import tqdm
 import pandas as pd
 from utils.visualization_utils import plot_predictions
 from torch.utils.data import DataLoader
+from utils.model_utils import EarlyStopping
 
 def calculate_directional_accuracy(y_true: np.ndarray, y_pred: np.ndarray) -> float:
     """
@@ -223,12 +224,11 @@ def track_performance(model, train_loader, val_loader, test_loader,
             total_train_time += epoch_time
             
             # Record memory usage
-            if device.startswith('cuda'):
+            # Record memory usage
+            if str(device).startswith('cuda'):
                 memory_allocated = torch.cuda.memory_allocated(device) / (1024 * 1024)  # MB
             else:
                 memory_allocated = psutil.Process(os.getpid()).memory_info().rss / (1024 * 1024)  # MB
-                
-            epoch_memory_usage.append(memory_allocated)
             
             # Check for convergence
             if avg_val_loss < best_val_loss:

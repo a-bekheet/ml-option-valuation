@@ -1,5 +1,6 @@
 # src/data_preprocessing/greeks_calculator.py
 
+import traceback
 from typing import Optional
 import numpy as np
 import pandas as pd
@@ -152,86 +153,161 @@ def calculate_greeks_bs(df: pd.DataFrame, option_type_col: Optional[str] = None)
 def add_risk_free_rate(df: pd.DataFrame, rate_file: str, date_col: str = 'quoteDate') -> pd.DataFrame:
     """
     Loads risk-free rate data, merges it with the main DataFrame, and interpolates missing values.
+    Handles variations in column names for DATE and RATE columns in the rate file.
 
     Args:
         df (pd.DataFrame): Main options DataFrame.
         rate_file (str): Path to the CSV file containing risk-free rates (e.g., DGS10.csv).
-                         Expected columns: 'DATE', 'DGS10' (or similar rate column).
         date_col (str): The date column in the main DataFrame to merge on.
 
     Returns:
         pd.DataFrame: DataFrame with 'risk_free_rate' column added and interpolated.
     """
-    logging.info(f"Loading risk-free rates from: {rate_file}")
+    logging.info(f"Attempting to load risk-free rates from: {rate_file}")
     try:
         rates_df = pd.read_csv(rate_file)
-        # Find the rate column (assuming it's the second column if not named DGS10)
-        rate_col_name = 'DGS10'
-        if rate_col_name not in rates_df.columns:
-             if len(rates_df.columns) > 1:
-                  rate_col_name = rates_df.columns[1]
-                  logging.warning(f"'DGS10' column not found in rate file. Using column '{rate_col_name}' instead.")
+        logging.info(f"Successfully loaded rate file. Columns found: {rates_df.columns.tolist()}")
+
+        if rates_df.empty:
+            raise ValueError("Risk-free rate file is empty.")
+        if len(rates_df.columns) < 2:
+            raise ValueError(f"Risk-free rate file expected at least 2 columns, found {len(rates_df.columns)}.")
+
+        # --- More Robust Column Identification ---
+        date_col_name_in_rates_file = None
+        rate_col_name_in_rates_file = None
+        available_cols = [col.strip() for col in rates_df.columns] # Strip spaces from names
+
+        # Try finding Date Column (case-insensitive, check specific names first)
+        potential_date_names = ['observation_date', 'DATE', 'Date', 'date']
+        for name in potential_date_names:
+            for col in available_cols:
+                if col.upper() == name.upper():
+                    date_col_name_in_rates_file = col
+                    logging.info(f"Identified date column: '{date_col_name_in_rates_file}'")
+                    break
+            if date_col_name_in_rates_file: break
+
+        # Fallback to first column if not found by name
+        if not date_col_name_in_rates_file:
+             date_col_name_in_rates_file = available_cols[0]
+             logging.warning(f"Using first column '{date_col_name_in_rates_file}' as date column.")
+
+        # Try finding Rate Column (case-insensitive, check specific names first)
+        potential_rate_names = ['DGS10', 'Rate', 'Value', 'rate_value']
+        for name in potential_rate_names:
+             for col in available_cols:
+                 # Ensure it's not the date column we already found
+                 if col.upper() == name.upper() and col != date_col_name_in_rates_file:
+                     rate_col_name_in_rates_file = col
+                     logging.info(f"Identified rate column: '{rate_col_name_in_rates_file}'")
+                     break
+             if rate_col_name_in_rates_file: break
+
+        # Fallback to second column if not found by name
+        if not rate_col_name_in_rates_file:
+             if len(available_cols) > 1 and available_cols[1] != date_col_name_in_rates_file:
+                 rate_col_name_in_rates_file = available_cols[1]
+                 logging.warning(f"Using second column '{rate_col_name_in_rates_file}' as rate column.")
              else:
-                  raise ValueError("Rate file does not contain a recognizable rate column.")
+                 raise ValueError("Could not reliably identify distinct date and rate columns in the rate file.")
 
-        logging.info(f"Using rate column: '{rate_col_name}'")
+        # --- End Column Identification ---
 
-        # Rename columns for clarity and consistency
-        rates_df = rates_df[['DATE', rate_col_name]].rename(columns={'DATE': 'rate_date', rate_col_name: 'rate_value'})
+        # **Debug Log**: Log identified names before selection
+        logging.debug(f"Attempting to select using date='{date_col_name_in_rates_file}' and rate='{rate_col_name_in_rates_file}'")
+
+        # Select and rename using the identified column names
+        rates_df_renamed = rates_df[[date_col_name_in_rates_file, rate_col_name_in_rates_file]].rename(columns={
+            date_col_name_in_rates_file: 'rate_date',
+            rate_col_name_in_rates_file: 'rate_value'
+        })
 
         # Convert date columns to datetime objects
-        rates_df['rate_date'] = pd.to_datetime(rates_df['rate_date'])
+        rates_df_renamed['rate_date'] = pd.to_datetime(rates_df_renamed['rate_date'], errors='coerce')
         if not pd.api.types.is_datetime64_any_dtype(df[date_col]):
-             df[date_col] = pd.to_datetime(df[date_col])
+             df[date_col] = pd.to_datetime(df[date_col], errors='coerce')
+
+        # Drop rows where date conversion failed
+        rates_df_renamed = rates_df_renamed.dropna(subset=['rate_date'])
+        df = df.dropna(subset=[date_col])
+        logging.debug(f"Rows after dropping invalid dates - Rates DF: {len(rates_df_renamed)}, Main DF: {len(df)}")
+
 
         # Convert rate value to numeric, coercing errors (like '.') to NaN
-        rates_df['rate_value'] = pd.to_numeric(rates_df['rate_value'], errors='coerce')
+        rates_df_renamed['rate_value'] = pd.to_numeric(rates_df_renamed['rate_value'], errors='coerce')
+        nan_rates_count = rates_df_renamed['rate_value'].isna().sum()
+        if nan_rates_count > 0:
+            logging.warning(f"Found {nan_rates_count} non-numeric rate values (e.g., '.') in rate file. Coerced to NaN and dropping these rows.")
+            rates_df_renamed = rates_df_renamed.dropna(subset=['rate_value']) # Drop rows with NaN rates before processing
+
+        # Check if rates_df is empty after dropping NaNs
+        if rates_df_renamed.empty:
+            raise ValueError("Rate data became empty after handling invalid dates/values.")
 
         # Convert rate from percentage to decimal
-        rates_df['risk_free_rate'] = rates_df['rate_value'] / 100.0
+        max_rate = rates_df_renamed['rate_value'].max()
+        if max_rate > 1.0: # Check if rates look like percentages
+             logging.info(f"Max rate value is {max_rate}. Assuming rates are percentages, dividing by 100.")
+             rates_df_renamed['risk_free_rate'] = rates_df_renamed['rate_value'] / 100.0
+        else:
+             logging.info(f"Max rate value is {max_rate}. Assuming rates are already decimals.")
+             rates_df_renamed['risk_free_rate'] = rates_df_renamed['rate_value']
 
-        # Sort both dataframes by date before merging/interpolating
+        # Sort both dataframes by date before merging
         df = df.sort_values(by=date_col)
-        rates_df = rates_df.sort_values(by='rate_date')
+        rates_df_renamed = rates_df_renamed.sort_values(by='rate_date').drop_duplicates(subset=['rate_date'], keep='first')
 
-        # Merge rates - use merge_asof for nearest date matching (allow backward fill)
-        logging.info(f"Merging risk-free rates based on '{date_col}' using merge_asof.")
+        # Merge rates using merge_asof
+        logging.info(f"Merging risk-free rates onto main DataFrame using {date_col}...")
         merged_df = pd.merge_asof(
             df,
-            rates_df[['rate_date', 'risk_free_rate']],
+            rates_df_renamed[['rate_date', 'risk_free_rate']],
             left_on=date_col,
             right_on='rate_date',
-            direction='backward' # Find the latest rate on or before the quote date
+            direction='backward',
+            tolerance=pd.Timedelta(days=7) # Look back up to 7 days for a rate
         )
+        logging.debug(f"Shape after merge_asof: {merged_df.shape}")
 
-        # Check how many rates were initially missing
+        # Interpolate and fill remaining missing rates
         initial_missing = merged_df['risk_free_rate'].isna().sum()
         if initial_missing > 0:
-            logging.warning(f"Found {initial_missing} rows with missing risk-free rates after merge_asof.")
-            # Attempt interpolation (linear) - requires sorted data
+            logging.warning(f"{initial_missing} rows initially missing risk-free rate after merge_asof.")
+            logging.info("Attempting linear interpolation...")
             merged_df['risk_free_rate'] = merged_df['risk_free_rate'].interpolate(method='linear')
-            final_missing = merged_df['risk_free_rate'].isna().sum()
-            logging.info(f"Interpolated missing rates. Remaining missing: {final_missing}")
-            if final_missing > 0:
-                 # If still missing (likely at the beginning), forward fill
+            interpolated_missing = merged_df['risk_free_rate'].isna().sum()
+            logging.info(f"Missing after interpolation: {interpolated_missing}")
+            if interpolated_missing > 0:
+                 logging.info("Applying ffill and bfill for remaining gaps...")
                  merged_df['risk_free_rate'] = merged_df['risk_free_rate'].ffill()
-                 # And backward fill for any remaining at the very start
                  merged_df['risk_free_rate'] = merged_df['risk_free_rate'].bfill()
-                 logging.info(f"Applied ffill/bfill. Final missing rates: {merged_df['risk_free_rate'].isna().sum()}")
+                 final_missing = merged_df['risk_free_rate'].isna().sum()
+                 logging.info(f"Final missing rates: {final_missing}")
+                 if final_missing > 0:
+                      # If still missing, maybe fill with a global average or a default?
+                      global_avg_rate = merged_df['risk_free_rate'].mean() # Calculate average from non-missing
+                      logging.warning(f"Filling {final_missing} remaining missing rates with global average: {global_avg_rate:.4f}")
+                      merged_df['risk_free_rate'].fillna(global_avg_rate, inplace=True)
+                      # Or raise an error if rates are critical:
+                      # raise ValueError(f"{final_missing} risk-free rates could not be determined.")
         else:
-             logging.info("No missing risk-free rates after merge_asof.")
+             logging.info("No missing risk-free rates found after merge_asof.")
 
         # Drop the temporary rate_date column
         if 'rate_date' in merged_df.columns:
              merged_df = merged_df.drop(columns=['rate_date'])
 
+        logging.info("Finished adding risk-free rate.")
         return merged_df
 
     except FileNotFoundError:
         logging.error(f"Risk-free rate file not found: {rate_file}")
         raise
     except Exception as e:
-        logging.error(f"Error processing risk-free rate file: {str(e)}")
-        # Add NaN column if processing fails
+        logging.error(f"Error processing risk-free rate file '{rate_file}': {str(e)}")
+        logging.error(traceback.format_exc())
+        # Add NaN column and return if error occurs, allows pipeline to potentially continue
+        logging.warning("Adding 'risk_free_rate' column with NaNs due to processing error.")
         df['risk_free_rate'] = np.nan
         return df

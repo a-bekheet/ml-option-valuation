@@ -14,157 +14,151 @@ def extract_ticker_from_symbol(symbol_series: pd.Series) -> pd.Series:
     Handles potential errors gracefully.
     """
     def _extract(symbol):
-        # Extract ticker from contractSymbol (e.g., 'AAPL220218C00150000' -> 'AAPL')
-        # Make sure symbol is a string before applying regex
-        if pd.isna(symbol):
-            return None
+        if pd.isna(symbol): return None
         match = re.match(r'^([A-Z]+)', str(symbol))
         return match.group(1) if match else None
-
     return symbol_series.apply(_extract)
 
 def adjust_for_stock_splits(
     data_path: str,
     output_path: Optional[str] = None,
-    return_dataframe: bool = False # Changed default to False as pipeline uses files
+    return_dataframe: bool = False
 ) -> Optional[pd.DataFrame]:
     """
     Adjust stock and option data for historical stock splits.
-    Now includes ticker extraction if 'ticker' column is missing.
+    Includes ticker extraction and enhanced debugging.
 
     Args:
-        data_path: Path to input CSV file (expects 'contractSymbol' if 'ticker' missing).
-        output_path: Path to output CSV file (default: input filename with '_split_adjusted' suffix).
+        data_path: Path to input CSV file.
+        output_path: Path to output CSV file.
         return_dataframe: Whether to return the adjusted DataFrame.
 
     Returns:
         Adjusted DataFrame if return_dataframe is True, otherwise None.
     """
     logging.info(f"Starting stock split adjustment for: {data_path}")
-    # Set output path if not provided
     if output_path is None:
         output_path = data_path.replace('.csv', '_split_adjusted.csv')
 
-    # Manually verified splits with exact ratios
+    # Verified splits (same as before)
     verified_splits = {
         'AMZN': {'date': '2022-06-06', 'ratio': 20.0, 'type': 'forward'},
         'GOOGL': {'date': '2022-07-18', 'ratio': 20.0, 'type': 'forward'},
         'TSLA': {'date': '2022-08-25', 'ratio': 3.0, 'type': 'forward'},
         'SHOP': {'date': '2022-07-04', 'ratio': 10.0, 'type': 'forward'},
-        'CGC': {'date': '2023-12-20', 'ratio': 10.0, 'type': 'reverse'} # 1:10 reverse
+        'CGC': {'date': '2023-12-20', 'ratio': 10.0, 'type': 'reverse'}
     }
-
-    # Features to adjust
-    price_features = [
+    price_features = [ # Same as before
         'strike', 'lastPrice', 'bid', 'ask', 'change',
-        'stockClose', 'stockOpen', 'stockHigh', 'stockLow', 'stockAdjClose', # Added stockAdjClose
+        'stockClose', 'stockOpen', 'stockHigh', 'stockLow', 'stockAdjClose',
         'strikeDelta', 'stockClose_ewm_5d', 'stockClose_ewm_15d',
         'stockClose_ewm_45d', 'stockClose_ewm_135d'
     ]
-    volume_features = ['volume', 'openInterest', 'stockVolume']
+    volume_features = ['volume', 'openInterest', 'stockVolume'] # Same as before
 
     try:
-        # Load data
         logging.info("Loading data for split adjustment...")
         df = pd.read_csv(data_path)
-        logging.info(f"Loaded {len(df)} rows.")
+        logging.info(f"Loaded {len(df)} rows. Columns: {df.columns.tolist()}")
 
-        # --- NEW: Check for 'ticker' column and extract if missing ---
+        # --- Ensure 'ticker' Column Exists ---
         if 'ticker' not in df.columns:
-            logging.warning("'ticker' column not found. Attempting to extract from 'contractSymbol'.")
+            logging.warning("'ticker' column not found. Attempting extraction from 'contractSymbol'.")
             if 'contractSymbol' in df.columns:
                 df['ticker'] = extract_ticker_from_symbol(df['contractSymbol'])
                 missing_tickers = df['ticker'].isna().sum()
                 if missing_tickers > 0:
-                    logging.warning(f"Could not extract ticker for {missing_tickers} rows from 'contractSymbol'. These rows may not be adjusted.")
-                df.dropna(subset=['ticker'], inplace=True) # Drop rows where ticker couldn't be extracted
-                logging.info("Added 'ticker' column based on 'contractSymbol'.")
+                    logging.warning(f"Could not extract ticker for {missing_tickers} rows. Dropping these rows.")
+                    df.dropna(subset=['ticker'], inplace=True) # Drop rows where ticker is NaN after extraction
+                if df.empty:
+                     logging.error("DataFrame became empty after dropping rows with unextractable tickers.")
+                     df.to_csv(output_path, index=False) # Save empty file
+                     return df if return_dataframe else None
+                logging.info("Added 'ticker' column. Value counts (sample):\n" + df['ticker'].value_counts().head().to_string())
             else:
-                logging.error("'ticker' and 'contractSymbol' columns both missing. Cannot perform split adjustments.")
-                # Save unchanged data and exit or raise error
+                logging.error("'ticker' and 'contractSymbol' columns missing. Cannot perform split adjustments.")
                 df.to_csv(output_path, index=False)
                 return df if return_dataframe else None
-        # --- END NEW ---
+        else:
+             logging.info("'ticker' column already exists.")
+        # --- End Ticker Check ---
 
-
-        # Convert date columns (ensure this runs AFTER loading)
+        # Convert date columns
         date_columns = ['lastTradeDate', 'quoteDate', 'expiryDate']
         for col in date_columns:
             if col in df.columns:
-                 try:
-                      df[col] = pd.to_datetime(df[col], errors='coerce')
-                 except Exception as e:
-                      logging.warning(f"Could not convert column '{col}' to datetime: {e}")
+                df[col] = pd.to_datetime(df[col], errors='coerce')
+        df = df.dropna(subset=['quoteDate']) # Drop rows if quoteDate is invalid after conversion
 
-
-        # Create copy for adjustment
         df_adjusted = df.copy()
 
-        # Convert numeric columns to float64 for adjustment precision
+        # Convert numeric features to float64
         numeric_features_to_adjust = price_features + volume_features
         for col in numeric_features_to_adjust:
             if col in df_adjusted.columns:
                 df_adjusted[col] = pd.to_numeric(df_adjusted[col], errors='coerce').astype('float64')
 
-        # Process each split
         logging.info("Processing defined stock splits...")
         total_adjusted_records = 0
+        # **Extra Debug**: Check columns *before* the loop
+        logging.debug(f"Columns in df_adjusted before split loop: {df_adjusted.columns.tolist()}")
+        if 'ticker' not in df_adjusted.columns:
+             logging.error("FATAL: 'ticker' column disappeared before split loop!")
+             raise KeyError("Ticker column missing unexpectedly before processing splits.")
+
         for ticker, split_info in verified_splits.items():
-            logging.debug(f"Processing split for {ticker} on {split_info['date']}")
             split_date = pd.to_datetime(split_info['date'])
             split_ratio = split_info['ratio']
             split_type = split_info['type']
+            logging.debug(f"Processing split for {ticker}...")
 
-            # Get pre-split data mask using the 'ticker' column (now guaranteed to exist or skipped)
-            # Also ensure quoteDate is valid datetime for comparison
-            if 'quoteDate' not in df_adjusted.columns or df_adjusted['quoteDate'].isna().all():
-                 logging.warning(f"Skipping split adjustment for {ticker}: 'quoteDate' column missing or empty.")
-                 continue
+            # **Extra Debug**: Confirm 'ticker' column exists right before filtering
+            if 'ticker' not in df_adjusted.columns:
+                 logging.error(f"FATAL: 'ticker' column missing just before processing {ticker}!")
+                 raise KeyError(f"Ticker column missing unexpectedly when processing {ticker}.")
 
-            ticker_mask = df_adjusted['ticker'] == ticker
-            # Ensure date comparison works by handling potential NaT dates
+            # Filter pre-split rows for the current ticker
+            try:
+                 # This is the line that previously caused the error
+                 ticker_mask = df_adjusted['ticker'] == ticker
+            except KeyError as ke:
+                 logging.error(f"Still encountering KeyError for 'ticker' when processing {ticker}!")
+                 logging.error(f"Columns available at this point: {df_adjusted.columns.tolist()}")
+                 raise ke # Re-raise the error after logging
+
             pre_split_mask = ticker_mask & df_adjusted['quoteDate'].notna() & (df_adjusted['quoteDate'] < split_date)
             affected_records = pre_split_mask.sum()
 
-            if affected_records == 0:
-                logging.debug(f"No pre-split records found for {ticker} before {split_info['date']}. Skipping.")
-                continue
+            if affected_records == 0: continue
 
-            logging.info(f"Adjusting {affected_records} records for {ticker} split ({split_type}, ratio {split_ratio})")
+            logging.info(f"Adjusting {affected_records} records for {ticker} split...")
             total_adjusted_records += affected_records
-
-            # Apply adjustments based on split type
             adjustment_ratio = split_ratio if split_type == 'forward' else (1.0 / split_ratio)
 
-            # Adjust price features (Divide by ratio for forward, Multiply for reverse)
+            # Adjust price features
             for feature in price_features:
                 if feature in df_adjusted.columns:
                     mask = pre_split_mask & df_adjusted[feature].notna()
                     df_adjusted.loc[mask, feature] = df_adjusted.loc[mask, feature] / adjustment_ratio
 
-            # Adjust volume features (Multiply by ratio for forward, Divide for reverse)
+            # Adjust volume features
             for feature in volume_features:
                 if feature in df_adjusted.columns:
                     mask = pre_split_mask & df_adjusted[feature].notna()
-                    # Avoid division by zero if adjustment_ratio is somehow 0 (though unlikely)
                     if adjustment_ratio != 0:
                         df_adjusted.loc[mask, feature] = df_adjusted.loc[mask, feature] * adjustment_ratio
                     else:
-                         logging.warning(f"Skipping volume adjustment for {feature} due to zero adjustment ratio.")
+                        logging.warning(f"Skipping vol adjustment for {feature} (zero ratio).")
 
-
-        logging.info(f"Total records adjusted across all splits: {total_adjusted_records}")
-        # Save adjusted data
+        logging.info(f"Total records adjusted: {total_adjusted_records}")
         logging.info(f"Saving split-adjusted data to: {output_path}")
         df_adjusted.to_csv(output_path, index=False)
         logging.info("Split adjustment step complete.")
 
-        # Return dataframe if requested
-        if return_dataframe:
-            return df_adjusted
+        if return_dataframe: return df_adjusted
         return None
 
     except Exception as e:
          logging.error(f"Error during stock split adjustment: {e}")
-         logging.error(traceback.format_exc()) # Make sure traceback is imported
+         logging.error(traceback.format_exc())
          raise

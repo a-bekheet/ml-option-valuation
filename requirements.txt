@@ -1,5 +1,22 @@
-numpy
-tqdm
-pandas
-datetime
-yfinance
+# requirements.txt (Cleaned for Colab)
+
+# Core ML & Data Handling (with versions from your freeze)
+torch==2.5.1
+pandas==2.2.2
+numpy==1.26.4
+scikit-learn==1.6.1
+scipy==1.15.1
+
+# Visualization
+matplotlib==3.9.2
+seaborn==0.13.2
+
+# Utilities
+tqdm==4.67.0
+psutil # Version from freeze might be complex, let pip choose compatible one
+# yfinance==0.2.50 # Uncomment if you plan to run data retrieval scripts on Colab
+
+# Other potentially relevant dependencies seen (uncomment if needed)
+# requests==2.32.3
+# openpyxl # If pandas needs it for excel I/O (not seen)
+# lxml # If pandas needs it for XML/HTML I/O (not seen)

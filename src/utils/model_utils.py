@@ -780,7 +780,7 @@ def handle_train_model(config, HybridRNNModel, GRUGRUModel, LSTMLSTMModel,
                        get_available_tickers, select_ticker, StockOptionDataset):
     """
     Handle the model training workflow.
-    Prompts user for tracking, feature inclusion (Greeks, Rolling, Cyclical), architecture, and epochs.
+    Prompts user for tracking, feature inclusion, architecture, epochs, AND batch size.
     Uses paths and device settings from the config dictionary.
     """
     logging.info("Starting model training workflow...")
@@ -789,10 +789,12 @@ def handle_train_model(config, HybridRNNModel, GRUGRUModel, LSTMLSTMModel,
         data_dir = Path(config['data_dir'])
         models_dir = Path(config['models_dir'])
         performance_logs_dir = Path(config['performance_logs_dir'])
-        viz_dir = Path(config.get('viz_dir', models_dir / '../plots'))
+        viz_dir = Path(config.get('viz_dir', models_dir / '../plots')) # Use config viz_dir
         device = config.get('device', 'cpu')
+        default_batch_size = config.get('batch_size', 32) # Get default from config
 
         # --- User Inputs ---
+        selected_batch_size = default_batch_size # Initialize with default
         try:
             use_tracking = input("\nUse detailed performance tracking log? (y/n, default: y): ").lower().strip()
             use_tracking = not use_tracking.startswith('n')
@@ -806,11 +808,9 @@ def handle_train_model(config, HybridRNNModel, GRUGRUModel, LSTMLSTMModel,
             include_rolling_flag = not use_rolling_input.startswith('n')
             logging.info(f"Include Rolling Window features: {include_rolling_flag}")
 
-            # --- NEW: Prompt for Cyclical Features ---
             use_cyclical_input = input("Use Cyclical Date Features (sin/cos)? (y/n, default: y): ").lower().strip()
             include_cyclical_flag = not use_cyclical_input.startswith('n')
             logging.info(f"Include Cyclical Date Features: {include_cyclical_flag}")
-            # --- END NEW ---
 
             print("\nSelect model architecture:")
             print("1. LSTM-GRU Hybrid (default)")
@@ -831,12 +831,27 @@ def handle_train_model(config, HybridRNNModel, GRUGRUModel, LSTMLSTMModel,
             else: epochs = config.get('epochs', 20)
             logging.info(f"Number of epochs set to: {epochs}")
 
+            # --- ADD BATCH SIZE PROMPT ---
+            batch_size_input = input(f"Enter batch size (default: {default_batch_size}): ").strip()
+            if batch_size_input:
+                try:
+                    selected_batch_size = int(batch_size_input)
+                    assert selected_batch_size > 0
+                except (ValueError, AssertionError):
+                    selected_batch_size = default_batch_size # Fallback to default
+                    print(f"Invalid input. Using default batch size: {selected_batch_size}")
+            else:
+                selected_batch_size = default_batch_size # Use default if empty
+            logging.info(f"Using batch size: {selected_batch_size}")
+            # --- END BATCH SIZE PROMPT ---
+
         except EOFError:
              print("\nInput stream closed. Using default settings for training.")
              logging.warning("EOFError during input, using default training settings.")
-             use_tracking = True; include_greeks_flag = True; include_rolling_flag = True; include_cyclical_flag = True # Default cyclical to True
+             use_tracking = True; include_greeks_flag = True; include_rolling_flag = True; include_cyclical_flag = True
              architecture_type, SelectedModelClass = "LSTM-GRU", HybridRNNModel
              epochs = config.get('epochs', 20)
+             selected_batch_size = default_batch_size # Use default batch size on EOF
 
 
         # --- Data Preparation ---
@@ -858,7 +873,7 @@ def handle_train_model(config, HybridRNNModel, GRUGRUModel, LSTMLSTMModel,
              seq_len=config['seq_len'], target_cols=config['target_cols'],
              include_greeks=include_greeks_flag,
              include_rolling_features=include_rolling_flag,
-             include_cyclical_features=include_cyclical_flag, # <-- Pass new flag
+             include_cyclical_features=include_cyclical_flag,
              verbose=True
         )
         if len(dataset) < config['seq_len'] + 1: raise ValueError(f"Insufficient samples for {ticker}.")
@@ -867,24 +882,27 @@ def handle_train_model(config, HybridRNNModel, GRUGRUModel, LSTMLSTMModel,
         if dataset.n_features == 0: raise ValueError("Dataset has 0 features.")
 
 
-        # --- Data Splitting & Loaders (Keep MPS optimization) ---
+        # --- Data Splitting & Loaders ---
         total_len = len(dataset); train_len = int(0.80 * total_len); val_len = int(0.10 * total_len)
         if train_len==0 or val_len==0 or (total_len-train_len-val_len)<=0: raise ValueError(f"Dataset {ticker} too small for split.")
         indices = list(range(total_len)); train_ds = Subset(dataset, indices[:train_len])
         val_ds = Subset(dataset, indices[train_len:train_len+val_len]); test_ds = Subset(dataset, indices[train_len+val_len:])
-        batch_size = config.get('batch_size', 32)
-        dl_num_workers = 0 if device == 'mps' else (2 if device == 'cuda' else 0)
-        dl_pin_memory = False if device == 'mps' else (True if device == 'cuda' else False)
-        train_loader = DataLoader(train_ds, batch_size=batch_size, shuffle=True, pin_memory=dl_pin_memory, num_workers=dl_num_workers)
-        val_loader = DataLoader(val_ds, batch_size=batch_size, shuffle=False, pin_memory=dl_pin_memory, num_workers=dl_num_workers)
-        test_loader = DataLoader(test_ds, batch_size=batch_size, shuffle=False, pin_memory=dl_pin_memory, num_workers=dl_num_workers)
-        logging.info(f"DataLoaders created: Train={len(train_ds)}, Val={len(val_ds)}, Test={len(test_ds)} samples. Settings: workers={dl_num_workers}, pin_mem={dl_pin_memory}")
+
+        # Use the selected_batch_size here
+        dl_num_workers = 0 if device == 'mps' else (2 if device == 'cuda' else 0) # Keep existing worker logic
+        dl_pin_memory = False if device == 'mps' else (True if device == 'cuda' else False) # Keep existing pin_memory logic
+        train_loader = DataLoader(train_ds, batch_size=selected_batch_size, shuffle=True, pin_memory=dl_pin_memory, num_workers=dl_num_workers)
+        val_loader = DataLoader(val_ds, batch_size=selected_batch_size, shuffle=False, pin_memory=dl_pin_memory, num_workers=dl_num_workers)
+        test_loader = DataLoader(test_ds, batch_size=selected_batch_size, shuffle=False, pin_memory=dl_pin_memory, num_workers=dl_num_workers)
+        logging.info(f"DataLoaders created: Train={len(train_ds)}, Val={len(val_ds)}, Test={len(test_ds)} samples. BatchSize={selected_batch_size}, Workers={dl_num_workers}, PinMem={dl_pin_memory}")
+
 
         # --- Model Initialization ---
         model_input_size = dataset.n_features; model_output_size = dataset.n_targets
         num_layers_config = config.get('num_layers', 2); hidden_size_lstm = config.get('hidden_size_lstm', 64)
         hidden_size_gru = config.get('hidden_size_gru', 64)
         logging.info(f"Initializing {architecture_type} (In:{model_input_size}, Out:{model_output_size}, H_LSTM:{hidden_size_lstm}, H_GRU:{hidden_size_gru}, Layers:{num_layers_config}) on {device}")
+        # Model instantiation based on SelectedModelClass (same as before)
         if SelectedModelClass == HybridRNNModel: model = SelectedModelClass(input_size=model_input_size, hidden_size_lstm=hidden_size_lstm, hidden_size_gru=hidden_size_gru, num_layers=num_layers_config, output_size=model_output_size)
         elif SelectedModelClass == GRUGRUModel: model = SelectedModelClass(input_size=model_input_size, hidden_size_gru1=hidden_size_gru, hidden_size_gru2=hidden_size_gru, num_layers=num_layers_config, output_size=model_output_size)
         elif SelectedModelClass == LSTMLSTMModel: model = SelectedModelClass(input_size=model_input_size, hidden_size_lstm1=hidden_size_lstm, hidden_size_lstm2=hidden_size_lstm, num_layers=num_layers_config, output_size=model_output_size)
@@ -893,80 +911,107 @@ def handle_train_model(config, HybridRNNModel, GRUGRUModel, LSTMLSTMModel,
 
         # --- Architecture Analysis ---
         logging.info("Analyzing model architecture...")
-        from .model_utils import analyze_model_architecture # Ensure imported
-        model_analysis = analyze_model_architecture(model, input_size=model_input_size, seq_len=config['seq_len'])
-        logging.info(f"Model analysis complete: Total Params={model_analysis.get('total_parameters', 'N/A')}")
+        # Ensure analyze_model_architecture is imported or defined
+        try:
+             from .model_utils import analyze_model_architecture
+             model_analysis = analyze_model_architecture(model, input_size=model_input_size, seq_len=config['seq_len'], batch_size=selected_batch_size) # Pass selected batch size
+             logging.info(f"Model analysis complete: Total Params={model_analysis.get('total_parameters', 'N/A')}")
+        except ImportError:
+             logging.error("Could not import analyze_model_architecture. Skipping analysis.")
+             model_analysis = None
+        except Exception as analysis_err:
+             logging.error(f"Error during model analysis: {analysis_err}")
+             model_analysis = None
 
 
         # --- Training ---
         history = None; log_path = None; lr = config.get('lr', 1e-3)
         if use_tracking:
             logging.info("Starting training with performance tracking...")
-            from .performance_utils import extended_train_model_with_tracking # Ensure imported
-            model, history, log_path = extended_train_model_with_tracking(
-                model=model, train_loader=train_loader, val_loader=val_loader, test_loader=test_loader,
-                epochs=epochs, lr=lr, device=device, ticker=ticker,
-                architecture_name=architecture_type, target_cols=config['target_cols'],
-                used_features=features_used_in_run,
-                model_analysis_dict=model_analysis,
-                performance_logs_dir=str(performance_logs_dir),
-                # --- Pass new flag ---
-                include_greeks=include_greeks_flag,
-                include_rolling=include_rolling_flag,
-                include_cyclical=include_cyclical_flag
-            )
-            if log_path: print(f"\nPerformance log saved to: {log_path}")
-        else: # Standard training
-             logging.info("Starting standard training...")
-             from .model_utils import train_model, calculate_errors # Ensure imported
-             train_losses, val_losses = train_model( model=model, train_loader=train_loader, val_loader=val_loader, epochs=epochs, lr=lr, device=device )
-             history = {'train_losses': train_losses, 'val_losses': val_losses}
-             # Standard evaluation logic... (remains the same)
-             logging.info("Standard training complete. Evaluating on test set...")
-             model.eval(); all_y_true = []; all_y_pred = []
-             with torch.no_grad():
-                  for x_seq, y_val in tqdm(test_loader, desc="Testing", leave=False):
-                       x_seq, y_val = x_seq.to(device), y_val.to(device)
-                       y_pred = model(x_seq)
-                       all_y_true.extend(y_val.cpu().numpy())
-                       all_y_pred.extend(y_pred.cpu().numpy())
-             if all_y_true and all_y_pred:
-                 errors = calculate_errors(torch.tensor(all_y_true), torch.tensor(all_y_pred))
-                 print("\nFinal Test Set Metrics:"); print("-" * 50)
-                 print(f"MSE: {errors.get('mse', np.nan):.6f}"); print(f"RMSE: {errors.get('rmse', np.nan):.6f}")
-                 print(f"MAE: {errors.get('mae', np.nan):.6f}"); print(f"MAPE: {errors.get('mape', np.nan):.2f}%")
-                 history['test_metrics'] = errors
-             else: logging.warning("No test results generated.")
-             history['y_true'] = all_y_true; history['y_pred'] = all_y_pred
+            # Ensure extended_train_model_with_tracking is imported/available
+            try:
+                 from .performance_utils import extended_train_model_with_tracking
+                 model, history, log_path = extended_train_model_with_tracking(
+                     model=model, train_loader=train_loader, val_loader=val_loader, test_loader=test_loader,
+                     epochs=epochs, lr=lr, device=device, ticker=ticker,
+                     architecture_name=architecture_type, target_cols=config['target_cols'],
+                     used_features=features_used_in_run,
+                     model_analysis_dict=model_analysis,
+                     performance_logs_dir=str(performance_logs_dir),
+                     include_greeks=include_greeks_flag,
+                     include_rolling=include_rolling_flag,
+                     include_cyclical=include_cyclical_flag
+                 )
+                 if log_path: print(f"\nPerformance log saved to: {log_path}")
+            except ImportError:
+                 logging.error("Could not import extended_train_model_with_tracking. Training skipped.")
+                 history = None # Ensure history is None if tracking failed
+            except Exception as track_err:
+                 logging.error(f"Error during tracked training: {track_err}")
+                 history = None
+
+        else: # Standard training (if tracking not used or failed)
+             if history is None: # Check if training needs to run
+                 logging.info("Starting standard training...")
+                 # Ensure train_model and calculate_errors are imported/available
+                 try:
+                      from .model_utils import train_model, calculate_errors
+                      train_losses, val_losses = train_model( model=model, train_loader=train_loader, val_loader=val_loader, epochs=epochs, lr=lr, device=device )
+                      history = {'train_losses': train_losses, 'val_losses': val_losses}
+                      # Standard evaluation logic
+                      logging.info("Standard training complete. Evaluating on test set...")
+                      model.eval(); all_y_true = []; all_y_pred = []
+                      with torch.no_grad():
+                           for x_seq, y_val in tqdm(test_loader, desc="Testing", leave=False):
+                                x_seq, y_val = x_seq.to(device), y_val.to(device)
+                                y_pred = model(x_seq)
+                                all_y_true.extend(y_val.cpu().numpy())
+                                all_y_pred.extend(y_pred.cpu().numpy())
+                      if all_y_true and all_y_pred:
+                           errors = calculate_errors(torch.tensor(all_y_true), torch.tensor(all_y_pred))
+                           print("\nFinal Test Set Metrics:"); print("-" * 50)
+                           print(f"MSE: {errors.get('mse', np.nan):.6f}"); print(f"RMSE: {errors.get('rmse', np.nan):.6f}")
+                           print(f"MAE: {errors.get('mae', np.nan):.6f}"); print(f"MAPE: {errors.get('mape', np.nan):.2f}%")
+                           history['test_metrics'] = errors
+                      else: logging.warning("No test results generated.")
+                      history['y_true'] = all_y_true; history['y_pred'] = all_y_pred
+                 except ImportError:
+                      logging.error("Could not import train_model/calculate_errors. Standard training skipped.")
+                      history = None
+                 except Exception as std_train_err:
+                      logging.error(f"Error during standard training: {std_train_err}")
+                      history = None
 
 
         # --- Save Results ---
         if history:
             logging.info("Saving model and results...")
-            # Import necessary functions if not already imported at the top
-            from .visualization_utils import save_and_display_results
-            from .model_utils import load_scaling_params, recover_original_values # Add these imports
+            # Ensure save_and_display_results is imported/available
+            try:
+                 from .visualization_utils import save_and_display_results
+                 # Pass the actual data_dir path used for loading data
+                 save_and_display_results(
+                     model=model, history=history, analysis=model_analysis,
+                     ticker=ticker, target_cols=config['target_cols'],
+                     models_dir=str(models_dir), plots_dir=str(viz_dir),
+                     data_dir=str(data_dir) # Pass data_dir for param loading
+                 )
+                 logging.info("Model training workflow completed successfully.")
+            except ImportError:
+                 logging.error("Could not import save_and_display_results. Results not saved.")
+            except Exception as save_err:
+                 logging.error(f"Error during results saving/display: {save_err}")
 
-            # Pass the data_dir from the config
-            save_and_display_results(
-                model=model, history=history, analysis=model_analysis,
-                ticker=ticker, target_cols=config['target_cols'],
-                models_dir=str(models_dir), # Pass path as string
-                plots_dir=str(viz_dir),      # Pass path as string
-                data_dir=str(data_dir)       # <-- ADD THIS ARGUMENT
-                # Optional: Pass flags if needed by saving function
-                # include_greeks=include_greeks_flag,
-                # include_rolling=include_rolling_flag,
-                # include_cyclical=include_cyclical_flag
-            )
-            logging.info("Model training workflow completed successfully.")
-        else:
-            logging.warning("Training did not produce history results. Skipping save.")
+        else: logging.warning("Training did not produce history results. Skipping save.")
 
-    # --- Error Handling (remains the same) ---
+    # --- Error Handling ---
     except FileNotFoundError as e: logging.error(f"File/Dir not found: {e}"); print(f"\nError: File not found: {e}")
     except ValueError as e: logging.error(f"Value error: {e}"); print(f"\nError: {e}")
-    except Exception as e: import traceback; logging.exception(f"Unexpected error in handle_train_model: {e}"); print(f"\nUnexpected error: {e}")
+    except Exception as e:
+        # Ensure traceback is imported if used here
+        import traceback
+        logging.exception(f"Unexpected error in handle_train_model: {e}"); print(f"\nUnexpected error: {e}")
+
 
 def handle_run_model(config, models_dir, HybridRNNModel, GRUGRUModel, LSTMLSTMModel, get_available_tickers, select_ticker, StockOptionDataset, run_existing_model_with_visualization=None):
     """Handle the model prediction workflow, adapted for Colab."""

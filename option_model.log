@@ -292,3 +292,158 @@
 2025-03-27 22:22:47,732 - INFO - Starting model training...
 2025-03-27 22:23:10,822 - INFO - Performance metrics saved to performance_logs/LSTM-GRU_MSFT_20250327_222300.txt
 2025-03-27 22:23:11,095 - INFO - Model training completed successfully
+2025-03-27 22:25:15,242 - INFO - Application terminated by user
+2025-03-27 22:25:15,242 - INFO - Application shutdown
+2025-03-27 22:25:18,853 - INFO - Starting Option Trading Model application
+2025-03-27 22:25:18,876 - INFO - Using device: mps
+2025-03-27 22:25:19,608 - INFO - Starting model training...
+2025-03-27 22:25:27,451 - ERROR - Error during model training: name 'EarlyStopping' is not defined
+2025-03-27 22:26:50,247 - INFO - Application terminated by user
+2025-03-27 22:26:50,248 - INFO - Application shutdown
+2025-03-27 22:27:44,203 - INFO - Starting Option Trading Model application
+2025-03-27 22:27:44,224 - INFO - Using device: mps
+2025-03-27 22:27:46,875 - INFO - Starting model training...
+2025-03-27 22:31:02,753 - ERROR - Error during model training: 'torch.device' object has no attribute 'startswith'
+2025-03-27 22:32:24,139 - INFO - Application terminated by user
+2025-03-27 22:32:24,139 - INFO - Application shutdown
+2025-03-27 22:32:30,060 - INFO - Starting Option Trading Model application
+2025-03-27 22:32:30,082 - INFO - Using device: mps
+2025-03-27 22:32:32,624 - INFO - Starting model training...
+2025-03-27 22:33:28,908 - INFO - Performance metrics saved to performance_logs/LSTM-GRU_IMO_20250327_223242.txt
+2025-03-27 22:33:29,235 - INFO - Model training completed successfully
+2025-03-27 22:37:15,819 - INFO - Starting model training...
+2025-03-27 23:29:45,479 - INFO - Performance metrics saved to performance_logs/LSTM-GRU_AAPL_20250327_223726.txt
+2025-03-27 23:29:45,752 - INFO - Model training completed successfully
+2025-03-27 23:45:40,263 - INFO - Determining model class from name: mixed_lstm_gru_model_target_bid-ask_trained_AAPL_0327232945.pth
+2025-03-27 23:45:40,263 - INFO - Selected LSTM-GRU hybrid model architecture (default)
+2025-03-27 23:45:49,326 - INFO - Running predictions with model: mixed_lstm_gru_model_target_bid-ask_trained_AAPL_0327232945.pth
+2025-03-27 23:45:49,326 - INFO - Running model for AAPL with 362888 samples
+2025-03-27 23:45:49,326 - INFO - Dataset features: 146, targets: 2
+2025-03-27 23:45:49,326 - INFO - Loading model from: models/mixed_lstm_gru_model_target_bid-ask_trained_AAPL_0327232945.pth
+2025-03-27 23:45:49,326 - INFO - Model class: HybridRNNModel
+2025-03-27 23:45:49,326 - INFO - Input size: 146, Output size: 2
+2025-03-27 23:45:49,326 - INFO - Creating HybridRNNModel with hidden sizes: LSTM=128, GRU=128
+2025-03-27 23:45:49,328 - INFO - Loading model state dict
+2025-03-27 23:45:49,333 - ERROR - Error loading model: Error(s) in loading state_dict for HybridRNNModel:
+	size mismatch for lstm.weight_ih_l0: copying a param with shape torch.Size([256, 146]) from checkpoint, the shape in current model is torch.Size([512, 146]).
+	size mismatch for lstm.weight_hh_l0: copying a param with shape torch.Size([256, 64]) from checkpoint, the shape in current model is torch.Size([512, 128]).
+	size mismatch for lstm.bias_ih_l0: copying a param with shape torch.Size([256]) from checkpoint, the shape in current model is torch.Size([512]).
+	size mismatch for lstm.bias_hh_l0: copying a param with shape torch.Size([256]) from checkpoint, the shape in current model is torch.Size([512]).
+	size mismatch for lstm.weight_ih_l1: copying a param with shape torch.Size([256, 64]) from checkpoint, the shape in current model is torch.Size([512, 128]).
+	size mismatch for lstm.weight_hh_l1: copying a param with shape torch.Size([256, 64]) from checkpoint, the shape in current model is torch.Size([512, 128]).
+	size mismatch for lstm.bias_ih_l1: copying a param with shape torch.Size([256]) from checkpoint, the shape in current model is torch.Size([512]).
+	size mismatch for lstm.bias_hh_l1: copying a param with shape torch.Size([256]) from checkpoint, the shape in current model is torch.Size([512]).
+	size mismatch for mid_bn.weight: copying a param with shape torch.Size([64]) from checkpoint, the shape in current model is torch.Size([128]).
+	size mismatch for mid_bn.bias: copying a param with shape torch.Size([64]) from checkpoint, the shape in current model is torch.Size([128]).
+	size mismatch for mid_bn.running_mean: copying a param with shape torch.Size([64]) from checkpoint, the shape in current model is torch.Size([128]).
+	size mismatch for mid_bn.running_var: copying a param with shape torch.Size([64]) from checkpoint, the shape in current model is torch.Size([128]).
+	size mismatch for gru.weight_ih_l0: copying a param with shape torch.Size([192, 64]) from checkpoint, the shape in current model is torch.Size([384, 128]).
+	size mismatch for gru.weight_hh_l0: copying a param with shape torch.Size([192, 64]) from checkpoint, the shape in current model is torch.Size([384, 128]).
+	size mismatch for gru.bias_ih_l0: copying a param with shape torch.Size([192]) from checkpoint, the shape in current model is torch.Size([384]).
+	size mismatch for gru.bias_hh_l0: copying a param with shape torch.Size([192]) from checkpoint, the shape in current model is torch.Size([384]).
+	size mismatch for gru.weight_ih_l1: copying a param with shape torch.Size([192, 64]) from checkpoint, the shape in current model is torch.Size([384, 128]).
+	size mismatch for gru.weight_hh_l1: copying a param with shape torch.Size([192, 64]) from checkpoint, the shape in current model is torch.Size([384, 128]).
+	size mismatch for gru.bias_ih_l1: copying a param with shape torch.Size([192]) from checkpoint, the shape in current model is torch.Size([384]).
+	size mismatch for gru.bias_hh_l1: copying a param with shape torch.Size([192]) from checkpoint, the shape in current model is torch.Size([384]).
+	size mismatch for bn_final.weight: copying a param with shape torch.Size([64]) from checkpoint, the shape in current model is torch.Size([128]).
+	size mismatch for bn_final.bias: copying a param with shape torch.Size([64]) from checkpoint, the shape in current model is torch.Size([128]).
+	size mismatch for bn_final.running_mean: copying a param with shape torch.Size([64]) from checkpoint, the shape in current model is torch.Size([128]).
+	size mismatch for bn_final.running_var: copying a param with shape torch.Size([64]) from checkpoint, the shape in current model is torch.Size([128]).
+	size mismatch for fc1.weight: copying a param with shape torch.Size([32, 64]) from checkpoint, the shape in current model is torch.Size([64, 128]).
+	size mismatch for fc1.bias: copying a param with shape torch.Size([32]) from checkpoint, the shape in current model is torch.Size([64]).
+	size mismatch for fc2.weight: copying a param with shape torch.Size([2, 32]) from checkpoint, the shape in current model is torch.Size([2, 64]).
+2025-03-27 23:45:49,333 - ERROR - Error in run_existing_model: Error(s) in loading state_dict for HybridRNNModel:
+	size mismatch for lstm.weight_ih_l0: copying a param with shape torch.Size([256, 146]) from checkpoint, the shape in current model is torch.Size([512, 146]).
+	size mismatch for lstm.weight_hh_l0: copying a param with shape torch.Size([256, 64]) from checkpoint, the shape in current model is torch.Size([512, 128]).
+	size mismatch for lstm.bias_ih_l0: copying a param with shape torch.Size([256]) from checkpoint, the shape in current model is torch.Size([512]).
+	size mismatch for lstm.bias_hh_l0: copying a param with shape torch.Size([256]) from checkpoint, the shape in current model is torch.Size([512]).
+	size mismatch for lstm.weight_ih_l1: copying a param with shape torch.Size([256, 64]) from checkpoint, the shape in current model is torch.Size([512, 128]).
+	size mismatch for lstm.weight_hh_l1: copying a param with shape torch.Size([256, 64]) from checkpoint, the shape in current model is torch.Size([512, 128]).
+	size mismatch for lstm.bias_ih_l1: copying a param with shape torch.Size([256]) from checkpoint, the shape in current model is torch.Size([512]).
+	size mismatch for lstm.bias_hh_l1: copying a param with shape torch.Size([256]) from checkpoint, the shape in current model is torch.Size([512]).
+	size mismatch for mid_bn.weight: copying a param with shape torch.Size([64]) from checkpoint, the shape in current model is torch.Size([128]).
+	size mismatch for mid_bn.bias: copying a param with shape torch.Size([64]) from checkpoint, the shape in current model is torch.Size([128]).
+	size mismatch for mid_bn.running_mean: copying a param with shape torch.Size([64]) from checkpoint, the shape in current model is torch.Size([128]).
+	size mismatch for mid_bn.running_var: copying a param with shape torch.Size([64]) from checkpoint, the shape in current model is torch.Size([128]).
+	size mismatch for gru.weight_ih_l0: copying a param with shape torch.Size([192, 64]) from checkpoint, the shape in current model is torch.Size([384, 128]).
+	size mismatch for gru.weight_hh_l0: copying a param with shape torch.Size([192, 64]) from checkpoint, the shape in current model is torch.Size([384, 128]).
+	size mismatch for gru.bias_ih_l0: copying a param with shape torch.Size([192]) from checkpoint, the shape in current model is torch.Size([384]).
+	size mismatch for gru.bias_hh_l0: copying a param with shape torch.Size([192]) from checkpoint, the shape in current model is torch.Size([384]).
+	size mismatch for gru.weight_ih_l1: copying a param with shape torch.Size([192, 64]) from checkpoint, the shape in current model is torch.Size([384, 128]).
+	size mismatch for gru.weight_hh_l1: copying a param with shape torch.Size([192, 64]) from checkpoint, the shape in current model is torch.Size([384, 128]).
+	size mismatch for gru.bias_ih_l1: copying a param with shape torch.Size([192]) from checkpoint, the shape in current model is torch.Size([384]).
+	size mismatch for gru.bias_hh_l1: copying a param with shape torch.Size([192]) from checkpoint, the shape in current model is torch.Size([384]).
+	size mismatch for bn_final.weight: copying a param with shape torch.Size([64]) from checkpoint, the shape in current model is torch.Size([128]).
+	size mismatch for bn_final.bias: copying a param with shape torch.Size([64]) from checkpoint, the shape in current model is torch.Size([128]).
+	size mismatch for bn_final.running_mean: copying a param with shape torch.Size([64]) from checkpoint, the shape in current model is torch.Size([128]).
+	size mismatch for bn_final.running_var: copying a param with shape torch.Size([64]) from checkpoint, the shape in current model is torch.Size([128]).
+	size mismatch for fc1.weight: copying a param with shape torch.Size([32, 64]) from checkpoint, the shape in current model is torch.Size([64, 128]).
+	size mismatch for fc1.bias: copying a param with shape torch.Size([32]) from checkpoint, the shape in current model is torch.Size([64]).
+	size mismatch for fc2.weight: copying a param with shape torch.Size([2, 32]) from checkpoint, the shape in current model is torch.Size([2, 64]).
+2025-03-27 23:45:49,333 - ERROR - Error during model prediction: Error(s) in loading state_dict for HybridRNNModel:
+	size mismatch for lstm.weight_ih_l0: copying a param with shape torch.Size([256, 146]) from checkpoint, the shape in current model is torch.Size([512, 146]).
+	size mismatch for lstm.weight_hh_l0: copying a param with shape torch.Size([256, 64]) from checkpoint, the shape in current model is torch.Size([512, 128]).
+	size mismatch for lstm.bias_ih_l0: copying a param with shape torch.Size([256]) from checkpoint, the shape in current model is torch.Size([512]).
+	size mismatch for lstm.bias_hh_l0: copying a param with shape torch.Size([256]) from checkpoint, the shape in current model is torch.Size([512]).
+	size mismatch for lstm.weight_ih_l1: copying a param with shape torch.Size([256, 64]) from checkpoint, the shape in current model is torch.Size([512, 128]).
+	size mismatch for lstm.weight_hh_l1: copying a param with shape torch.Size([256, 64]) from checkpoint, the shape in current model is torch.Size([512, 128]).
+	size mismatch for lstm.bias_ih_l1: copying a param with shape torch.Size([256]) from checkpoint, the shape in current model is torch.Size([512]).
+	size mismatch for lstm.bias_hh_l1: copying a param with shape torch.Size([256]) from checkpoint, the shape in current model is torch.Size([512]).
+	size mismatch for mid_bn.weight: copying a param with shape torch.Size([64]) from checkpoint, the shape in current model is torch.Size([128]).
+	size mismatch for mid_bn.bias: copying a param with shape torch.Size([64]) from checkpoint, the shape in current model is torch.Size([128]).
+	size mismatch for mid_bn.running_mean: copying a param with shape torch.Size([64]) from checkpoint, the shape in current model is torch.Size([128]).
+	size mismatch for mid_bn.running_var: copying a param with shape torch.Size([64]) from checkpoint, the shape in current model is torch.Size([128]).
+	size mismatch for gru.weight_ih_l0: copying a param with shape torch.Size([192, 64]) from checkpoint, the shape in current model is torch.Size([384, 128]).
+	size mismatch for gru.weight_hh_l0: copying a param with shape torch.Size([192, 64]) from checkpoint, the shape in current model is torch.Size([384, 128]).
+	size mismatch for gru.bias_ih_l0: copying a param with shape torch.Size([192]) from checkpoint, the shape in current model is torch.Size([384]).
+	size mismatch for gru.bias_hh_l0: copying a param with shape torch.Size([192]) from checkpoint, the shape in current model is torch.Size([384]).
+	size mismatch for gru.weight_ih_l1: copying a param with shape torch.Size([192, 64]) from checkpoint, the shape in current model is torch.Size([384, 128]).
+	size mismatch for gru.weight_hh_l1: copying a param with shape torch.Size([192, 64]) from checkpoint, the shape in current model is torch.Size([384, 128]).
+	size mismatch for gru.bias_ih_l1: copying a param with shape torch.Size([192]) from checkpoint, the shape in current model is torch.Size([384]).
+	size mismatch for gru.bias_hh_l1: copying a param with shape torch.Size([192]) from checkpoint, the shape in current model is torch.Size([384]).
+	size mismatch for bn_final.weight: copying a param with shape torch.Size([64]) from checkpoint, the shape in current model is torch.Size([128]).
+	size mismatch for bn_final.bias: copying a param with shape torch.Size([64]) from checkpoint, the shape in current model is torch.Size([128]).
+	size mismatch for bn_final.running_mean: copying a param with shape torch.Size([64]) from checkpoint, the shape in current model is torch.Size([128]).
+	size mismatch for bn_final.running_var: copying a param with shape torch.Size([64]) from checkpoint, the shape in current model is torch.Size([128]).
+	size mismatch for fc1.weight: copying a param with shape torch.Size([32, 64]) from checkpoint, the shape in current model is torch.Size([64, 128]).
+	size mismatch for fc1.bias: copying a param with shape torch.Size([32]) from checkpoint, the shape in current model is torch.Size([64]).
+	size mismatch for fc2.weight: copying a param with shape torch.Size([2, 32]) from checkpoint, the shape in current model is torch.Size([2, 64]).
+2025-03-27 23:48:09,483 - INFO - Application terminated by user
+2025-03-27 23:48:09,484 - INFO - Application shutdown
+2025-03-27 23:48:14,496 - INFO - Starting Option Trading Model application
+2025-03-27 23:48:14,520 - INFO - Using device: mps
+2025-03-27 23:48:20,704 - INFO - Determining model class from name: mixed_lstm_gru_model_target_bid-ask_trained_AAPL_0327232945.pth
+2025-03-27 23:48:20,704 - INFO - Selected LSTM-GRU hybrid model architecture (default)
+2025-03-27 23:48:23,514 - INFO - Running predictions with model: mixed_lstm_gru_model_target_bid-ask_trained_AAPL_0327232945.pth
+2025-03-27 23:48:23,515 - INFO - Running model for AAPL with 362888 samples
+2025-03-27 23:48:23,515 - INFO - Dataset features: 146, targets: 2
+2025-03-27 23:48:23,515 - INFO - Loading model from: models/mixed_lstm_gru_model_target_bid-ask_trained_AAPL_0327232945.pth
+2025-03-27 23:48:23,515 - INFO - Model class: HybridRNNModel
+2025-03-27 23:48:23,515 - INFO - Input size: 146, Output size: 2
+2025-03-27 23:48:23,515 - INFO - Creating HybridRNNModel with hidden sizes: LSTM=64, GRU=64
+2025-03-27 23:48:23,516 - INFO - Loading model state dict
+2025-03-27 23:48:23,519 - INFO - Model loaded successfully
+2025-03-27 23:48:43,859 - ERROR - Error in run_existing_model: type object 'datetime.datetime' has no attribute 'datetime'
+2025-03-27 23:48:43,860 - ERROR - Error during model prediction: type object 'datetime.datetime' has no attribute 'datetime'
+2025-03-28 00:01:03,274 - INFO - Application terminated by user
+2025-03-28 00:01:03,276 - INFO - Application shutdown
+2025-03-28 00:02:26,712 - INFO - Starting Option Trading Model application
+2025-03-28 00:02:26,735 - INFO - Using device: mps
+2025-03-28 00:02:31,467 - INFO - Starting model training...
+2025-03-28 00:52:44,871 - INFO - Performance metrics saved to performance_logs/GRU-GRU_AAPL_20250328_000241.txt
+2025-03-28 00:52:45,155 - INFO - Model training completed successfully
+2025-03-28 00:53:53,497 - INFO - Starting model training...
+2025-03-28 01:35:28,724 - INFO - Performance metrics saved to performance_logs/LSTM-LSTM_AAPL_20250328_005359.txt
+2025-03-28 01:35:28,994 - INFO - Model training completed successfully
+2025-03-28 01:44:14,043 - INFO - Starting architecture benchmarking...
+2025-03-28 03:06:11,342 - INFO - Starting Option Trading Model application
+2025-03-28 03:06:11,365 - INFO - Using device: mps
+2025-03-28 03:06:14,990 - INFO - Starting architecture benchmarking...
+2025-03-28 03:37:16,544 - INFO - Performance metrics saved to performance_logs/LSTM-GRU Hybrid_HSBC_20250328_030629.txt
+2025-03-28 04:46:47,853 - INFO - Performance metrics saved to performance_logs/GRU-GRU_HSBC_20250328_033716.txt
+2025-03-28 04:52:17,529 - INFO - Performance metrics saved to performance_logs/LSTM-LSTM_HSBC_20250328_044647.txt
+2025-03-28 04:52:17,532 - INFO - Architecture comparison saved to performance_logs/architecture_comparison_20250328_045217.txt
+2025-03-28 04:52:19,162 - INFO - Architecture visualizations saved to performance_logs
+2025-03-28 04:52:19,163 - INFO - Architecture benchmarking completed successfully
+2025-03-28 05:55:44,496 - INFO - Starting architecture benchmarking...
+2025-03-28 20:10:49,924 - INFO - Performance metrics saved to performance_logs/LSTM-GRU Hybrid_NVDA_20250328_055638.txt

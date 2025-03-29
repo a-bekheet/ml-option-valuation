@@ -13,7 +13,7 @@ from tqdm import tqdm
 import pandas as pd
 from utils.visualization_utils import plot_predictions
 from torch.utils.data import DataLoader
-from utils.model_utils import EarlyStopping
+from utils.model_utils import EarlyStopping, calculate_errors
 
 def calculate_directional_accuracy(y_true: np.ndarray, y_pred: np.ndarray) -> float:
     """
@@ -64,13 +64,19 @@ def calculate_max_error(y_true: np.ndarray, y_pred: np.ndarray) -> float:
     y_pred = np.array(y_pred)
     return float(np.max(np.abs(y_true - y_pred)))
 
-def track_performance(model, train_loader, val_loader, test_loader, 
+def track_performance(model, train_loader, val_loader, test_loader,
                      epochs: int, ticker: str, architecture_name: str,
-                     target_cols: List[str], save_dir: str = "performance_logs",
-                     verbose: bool = True) -> str:
+                     target_cols: List[str],
+                     # >> NEW: Add parameters for features and architecture <<
+                     used_features: Optional[List[str]] = None,
+                     model_analysis_dict: Optional[Dict[str, Any]] = None,
+                     # >> END NEW <<
+                     save_dir: str = "performance_logs",
+                     verbose: bool = True,
+                     lr: float = 0.001) -> Tuple[str, Dict]: # Return log_path and history
     """
-    Track and log comprehensive model performance metrics to a text file.
-    
+    Track and log comprehensive model performance metrics, including features and architecture.
+
     Args:
         model: PyTorch model to evaluate
         train_loader: Training data loader
@@ -80,325 +86,326 @@ def track_performance(model, train_loader, val_loader, test_loader,
         ticker: Stock ticker symbol
         architecture_name: Name of the model architecture
         target_cols: Target columns being predicted
-        save_dir: Directory to save performance logs
-        verbose: Whether to print detailed progress to terminal
-        
+        used_features (Optional[List[str]]): List of feature names used in this run.
+        model_analysis_dict (Optional[Dict[str, Any]]): Dictionary containing model architecture analysis.
+        save_dir (str): Directory to save performance logs
+        verbose (bool): Whether to print detailed progress to terminal
+        lr (float): Learning rate for the optimizer.
+
     Returns:
-        Path to the created log file
+        Tuple[str, Dict]: Path to the created log file, history dictionary
     """
     # Create log directory if it doesn't exist
     Path(save_dir).mkdir(parents=True, exist_ok=True)
-    
+
     # Generate a unique filename with timestamp
     timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
     log_filename = f"{architecture_name}_{ticker}_{timestamp}.txt"
     log_path = os.path.join(save_dir, log_filename)
-    
+
     # Get device
     device = next(model.parameters()).device
-    
+    history = {'train_losses': [], 'val_losses': [], 'test_metrics': {}, 'epoch_times': []} # Initialize history
+
     # Prepare log file
     with open(log_path, 'w') as f:
         # Write header information
         f.write(f"{'='*80}\n")
         f.write(f"MODEL PERFORMANCE REPORT\n")
         f.write(f"{'='*80}\n\n")
-        
+
         f.write(f"Model Architecture: {architecture_name}\n")
         f.write(f"Ticker: {ticker}\n")
         f.write(f"Target Columns: {', '.join(target_cols)}\n")
-        start_time = datetime.datetime.now()
-        f.write(f"Run Started: {start_time.strftime('%Y-%m-%d %H:%M:%S')}\n\n")
-        
-        # Model complexity metrics
-        f.write(f"{'-'*80}\n")
-        f.write(f"MODEL COMPLEXITY METRICS\n")
-        f.write(f"{'-'*80}\n\n")
-        
-        # Count parameters
-        trainable_params = sum(p.numel() for p in model.parameters() if p.requires_grad)
-        total_params = sum(p.numel() for p in model.parameters())
-        
-        f.write(f"Trainable Parameters: {trainable_params:,}\n")
-        f.write(f"Total Parameters: {total_params:,}\n")
-        
-        # Memory usage estimate (rough approximation)
-        param_memory = total_params * 4 / (1024 * 1024)  # Size in MB assuming float32
-        f.write(f"Estimated Model Size: {param_memory:.2f} MB\n\n")
-        
-        # Training metrics
+        start_run_time = datetime.datetime.now()
+        f.write(f"Run Started: {start_run_time.strftime('%Y-%m-%d %H:%M:%S')}\n")
+        f.write(f"Device: {device}\n")
+        f.write(f"Learning Rate: {lr}\n")
+        f.write(f"Max Epochs: {epochs}\n\n")
+
+
+        # >> NEW: Log Features Used <<
+        if used_features:
+             f.write(f"{'-'*80}\n")
+             f.write(f"FEATURES USED ({len(used_features)})\n")
+             f.write(f"{'-'*80}\n")
+             # Write features, possibly wrapping lines for readability
+             feature_lines = []
+             current_line = ""
+             for feature in used_features:
+                  if not current_line:
+                       current_line = feature
+                  elif len(current_line) + len(feature) + 2 < 100: # Max line length approx 100
+                       current_line += f", {feature}"
+                  else:
+                       feature_lines.append(current_line)
+                       current_line = feature
+             if current_line: feature_lines.append(current_line) # Add last line
+             f.write("\n".join(feature_lines) + "\n\n")
+        else:
+             f.write("Features used: Not Provided\n\n")
+        # >> END NEW <<
+
+        # >> NEW: Log Model Architecture <<
+        if model_analysis_dict:
+            f.write(f"{'-'*80}\n")
+            f.write(f"MODEL ARCHITECTURE DETAILS\n")
+            f.write(f"{'-'*80}\n")
+            total_params = model_analysis_dict.get('total_parameters', 'N/A')
+            trainable_params = model_analysis_dict.get('trainable_parameters', 'N/A')
+            f.write(f"Total Parameters: {total_params:,}\n" if isinstance(total_params, int) else f"Total Parameters: {total_params}\n")
+            f.write(f"Trainable Parameters: {trainable_params:,}\n\n" if isinstance(trainable_params, int) else f"Trainable Parameters: {trainable_params}\n\n")
+            f.write("Layer Shapes (Input -> Output):\n")
+            layer_shapes = model_analysis_dict.get('layer_shapes', {})
+            if layer_shapes:
+                 for layer_name, shapes in layer_shapes.items():
+                      in_shape = shapes.get('input_shape', 'N/A')
+                      out_shape = shapes.get('output_shape', 'N/A')
+                      f.write(f"  {layer_name}:\n")
+                      # Format shapes for better readability if they are tuples/lists
+                      f.write(f"    Input: {in_shape}\n")
+                      f.write(f"    Output: {out_shape}\n")
+            else:
+                 f.write("  Layer shape details not available.\n")
+            f.write("\n") # Add space after architecture section
+        else:
+             # Fallback: Log basic param count if full analysis missing
+             try:
+                  trainable_params = sum(p.numel() for p in model.parameters() if p.requires_grad)
+                  total_params = sum(p.numel() for p in model.parameters())
+                  f.write(f"{'-'*80}\n")
+                  f.write(f"MODEL COMPLEXITY (Basic)\n")
+                  f.write(f"{'-'*80}\n")
+                  f.write(f"Trainable Parameters: {trainable_params:,}\n")
+                  f.write(f"Total Parameters: {total_params:,}\n\n")
+             except Exception:
+                  f.write("Model Analysis: Not Provided\n\n")
+        # >> END NEW <<
+
+
+        # Training metrics section header
         f.write(f"{'-'*80}\n")
         f.write(f"TRAINING METRICS\n")
         f.write(f"{'-'*80}\n\n")
-        
+
         # Prepare for training
-        optimizer = torch.optim.Adam(model.parameters(), lr=0.001)
+        optimizer = torch.optim.Adam(model.parameters(), lr=lr, weight_decay=1e-5) # Added weight decay
         criterion = torch.nn.MSELoss()
         scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
-            optimizer, mode='min', factor=0.5, patience=3
+            optimizer, mode='min', factor=0.5, patience=3, verbose=verbose # Made scheduler verbose
         )
-        
-        # Initialize tracking variables
-        train_losses = []
-        val_losses = []
-        epoch_times = []
-        epoch_memory_usage = []
-        best_val_loss = float('inf')
-        epochs_without_improvement = 0
-        convergence_epoch = None
-        
-        # Training loop
-        f.write(f"{'Epoch':^6}|{'Train Loss':^12}|{'Val Loss':^12}|{'Time (s)':^10}|{'Memory (MB)':^12}\n")
-        f.write(f"{'-'*6}|{'-'*12}|{'-'*12}|{'-'*10}|{'-'*12}\n")
-        
+        early_stopping = EarlyStopping(patience=5, min_delta=1e-5) # Use configured EarlyStopping
+
+        # Training loop header
+        f.write(f"{'Epoch':^6}|{'Train Loss':^12}|{'Val Loss':^12}|{'LR':^10}|{'Time (s)':^10}|{'Memory (MB)':^12}\n")
+        f.write(f"{'-'*6}|{'-'*12}|{'-'*12}|{'-'*10}|{'-'*10}|{'-'*12}\n")
+
         if verbose:
             print(f"\n{'-' * 80}")
             print(f"{architecture_name} - TRAINING PHASE")
             print(f"{'-' * 80}")
-            print(f"Parameters: {trainable_params:,}")
+            try: # Add try-except for dataloader length issues
+                 print(f"Train samples: {len(train_loader.dataset):,}, Val samples: {len(val_loader.dataset):,}, Test samples: {len(test_loader.dataset):,}")
+                 print(f"Batches per epoch: {len(train_loader):,}")
+            except TypeError:
+                 print("Could not determine dataset lengths (possibly using Subset without full dataset access).")
             print(f"Device: {device}")
-            print(f"Training samples: {len(train_loader.dataset):,}")
-            print(f"Validation samples: {len(val_loader.dataset):,}")
-            print(f"Batches per epoch: {len(train_loader):,}")
             print(f"{'-' * 50}")
-        
+
         total_train_time = 0.0
-        early_stopping = EarlyStopping(patience=5)
-        
+        actual_epochs_run = 0
+
         for epoch in range(epochs):
-            epoch_start = time.time()
-            
-            # Training phase
+            actual_epochs_run += 1
+            epoch_start_time = time.time()
+
+            # --- Training phase ---
             model.train()
             total_train_loss = 0.0
-            
-            # Display progress bar for training
-            if verbose:
-                train_iter = tqdm(train_loader, desc=f"Epoch {epoch+1}/{epochs} [Train]", unit="batch")
-            else:
-                train_iter = train_loader
-                
+            train_iter = tqdm(train_loader, desc=f"Epoch {epoch+1}/{epochs} [Train]", unit="batch", disable=not verbose, leave=False)
             for x_seq, y_val in train_iter:
                 x_seq, y_val = x_seq.to(device), y_val.to(device)
-                
                 optimizer.zero_grad()
                 y_pred = model(x_seq)
                 loss = criterion(y_pred, y_val)
                 loss.backward()
-                
-                # Gradient clipping to prevent explosion
                 torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)
-                
                 optimizer.step()
                 total_train_loss += loss.item()
-            
-            avg_train_loss = total_train_loss / len(train_loader)
-            train_losses.append(avg_train_loss)
-            
-            # Validation phase
+                if verbose: train_iter.set_postfix({'loss': f'{loss.item():.6f}'})
+
+            avg_train_loss = total_train_loss / len(train_loader) if len(train_loader) > 0 else 0
+            history['train_losses'].append(avg_train_loss)
+
+            # --- Validation phase ---
             model.eval()
             total_val_loss = 0.0
-            
-            # Display progress bar for validation
-            if verbose:
-                val_iter = tqdm(val_loader, desc=f"Epoch {epoch+1}/{epochs} [Valid]", unit="batch")
-            else:
-                val_iter = val_loader
-                
+            val_iter = tqdm(val_loader, desc=f"Epoch {epoch+1}/{epochs} [Valid]", unit="batch", disable=not verbose, leave=False)
             with torch.no_grad():
                 for x_seq, y_val in val_iter:
                     x_seq, y_val = x_seq.to(device), y_val.to(device)
                     y_pred = model(x_seq)
                     loss = criterion(y_pred, y_val)
                     total_val_loss += loss.item()
-            
-            avg_val_loss = total_val_loss / len(val_loader)
-            val_losses.append(avg_val_loss)
-            
-            # Update LR scheduler
+                    if verbose: val_iter.set_postfix({'val_loss': f'{loss.item():.6f}'})
+
+            avg_val_loss = total_val_loss / len(val_loader) if len(val_loader) > 0 else 0
+            history['val_losses'].append(avg_val_loss)
+
+            # Scheduler and Early Stopping
             scheduler.step(avg_val_loss)
-            
-            # Record epoch time
-            epoch_time = time.time() - epoch_start
-            epoch_times.append(epoch_time)
-            total_train_time += epoch_time
-            
-            # Record memory usage
-            # Record memory usage
-            if str(device).startswith('cuda'):
-                memory_allocated = torch.cuda.memory_allocated(device) / (1024 * 1024)  # MB
-            else:
-                memory_allocated = psutil.Process(os.getpid()).memory_info().rss / (1024 * 1024)  # MB
-            
-            # Check for convergence
-            if avg_val_loss < best_val_loss:
-                best_val_loss = avg_val_loss
-                epochs_without_improvement = 0
-            else:
-                epochs_without_improvement += 1
-                
-            if convergence_epoch is None and epochs_without_improvement >= 5:
-                convergence_epoch = epoch + 1
-            
-            # Write epoch metrics to log
-            f.write(f"{epoch+1:^6}|{avg_train_loss:^12.6f}|{avg_val_loss:^12.6f}|{epoch_time:^10.2f}|{memory_allocated:^12.2f}\n")
-            
-            # Print epoch summary if verbose
-            if verbose:
-                current_lr = optimizer.param_groups[0]['lr']
-                print(f"\nEpoch [{epoch+1}/{epochs}] | Train Loss: {avg_train_loss:.6f} | Val Loss: {avg_val_loss:.6f} | LR: {current_lr:.2e}")
-                print(f"Time: {epoch_time:.2f}s | Mem: {memory_allocated:.2f} MB")
-            
-            # Early stopping check
             early_stopping(avg_val_loss)
+
+            # Record epoch time and memory
+            epoch_time = time.time() - epoch_start_time
+            history['epoch_times'].append(epoch_time)
+            total_train_time += epoch_time
+            try: # Handle potential errors getting memory info
+                 if str(device).startswith('cuda'):
+                      memory_allocated = torch.cuda.memory_allocated(device) / (1024 * 1024) # MB
+                 elif str(device).startswith('mps'):
+                      # MPS memory reporting is complex; use process RSS as approximation
+                      memory_allocated = psutil.Process(os.getpid()).memory_info().rss / (1024 * 1024) # MB
+                 else: # CPU
+                      memory_allocated = psutil.Process(os.getpid()).memory_info().rss / (1024 * 1024) # MB
+            except Exception as mem_err:
+                 logging.warning(f"Could not get memory usage: {mem_err}")
+                 memory_allocated = np.nan
+
+            # Log epoch results
+            current_lr = optimizer.param_groups[0]['lr']
+            f.write(f"{epoch+1:^6}|{avg_train_loss:^12.6f}|{avg_val_loss:^12.6f}|{current_lr:^10.2e}|{epoch_time:^10.2f}|{memory_allocated:^12.2f}\n")
+
+            if verbose:
+                print(f"\nEpoch [{epoch+1}/{epochs}] Summary:")
+                print(f"  Train Loss: {avg_train_loss:.6f} | Val Loss: {avg_val_loss:.6f}")
+                print(f"  LR: {current_lr:.2e} | Time: {epoch_time:.2f}s | Memory: {memory_allocated:.2f} MB")
+
+            # Check for early stopping
             if early_stopping.early_stop:
-                if verbose:
-                    print("\nEarly stopping triggered")
+                print(f"\nEarly stopping triggered after epoch {epoch+1}")
+                f.write("\nEarly stopping triggered.\n")
                 break
-        
-        # Training summary
-        avg_epoch_time = sum(epoch_times) / len(epoch_times) if epoch_times else 0
+
+        # --- Training Summary ---
+        avg_epoch_time = sum(history['epoch_times']) / len(history['epoch_times']) if history['epoch_times'] else 0
         f.write(f"\nTraining Summary:\n")
+        f.write(f"Training stopped after epoch {actual_epochs_run}\n")
         f.write(f"Total Training Time: {total_train_time:.2f} seconds\n")
         f.write(f"Average Time per Epoch: {avg_epoch_time:.2f} seconds\n")
-        f.write(f"Best Validation Loss: {best_val_loss:.6f}\n")
-        
-        if convergence_epoch:
-            f.write(f"Convergence detected at epoch {convergence_epoch}\n")
-        
-        # Model evaluation on test set
+        f.write(f"Best Validation Loss: {early_stopping.best_loss:.6f}\n" if early_stopping.best_loss is not None else "Best Validation Loss: N/A\n")
+
+
+        # --- Test Set Evaluation ---
         f.write(f"\n{'-'*80}\n")
         f.write(f"TEST SET EVALUATION\n")
         f.write(f"{'-'*80}\n\n")
-        
+
         if verbose:
             print(f"\n{'-' * 80}")
             print(f"{architecture_name} - TESTING PHASE")
             print(f"{'-' * 80}")
-            print(f"Test samples: {len(test_loader.dataset):,}")
-        
-        # Start timing for inference
-        inference_start = time.time()
-        
-        # Test evaluation
+
+        inference_start_time = time.time()
         model.eval()
         test_loss = 0.0
-        all_y_true = []
-        all_y_pred = []
-        
+        all_y_true_test = []
+        all_y_pred_test = []
+
         with torch.no_grad():
-            # Progress bar for test set
-            if verbose:
-                test_iter = tqdm(test_loader, desc="Testing", unit="batch")
-            else:
-                test_iter = test_loader
-                
+            test_iter = tqdm(test_loader, desc="Testing", unit="batch", disable=not verbose)
             for x_seq, y_true in test_iter:
                 x_seq, y_true = x_seq.to(device), y_true.to(device)
                 y_pred = model(x_seq)
                 loss = criterion(y_pred, y_true)
                 test_loss += loss.item()
-                
-                all_y_true.extend(y_true.cpu().numpy())
-                all_y_pred.extend(y_pred.cpu().numpy())
-        
-        # Calculate test loss
-        test_loss /= len(test_loader)
-        
-        # Convert to numpy arrays
-        y_true_np = np.array(all_y_true)
-        y_pred_np = np.array(all_y_pred)
-        
-        # Calculate inference time
-        total_samples = len(test_loader.dataset)
-        inference_time = time.time() - inference_start
-        inference_time_per_sample = inference_time / total_samples
-        
-        # Calculate error metrics
-        mse = np.mean((y_true_np - y_pred_np) ** 2)
-        rmse = np.sqrt(mse)
-        mae = np.mean(np.abs(y_true_np - y_pred_np))
-        
-        # Calculate MAPE with handling for zero values
-        epsilon = 1e-10  # Small value to avoid division by zero
-        abs_percentage_error = np.abs((y_true_np - y_pred_np) / np.maximum(np.abs(y_true_np), epsilon)) * 100
-        mape = np.mean(abs_percentage_error)
-        
-        # Calculate directional accuracy if we have enough data
-        if len(y_true_np) > 1:
-            directional_accuracy = calculate_directional_accuracy(y_true_np, y_pred_np)
+                all_y_true_test.extend(y_true.cpu().numpy())
+                all_y_pred_test.extend(y_pred.cpu().numpy())
+
+        avg_test_loss = test_loss / len(test_loader) if len(test_loader) > 0 else 0
+        inference_time = time.time() - inference_start_time
+        total_test_samples = len(all_y_true_test)
+        inference_time_per_sample = (inference_time / total_test_samples * 1000) if total_test_samples > 0 else 0 # in ms
+
+        # Calculate final metrics on test set
+        y_true_np = np.array(all_y_true_test)
+        y_pred_np = np.array(all_y_pred_test)
+        test_errors = calculate_errors(torch.tensor(y_true_np), torch.tensor(y_pred_np)) # Reuse existing function
+        history['test_metrics'] = test_errors # Store metrics in history
+
+        # Calculate additional metrics
+        if total_test_samples > 1:
+             directional_accuracy = calculate_directional_accuracy(y_true_np, y_pred_np)
+             history['test_metrics']['directional_accuracy'] = directional_accuracy
+             max_error = calculate_max_error(y_true_np, y_pred_np)
+             history['test_metrics']['max_error'] = max_error
         else:
-            directional_accuracy = None
-        
-        # Calculate maximum error
-        max_error = calculate_max_error(y_true_np, y_pred_np)
-        
-        # Write error metrics
-        f.write(f"MSE: {mse:.6f}\n")
-        f.write(f"RMSE: {rmse:.6f}\n")
-        f.write(f"MAE: {mae:.6f}\n")
-        f.write(f"MAPE: {mape:.2f}%\n")
-        
-        if directional_accuracy is not None:
-            f.write(f"Directional Accuracy: {directional_accuracy:.2f}%\n")
-        
-        f.write(f"Maximum Error: {max_error:.6f}\n\n")
-        
-        # Write inference performance
-        f.write(f"Total Inference Time: {inference_time:.4f} seconds\n")
-        f.write(f"Inference Time per Sample: {inference_time_per_sample*1000:.4f} ms\n\n")
-        
-        plots_dir = os.path.join(save_dir, 'plots')
-        Path(plots_dir).mkdir(parents=True, exist_ok=True)
-        plot_timestamp = time.strftime("%Y%m%d_%H%M%S")
-        
+             directional_accuracy = np.nan
+             max_error = np.nan
+
+
+        # Log test metrics
+        f.write(f"Test Loss (MSE): {avg_test_loss:.6f}\n")
+        f.write(f"Test RMSE: {test_errors.get('rmse', np.nan):.6f}\n")
+        f.write(f"Test MAE: {test_errors.get('mae', np.nan):.6f}\n")
+        f.write(f"Test MAPE: {test_errors.get('mape', np.nan):.2f}%\n")
+        f.write(f"Test Directional Accuracy: {directional_accuracy:.2f}%\n")
+        f.write(f"Test Maximum Error: {max_error:.6f}\n\n")
+        f.write(f"Total Inference Time (Test Set): {inference_time:.4f} seconds\n")
+        f.write(f"Inference Time per Sample: {inference_time_per_sample:.4f} ms\n\n")
+
+        # Add test predictions to history for potential plotting
+        history['y_true'] = all_y_true_test
+        history['y_pred'] = all_y_pred_test
+
+        # --- Generate Prediction Plots (Optional but Recommended) ---
+        if total_test_samples > 0:
+             try:
+                 plots_dir = os.path.join(save_dir, 'plots')
+                 Path(plots_dir).mkdir(parents=True, exist_ok=True)
+                 plot_timestamp = timestamp # Use same timestamp as log file
+                 if verbose: print(f"\nGenerating prediction plots...")
+
+                 # Call visualization function (ensure it's imported)
+                 plot_predictions(y_true_np, y_pred_np, target_cols, ticker, plots_dir, plot_timestamp)
+                 pred_plot_path = os.path.join(plots_dir, f"{ticker}_predictions_{plot_timestamp}.png")
+                 scatter_plot_path = os.path.join(plots_dir, f"{ticker}_pred_scatter_{plot_timestamp}.png")
+
+                 f.write(f"Prediction Plots:\n")
+                 f.write(f"  Time Series Plot: {pred_plot_path}\n")
+                 f.write(f"  Scatter Plot: {scatter_plot_path}\n\n")
+                 if verbose: print(f"Prediction plots saved to {plots_dir}")
+             except Exception as plot_err:
+                 logging.error(f"Failed to generate prediction plots: {plot_err}")
+                 f.write("Failed to generate prediction plots.\n\n")
+        else:
+             f.write("No test samples available to generate prediction plots.\n\n")
+
+
+        # --- Closing ---
+        end_run_time = datetime.datetime.now()
+        duration = end_run_time - start_run_time
+        f.write(f"Run Completed: {end_run_time.strftime('%Y-%m-%d %H:%M:%S')}\n")
+        f.write(f"Total Duration: {str(duration).split('.')[0]}\n") # Format duration cleanly
+
+        # Print final summary if verbose
         if verbose:
-            print(f"\nGenerating prediction plots...")
-            
-        # Call the visualization function
-        plot_predictions(
-            y_true_np, 
-            y_pred_np, 
-            target_cols, 
-            ticker, 
-            plots_dir, 
-            plot_timestamp
-        )
-        
-        # Add the plot paths to the log file
-        f.write(f"\nPrediction Plots:\n")
-        f.write(f"Time Series Plot: {plots_dir}/{ticker}_predictions_{plot_timestamp}.png\n")
-        f.write(f"Scatter Plot: {plots_dir}/{ticker}_pred_scatter_{plot_timestamp}.png\n\n")
-        
-        if verbose:
-            print(f"Prediction plots saved to {plots_dir}")
-        # End of added section
-        
-        # Write closing timestamp
-        end_time = datetime.datetime.now()
-        f.write(f"Run Completed: {end_time.strftime('%Y-%m-%d %H:%M:%S')}\n")
-        duration = end_time - start_time
-        hours, remainder = divmod(duration.total_seconds(), 3600)
-        minutes, seconds = divmod(remainder, 60)
-        f.write(f"Total Duration: {int(hours):02d}:{int(minutes):02d}:{seconds:.2f}\n")
-        
-        if verbose:
-            print(f"\nTest Results:")
+            print(f"\n{'-' * 80}")
+            print("TEST SET FINAL METRICS")
             print(f"{'-' * 30}")
-            print(f"MSE: {mse:.6f}")
-            print(f"RMSE: {rmse:.6f}")
-            print(f"MAE: {mae:.6f}")
-            print(f"MAPE: {mape:.2f}%")
-            if directional_accuracy is not None:
-                print(f"Directional Accuracy: {directional_accuracy:.2f}%")
+            print(f"Test Loss (MSE): {avg_test_loss:.6f}")
+            print(f"Test RMSE: {test_errors.get('rmse', np.nan):.6f}")
+            print(f"Test MAE: {test_errors.get('mae', np.nan):.6f}")
+            print(f"Test MAPE: {test_errors.get('mape', np.nan):.2f}%")
+            print(f"Directional Accuracy: {directional_accuracy:.2f}%")
             print(f"Maximum Error: {max_error:.6f}")
-            print(f"Inference Time per Sample: {inference_time_per_sample*1000:.4f} ms")
-            print(f"\nTotal Duration: {int(hours):02d}:{int(minutes):02d}:{seconds:.2f}")
+            print(f"Inference Time per Sample: {inference_time_per_sample:.4f} ms")
+            print(f"\nTotal Run Duration: {str(duration).split('.')[0]}")
             print(f"Log saved to: {log_path}")
             print(f"{'-' * 80}\n")
-    
+
     logging.info(f"Performance metrics saved to {log_path}")
-    return log_path
+    return log_path, history # Return log path and history dict
 
 def benchmark_architectures(models: List[Dict[str, Any]], 
                           data_loaders: Dict[str, Any],
@@ -748,14 +755,15 @@ def visualize_architectures(log_paths: List[str], output_dir: str = "performance
     logging.info(f"Architecture visualizations saved to {output_dir}")
     return saved_paths
 
-def extended_train_model_with_tracking(model, train_loader, val_loader, test_loader, 
+def extended_train_model_with_tracking(model, train_loader, val_loader, test_loader,
                                      epochs=20, lr=1e-3, device='cpu',
-                                     ticker='', architecture_name='', target_cols=[]):
+                                     ticker='', architecture_name='', target_cols=[],
+                                     # >> NEW: Accept features and analysis dict <<
+                                     used_features: Optional[List[str]] = None,
+                                     model_analysis_dict: Optional[Dict[str, Any]] = None):
     """
-    Extended training function that also tracks and logs performance metrics.
-    
-    This combines functionality from model_utils.train_model with performance tracking.
-    
+    Extended training function that tracks and logs performance metrics, including features/architecture.
+
     Args:
         model: PyTorch model to train
         train_loader: Training data loader
@@ -763,62 +771,39 @@ def extended_train_model_with_tracking(model, train_loader, val_loader, test_loa
         test_loader: Test data loader
         epochs: Number of training epochs
         lr: Learning rate
-        device: Device to use ('cpu' or 'cuda')
+        device: Device to use ('cpu', 'cuda', 'mps')
         ticker: Stock ticker symbol (for logging)
         architecture_name: Name of model architecture (for logging)
         target_cols: Target columns being predicted
-        
+        used_features (Optional[List[str]]): List of feature names used.
+        model_analysis_dict (Optional[Dict[str, Any]]): Dictionary with model architecture analysis.
+
     Returns:
-        Tuple of (trained_model, history, log_path)
+        Tuple of (trained_model, history_dict, log_file_path)
     """
-    # Create log file
-    timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
     log_dir = "performance_logs"
-    Path(log_dir).mkdir(parents=True, exist_ok=True)
-    log_filename = f"{architecture_name}_{ticker}_{timestamp}.txt"
-    log_path = os.path.join(log_dir, log_filename)
-    
-    # Use track_performance for consistent behavior
-    log_path = track_performance(
+    logging.info(f"Initiating extended training with tracking for {ticker} - {architecture_name}")
+
+    # Use track_performance for consistent behavior, passing new args
+    log_path, history = track_performance(
         model=model,
         train_loader=train_loader,
         val_loader=val_loader,
-        test_loader=test_loader,
+        test_loader=test_loader, # Pass test_loader for evaluation within track_performance
         epochs=epochs,
         ticker=ticker,
         architecture_name=architecture_name,
         target_cols=target_cols,
         save_dir=log_dir,
-        verbose=True  # Enable verbose output
+        verbose=True,  # Enable verbose console output during tracking
+        lr=lr,         # Pass learning rate
+        # >> Pass features and analysis down <<
+        used_features=used_features,
+        model_analysis_dict=model_analysis_dict
     )
-    
-    # Get history for visualization
-    try:
-        with open(log_path, 'r') as f:
-            content = f.read()
-            # Extract train and validation losses
-            train_loss_lines = [line for line in content.split('\n') if '|' in line and not line.startswith('-')]
-            train_losses = []
-            val_losses = []
-            
-            for line in train_loss_lines:
-                if line[0].isdigit():  # Skip header line
-                    parts = line.split('|')
-                    if len(parts) >= 3:
-                        try:
-                            train_loss = float(parts[1].strip())
-                            val_loss = float(parts[2].strip())
-                            train_losses.append(train_loss)
-                            val_losses.append(val_loss)
-                        except ValueError:
-                            pass
-            
-            history = {
-                'train_losses': train_losses,
-                'val_losses': val_losses
-            }
-    except Exception as e:
-        logging.error(f"Error extracting history from log: {str(e)}")
-        history = {'train_losses': [], 'val_losses': []}
-    
+
+    # The history dict is now returned directly by track_performance
+    # No need to manually extract from the log file anymore
+
+    logging.info(f"Extended training for {ticker} - {architecture_name} complete. Log: {log_path}")
     return model, history, log_path

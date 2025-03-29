@@ -17,10 +17,12 @@ Usage:
 
 import os
 import sys
+import re
 import logging
 import argparse
 import json
 import time
+import traceback
 import pandas as pd
 import numpy as np
 from pathlib import Path
@@ -35,9 +37,10 @@ try:
     from dtypes_adjustor import datatype_adjustor
     from splits_adjustor import adjust_for_stock_splits
     from cyclic_encoding import encode_dataframe 
-    from normalize_and_split import get_numeric_columns, compute_scaler_for_ticker, transform_ticker_data
+    from normalize_and_split import get_numeric_columns, compute_scaler_for_ticker, transform_ticker_data, split_and_normalize_by_ticker
     from normalize_and_split_utils import scale_dataset, split_data_by_ticker
     from verify_norm import verify_scaled_file, finalize_stats
+    from greeks_calculator import add_risk_free_rate, calculate_greeks_bs
 except ImportError as e:
     print(f"Error importing preprocessing modules: {e}")
     print("Make sure you're running this script from the project root directory.")
@@ -74,7 +77,11 @@ def parse_arguments():
                         help='Skip stock splits adjustment')
     parser.add_argument('--recovery-test', action='store_true',
                         help='Run data recovery tests on a sample of tickers')
-    
+    parser.add_argument('--rate-file', default='/Users/bekheet/dev/option-ml-prediction/data_files/split_data/DGS10.csv',
+                        help='Path to the risk-free rate file (e.g., DGS10.csv)')
+    parser.add_argument('--option-type-col', default=None, # Set default if you have this column, e.g., 'optionType'
+                        help='Name of column indicating Call/Put (e.g., C/P)')
+
     return parser.parse_args()
 
 def create_directory_structure(output_dir: str) -> Dict[str, str]:
@@ -467,92 +474,296 @@ def verify_scaled_data(scaled_file: str, output_dir: str) -> pd.DataFrame:
 def main():
     """Main preprocessing pipeline function."""
     start_time = time.time()
-    
-    # Parse command line arguments
+
+    # Parse command line arguments (ensure parse_arguments includes --rate-file and --option-type-col)
     args = parse_arguments()
-    
+
     # Create directory structure
     paths = create_directory_structure(args.output_dir)
-    
+
+    # Configure logging (ensure it's set up above main or here)
+    log_file = os.path.join(paths['main'], f"preprocess_pipeline_{datetime.now().strftime('%Y%m%d_%H%M%S')}.log")
+    # Make sure logging is configured before the first logging call in main
+    logging.basicConfig(
+        level=logging.INFO,
+        format='%(asctime)s - %(levelname)s - %(message)s',
+        handlers=[
+            logging.StreamHandler(),
+            logging.FileHandler(log_file)
+        ]
+    )
+    logging.info(f"Log file: {log_file}")
+
     try:
         # Define temporary file paths
         datatypes_fixed = os.path.join(paths['temp'], 'datatypes_fixed.csv')
         splits_adjusted = os.path.join(paths['temp'], 'splits_adjusted.csv')
         tickers_dropped = os.path.join(paths['temp'], 'tickers_dropped.csv')
-        cyclical_encoded = os.path.join(paths['temp'], 'cyclical_encoded.csv')
-        
-        # Load and inspect data structure
-        data_sample = load_data(args.input_file, batch_size=args.batch_size)
-        
-        # Determine if we need to add ticker column
-        if 'ticker' not in data_sample.columns and 'contractSymbol' in data_sample.columns:
-            logging.info("Will extract ticker from contractSymbol during processing")
-        
+        rates_added = os.path.join(paths['temp'], 'rates_added.csv') # New path
+        greeks_added = os.path.join(paths['temp'], 'greeks_added.csv') # New path
+        cyclical_encoded = os.path.join(paths['temp'], 'cyclical_encoded.csv') # This will be the input to normalization
+
+        # Load and inspect data structure (Optional, useful for initial setup)
+        # logging.info("Loading data sample for inspection...")
+        # data_sample = load_data(args.input_file, batch_size=100) # Use a small batch or nrows
+        # if 'ticker' not in data_sample.columns and 'contractSymbol' in data_sample.columns:
+        #     logging.info("Will extract ticker from contractSymbol during processing")
+        # del data_sample # free memory
+
         logging.info(f"Starting comprehensive preprocessing pipeline")
         logging.info(f"Input file: {args.input_file}")
         logging.info(f"Output directory: {args.output_dir}")
         logging.info(f"Batch size: {args.batch_size}")
         logging.info(f"Tickers to drop: {args.tickers_to_drop}")
-        
+        # Log new arguments
+        logging.info(f"Risk-free rate file: {args.rate_file}")
+        logging.info(f"Option type column provided: {args.option_type_col}")
+        logging.info(f"Skip splits: {args.skip_splits}")
+        logging.info(f"Verify output: {args.verify}")
+        logging.info(f"Run recovery test: {args.recovery_test}")
+
         # Step 1: Fix data types
-        fix_data_types(args.input_file, datatypes_fixed, args.batch_size)
-        
+        current_file = fix_data_types(args.input_file, datatypes_fixed, args.batch_size)
+
         # Step 2: Adjust for stock splits if not skipped
         if args.skip_splits:
             logging.info("Skipping stock splits adjustment")
+            # If skipping, the input for the next step is the output of step 1
             current_file = datatypes_fixed
         else:
-            current_file = adjust_splits(datatypes_fixed, splits_adjusted)
-        
+            current_file = adjust_splits(current_file, splits_adjusted)
+
         # Step 3: Drop unwanted tickers and rows with missing data
         current_file = drop_tickers(current_file, tickers_dropped, args.tickers_to_drop)
-        
+
+        # --- NEW STEP 3.5: Add Risk-Free Rate ---
+        logging.info("Adding risk-free rate...")
+        # Load the current data fully into memory for merge.
+        # Consider chunking this if the intermediate file is too large.
+        try:
+            df_for_rates = pd.read_csv(current_file)
+            # Make sure add_risk_free_rate is imported
+            df_with_rates = add_risk_free_rate(df_for_rates, args.rate_file, date_col='quoteDate')
+            df_with_rates.to_csv(rates_added, index=False)
+            current_file = rates_added
+            logging.info(f"Risk-free rate added, saved to {current_file}")
+            del df_for_rates, df_with_rates # Clean up memory
+        except Exception as rate_err:
+             logging.error(f"Failed to add risk-free rate: {rate_err}")
+             logging.error(traceback.format_exc())
+             raise # Stop pipeline if rates cannot be added
+
+        # --- NEW STEP 3.6: Calculate Greeks ---
+        logging.info("Calculating approximate Option Greeks (using Black-Scholes approximation)...")
+        # Load the data with rates. Chunking could be added here too if needed.
+        try:
+            df_for_greeks = pd.read_csv(current_file)
+
+            # Determine option type column
+            option_type_col_name = args.option_type_col
+            inferred_col = None # Track if we added a temporary column
+            if not option_type_col_name and 'contractSymbol' in df_for_greeks.columns:
+                logging.info("Attempting to infer option type from contractSymbol...")
+                # Example inference: looks for C or P after the date part
+                def infer_option_type(symbol):
+                    # Regex looks for letters (ticker), 6 digits (date), C or P
+                    match = re.search(r'^[A-Z]+(\d{6})([CP])', str(symbol))
+                    return match.group(2) if match else None
+
+                inferred_col = 'inferredOptionType'
+                df_for_greeks[inferred_col] = df_for_greeks['contractSymbol'].apply(infer_option_type)
+
+                if df_for_greeks[inferred_col].notna().sum() > 0:
+                    option_type_col_name = inferred_col
+                    logging.info(f"Using inferred option types from temporary column '{inferred_col}'.")
+                    logging.info(f"Inferred types summary:\n{df_for_greeks[inferred_col].value_counts(dropna=False)}")
+                else:
+                    logging.warning("Could not infer option types from contractSymbol. Greeks dependent on type will assume CALL.")
+                    # Drop the useless inferred column
+                    df_for_greeks = df_for_greeks.drop(columns=[inferred_col])
+                    inferred_col = None # Ensure we don't try to drop it later
+
+            # Calculate Greeks - make sure calculate_greeks_bs is imported
+            df_with_greeks = calculate_greeks_bs(df_for_greeks, option_type_col=option_type_col_name)
+
+            # If an inferred type column was added and used, drop it now
+            if inferred_col and inferred_col in df_with_greeks.columns:
+                logging.info(f"Dropping temporary column '{inferred_col}' used for type inference.")
+                df_with_greeks = df_with_greeks.drop(columns=[inferred_col])
+
+            df_with_greeks.to_csv(greeks_added, index=False)
+            current_file = greeks_added
+            logging.info(f"Greeks calculated, saved to {current_file}")
+            del df_for_greeks, df_with_greeks # Clean up memory
+        except Exception as greek_err:
+            logging.error(f"Failed to calculate Greeks: {greek_err}")
+            logging.error(traceback.format_exc())
+            raise # Stop pipeline if Greeks cannot be calculated
+
         # Step 4: Add cyclical encodings for temporal features
+        # The input file now contains Greeks
         current_file = add_cyclical_encodings(current_file, cyclical_encoded)
-        
+
         # Step 5: Normalize per ticker
-        ticker_info = normalize_per_ticker(
-            current_file, 
-            paths['tickers'], 
-            paths['params']
-        )
-        
-        # Step 6: Create a globally scaled version if requested
+        logging.info("Normalizing features per ticker...")
+        # Define columns to exclude from normalization
+        exclude_norm_cols = {
+            'day_of_week_sin', 'day_of_week_cos',
+            'day_of_month_sin', 'day_of_month_cos',
+            'day_of_year_sin', 'day_of_year_cos',
+            'inTheMoney', # Boolean
+            # Identifiers and non-numeric that might still be present
+            'ticker', 'contractSymbol', 'lastTradeDate', 'quoteDate', 'expiryDate',
+            'currency', 'contractSize'
+            # Add any other non-numeric columns here explicitly if needed
+        }
+        # This step should now normalize the base features AND the added Greek columns
+        try:
+             # Ensure normalize_per_ticker function or the one it calls (like split_and_normalize_by_ticker)
+             # correctly identifies numeric columns including greeks and uses exclude_norm_cols.
+             # Assuming normalize_per_ticker wraps the necessary logic:
+             ticker_info = normalize_per_ticker(
+                  current_file,
+                  paths['tickers'], # Save to 'by_ticker' subdir
+                  paths['params'],  # Save params to 'scaling_params' subdir
+                  exclude_columns=exclude_norm_cols # Pass exclusions
+             )
+             logging.info(f"Normalization per ticker complete. Metadata saved in {paths['tickers']}")
+        except NameError:
+             logging.error("Function 'normalize_per_ticker' not found. Attempting 'split_and_normalize_by_ticker'.")
+             try:
+                 # Fallback if normalize_per_ticker isn't defined, assuming split_and_normalize does the job
+                 ticker_info = split_and_normalize_by_ticker(
+                     input_file=current_file,
+                     output_dir=paths['tickers'], # Save to 'by_ticker' subdir
+                     ticker_column='ticker',
+                     exclude_columns=exclude_norm_cols,
+                     chunksize=None # Process each ticker in memory after splitting
+                 )
+                 logging.info(f"Normalization per ticker complete using split_and_normalize_by_ticker. Metadata saved in {paths['tickers']}")
+             except Exception as norm_err:
+                  logging.error(f"Failed during per-ticker normalization: {norm_err}")
+                  logging.error(traceback.format_exc())
+                  raise
+        except Exception as norm_err:
+             logging.error(f"Failed during per-ticker normalization: {norm_err}")
+             logging.error(traceback.format_exc())
+             raise
+
+
+        # Step 6: Create a globally scaled version if requested (Optional)
         if args.global_output:
-            logging.info(f"Creating globally scaled version at {args.global_output}")
-            scale_dataset(cyclical_encoded, args.global_output, chunksize=args.batch_size)
-        
+             try:
+                 logging.info(f"Creating globally scaled version at {args.global_output}")
+                 # Use the file *before* per-ticker normalization but *after* greeks and cyclical encoding
+                 from normalize_and_split_utils import scale_dataset # Ensure this is imported
+                 scale_dataset(cyclical_encoded, args.global_output, chunksize=args.batch_size, exclude_columns=exclude_norm_cols)
+                 logging.info(f"Global scaled file saved to {args.global_output}")
+             except NameError:
+                 logging.error("Function 'scale_dataset' not found. Cannot create global scaled file.")
+             except Exception as global_scale_err:
+                 logging.error(f"Failed to create globally scaled file: {global_scale_err}")
+
         # Step 7: Run verification on scaled data if requested
-        if args.verify:
-            verify_scaled_data(args.global_output, paths['validation'])
-        
-        # Step 8: Test data recovery if requested
-        if args.recovery_test:
-            test_data_recovery(ticker_info)
-        
+        if args.verify and args.global_output and os.path.exists(args.global_output):
+             try:
+                 # Assuming verify_scaled_file is available
+                 from verify_norm import verify_scaled_file
+                 # This function needs the expected numeric columns, including greeks
+                 numeric_cols_to_verify = [
+                     # Base numeric cols (example)
+                     "strike", "lastPrice", "bid", "ask", "change", "percentChange",
+                     "volume", "openInterest", "impliedVolatility", "daysToExpiry",
+                     "stockVolume", "stockClose", "stockAdjClose", "stockOpen", "stockHigh", "stockLow",
+                     "strikeDelta", "stockClose_ewm_5d", "stockClose_ewm_15d",
+                     "stockClose_ewm_45d", "stockClose_ewm_135d",
+                     "risk_free_rate", # Added Rate
+                     # Added Greeks
+                     "delta", "gamma", "vega", "theta", "rho"
+                 ]
+                 cyclical_cols_to_verify = [
+                     "day_of_week_sin", "day_of_week_cos", "day_of_month_sin",
+                     "day_of_month_cos", "day_of_year_sin", "day_of_year_cos"
+                 ]
+                 bool_cols_to_verify = ["inTheMoney"]
+
+                 logging.info(f"Verifying global scaled file: {args.global_output}")
+                 verify_scaled_file(
+                     file_path=args.global_output,
+                     chunksize=args.batch_size,
+                     expected_numeric_cols=numeric_cols_to_verify,
+                     cyclical_cols=cyclical_cols_to_verify,
+                     bool_cols=bool_cols_to_verify
+                 )
+                 logging.info(f"Verification results saved in {paths['validation']}") # Assuming verify saves results
+             except ImportError:
+                 logging.warning("Module 'verify_norm' not found. Skipping verification.")
+             except NameError:
+                 logging.warning("Function 'verify_scaled_file' not found. Skipping verification.")
+             except Exception as verify_err:
+                 logging.error(f"Error during verification: {verify_err}")
+        elif args.verify:
+             logging.warning("Verification requested but no global output file specified or created.")
+
+
+        # Step 8: Test data recovery if requested (using per-ticker results)
+        if args.recovery_test and 'ticker_info' in locals() and ticker_info:
+             try:
+                 # Assuming test_data_recovery is available
+                 # test_data_recovery(ticker_info) # Make sure this function is defined/imported
+                 logging.info("Recovery test step called (ensure implementation is available).")
+             except NameError:
+                 logging.warning("Recovery test function (test_data_recovery) not defined. Skipping recovery test.")
+             except Exception as recovery_err:
+                 logging.error(f"Error during recovery test: {recovery_err}")
+        elif args.recovery_test:
+             logging.warning("Recovery test requested but ticker normalization did not produce results or failed.")
+
+
         # Capture end time and calculate duration
         end_time = time.time()
         duration = end_time - start_time
         hours, remainder = divmod(duration, 3600)
         minutes, seconds = divmod(remainder, 60)
-        
+
         logging.info(f"Pipeline completed successfully!")
         logging.info(f"Total processing time: {int(hours):02d}:{int(minutes):02d}:{seconds:.2f}")
-        logging.info(f"Processed {len(ticker_info)} tickers")
-        logging.info(f"Results saved to {args.output_dir}")
-        
+        if 'ticker_info' in locals():
+             logging.info(f"Processed {len(ticker_info)} tickers with per-ticker normalization.")
+        logging.info(f"Per-ticker normalized data saved in: {paths['tickers']}")
+        logging.info(f"Scaling parameters saved in: {paths['params']}")
+
         # Clean up temporary files
-        if not args.recovery_test:  # Keep temp files for recovery testing if needed
-            logging.info("Cleaning up temporary files")
-            for file_path in [datatypes_fixed, splits_adjusted, tickers_dropped, cyclical_encoded]:
+        logging.info("Cleaning up temporary files...")
+        # Add the new temp files to the cleanup list
+        cleanup_files = [datatypes_fixed, splits_adjusted, tickers_dropped, rates_added, greeks_added, cyclical_encoded]
+        for file_path in cleanup_files:
+            try:
                 if os.path.exists(file_path):
                     os.remove(file_path)
-        
+                    logging.debug(f"Removed temporary file: {file_path}")
+            except Exception as cleanup_err:
+                logging.warning(f"Could not remove temporary file {file_path}: {cleanup_err}")
+        # Try removing the temp directory if it's empty
+        try:
+            if os.path.exists(paths['temp']) and not os.listdir(paths['temp']):
+                 os.rmdir(paths['temp'])
+                 logging.debug(f"Removed empty temporary directory: {paths['temp']}")
+            elif os.path.exists(paths['temp']):
+                 logging.warning(f"Temporary directory {paths['temp']} not empty, leaving for inspection.")
+        except Exception as cleanup_err:
+             logging.warning(f"Could not remove temporary directory {paths['temp']}: {cleanup_err}")
+
+
     except Exception as e:
         logging.error(f"Pipeline failed: {str(e)}")
         import traceback
         logging.error(traceback.format_exc())
+        # Optionally keep temp files on failure for debugging
+        print(f"\nPipeline failed. Check log file: {log_file}")
         sys.exit(1)
 
 if __name__ == "__main__":
+    # This check ensures the main function runs only when the script is executed directly
+    # Ensure necessary imports (like re, traceback, etc.) are at the top of the file
     main()

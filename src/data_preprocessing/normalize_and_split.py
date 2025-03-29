@@ -1,6 +1,7 @@
 """
 Module for processing financial data with per-ticker normalization and original data recovery
 """
+import logging
 import pandas as pd
 import numpy as np
 from sklearn.preprocessing import StandardScaler
@@ -14,6 +15,7 @@ def get_numeric_columns(df: pd.DataFrame, exclude: Optional[Set[str]] = None) ->
     numeric_cols = df.select_dtypes(include=[np.number]).columns.tolist()
     if exclude:
         numeric_cols = [col for col in numeric_cols if col not in exclude]
+    logging.debug(f"Identified numeric columns for scaling: {numeric_cols}")
     return numeric_cols
 
 def compute_scaler_for_ticker(

@@ -1,3 +1,5 @@
+import logging
+from typing import Optional
 import matplotlib.pyplot as plt
 import os
 from datetime import datetime
@@ -57,88 +59,114 @@ def display_model_analysis(analysis):
         print(f"  Input shape: {shapes['input_shape']}")
         print(f"  Output shape: {shapes['output_shape']}")
 
-def plot_predictions(y_true, y_pred, target_cols, ticker, output_dir="models", timestamp=None):
+def plot_predictions(y_true, y_pred, target_cols, ticker, output_dir="models", timestamp=None,
+                     rmse: Optional[float] = None, mae: Optional[float] = None, n_samples_plot: int = 250):
     """
-    Plot predicted vs actual values for each target column.
-    
+    Plot predicted vs actual values for each target column using original scale
+    and annotate with provided error metrics.
+
     Args:
-        y_true: Numpy array of true values
-        y_pred: Numpy array of predicted values
-        target_cols: List of target column names
-        ticker: Stock ticker
-        output_dir: Directory to save plots
-        timestamp: Timestamp for filenames (optional)
+        y_true: Numpy array of true values (original scale).
+        y_pred: Numpy array of predicted values (original scale).
+        target_cols: List of target column names.
+        ticker: Stock ticker symbol.
+        output_dir: Directory to save plots.
+        timestamp: Timestamp for filenames (optional).
+        rmse (Optional[float]): Root Mean Squared Error (original scale) for annotation.
+        mae (Optional[float]): Mean Absolute Error (original scale) for annotation.
+        n_samples_plot (int): Max number of samples for time series plot.
     """
     if timestamp is None:
         timestamp = datetime.now().strftime("%m%d%H%M%S")
-    
-    # Convert to numpy arrays if they're not already
+
+    # Ensure inputs are numpy arrays
     y_true_np = np.array(y_true)
     y_pred_np = np.array(y_pred)
-    
-    # Ensure proper shapes
-    if len(y_true_np.shape) == 1:
-        y_true_np = y_true_np.reshape(-1, 1)
-    if len(y_pred_np.shape) == 1:
-        y_pred_np = y_pred_np.reshape(-1, 1)
-    
-    # Number of samples to plot (limit to avoid overcrowding)
-    num_samples = min(250, len(y_true_np))
-    indices = np.linspace(0, len(y_true_np)-1, num_samples, dtype=int)
-    
-    # Create a figure with subplots for each target column
-    n_targets = y_true_np.shape[1]
-    fig, axs = plt.subplots(n_targets, 1, figsize=(12, 5*n_targets), dpi=100)
-    
-    # Handle case with single target
-    if n_targets == 1:
-        axs = [axs]
-    
-    for i in range(n_targets):
-        target_name = target_cols[i] if i < len(target_cols) else f"Target {i+1}"
-        
-        # Plot time series comparison
-        axs[i].plot(indices, y_true_np[indices, i], 'b-', label=f'Actual {target_name}', linewidth=2)
-        axs[i].plot(indices, y_pred_np[indices, i], 'r--', label=f'Predicted {target_name}', linewidth=2)
-        axs[i].set_title(f'{ticker} - {target_name} Prediction vs Actual')
-        axs[i].set_xlabel('Sample Index')
-        axs[i].set_ylabel(f'{target_name} Value')
-        axs[i].legend()
-        axs[i].grid(True, alpha=0.3)
-    
-    plt.tight_layout()
-    predictions_plot_path = os.path.join(output_dir, f"{ticker}_predictions_{timestamp}.png")
-    plt.savefig(predictions_plot_path, dpi=300, bbox_inches='tight')
-    print(f"Predictions plot saved to {predictions_plot_path}")
-    
-    # Create scatter plot for each target
-    fig, axs = plt.subplots(1, n_targets, figsize=(7*n_targets, 6), dpi=100)
-    
-    # Handle case with single target
-    if n_targets == 1:
-        axs = [axs]
-    
-    for i in range(n_targets):
-        target_name = target_cols[i] if i < len(target_cols) else f"Target {i+1}"
-        
-        # Scatter plot of predicted vs actual
-        axs[i].scatter(y_true_np[:, i], y_pred_np[:, i], alpha=0.5)
-        
-        # Add perfect prediction line
-        max_val = max(np.max(y_true_np[:, i]), np.max(y_pred_np[:, i]))
-        min_val = min(np.min(y_true_np[:, i]), np.min(y_pred_np[:, i]))
-        axs[i].plot([min_val, max_val], [min_val, max_val], 'k--', label='Perfect Prediction')
-        
-        axs[i].set_title(f'{ticker} - {target_name}')
-        axs[i].set_xlabel(f'Actual {target_name}')
-        axs[i].set_ylabel(f'Predicted {target_name}')
-        axs[i].legend()
-        axs[i].grid(True, alpha=0.3)
-    
-    plt.tight_layout()
-    scatter_plot_path = os.path.join(output_dir, f"{ticker}_pred_scatter_{timestamp}.png")
-    plt.savefig(scatter_plot_path, dpi=300, bbox_inches='tight')
-    print(f"Scatter plot saved to {scatter_plot_path}")
+
+    # Ensure proper shapes (samples x targets)
+    if len(y_true_np.shape) == 1: y_true_np = y_true_np.reshape(-1, 1)
+    if len(y_pred_np.shape) == 1: y_pred_np = y_pred_np.reshape(-1, 1)
+
+    num_targets = y_true_np.shape[1]
+    if len(target_cols) != num_targets:
+         logging.warning(f"Mismatch between target_cols ({len(target_cols)}) and data shape ({num_targets}). Using generic target names.")
+         target_cols = [f"Target {i+1}" for i in range(num_targets)]
+
+    # --- Time Series Plot ---
+    num_samples = min(n_samples_plot, len(y_true_np))
+    indices = np.linspace(0, len(y_true_np)-1, num_samples, dtype=int) if len(y_true_np) > 0 else []
+
+    if len(indices) > 0: # Only plot if there's data
+        fig_ts, axs_ts = plt.subplots(num_targets, 1, figsize=(12, 5 * num_targets), dpi=100, squeeze=False) # Ensure axs is 2D
+
+        for i in range(num_targets):
+            target_name = target_cols[i]
+            axs_ts[i, 0].plot(indices, y_true_np[indices, i], 'b-', label=f'Actual {target_name}', linewidth=1.5)
+            axs_ts[i, 0].plot(indices, y_pred_np[indices, i], 'r--', label=f'Predicted {target_name}', linewidth=1.5)
+            axs_ts[i, 0].set_title(f'{ticker} - {target_name} Prediction vs Actual (Sample)')
+            axs_ts[i, 0].set_xlabel('Sample Index')
+            axs_ts[i, 0].set_ylabel(f'{target_name} Value ($)') # Indicate original scale
+            axs_ts[i, 0].legend()
+            axs_ts[i, 0].grid(True, alpha=0.3)
+
+        plt.tight_layout()
+        ts_plot_path = os.path.join(output_dir, f"{ticker}_predictions_ts_{timestamp}.png") # Changed filename slightly
+        plt.savefig(ts_plot_path, dpi=300, bbox_inches='tight')
+        print(f"Time series plot saved to {ts_plot_path}")
+        plt.close(fig_ts) # Close the figure
+    else:
+         logging.warning("Skipping time series plot due to insufficient data.")
+         ts_plot_path = None
+
+
+    # --- Scatter Plot ---
+    if len(y_true_np) > 0: # Only plot if there's data
+        fig_sc, axs_sc = plt.subplots(1, num_targets, figsize=(7 * num_targets, 6), dpi=100, squeeze=False) # Ensure axs is 2D
+
+        for i in range(num_targets):
+            target_name = target_cols[i]
+            axs_sc[0, i].scatter(y_true_np[:, i], y_pred_np[:, i], alpha=0.4, s=10) # Adjust alpha/size
+
+            # Add perfect prediction line (y=x)
+            min_val = min(np.min(y_true_np[:, i]), np.min(y_pred_np[:, i]))
+            max_val = max(np.max(y_true_np[:, i]), np.max(y_pred_np[:, i]))
+            axs_sc[0, i].plot([min_val, max_val], [min_val, max_val], 'k--', label='Perfect Prediction', linewidth=1)
+
+            axs_sc[0, i].set_title(f'{ticker} - {target_name}')
+            axs_sc[0, i].set_xlabel(f'Actual {target_name} ($)') # Indicate original scale
+            axs_sc[0, i].set_ylabel(f'Predicted {target_name} ($)') # Indicate original scale
+            axs_sc[0, i].grid(True, alpha=0.3)
+
+            # --- Add Metric Annotations ---
+            annotation_text = []
+            if rmse is not None: annotation_text.append(f'RMSE: {rmse:.4f}')
+            if mae is not None: annotation_text.append(f'MAE:  {mae:.4f}')
+            # You could add other metrics here if passed
+
+            if annotation_text:
+                 # Place text in upper left corner
+                 axs_sc[0, i].text(0.05, 0.95, "\n".join(annotation_text),
+                                   transform=axs_sc[0, i].transAxes, # Use axes coordinates
+                                   fontsize=9, verticalalignment='top',
+                                   bbox=dict(boxstyle='round,pad=0.3', fc='white', alpha=0.8))
+            # --- End Annotations ---
+
+            axs_sc[0, i].legend(loc='lower right') # Adjust legend position maybe
+
+        plt.tight_layout()
+        scatter_plot_path = os.path.join(output_dir, f"{ticker}_pred_scatter_{timestamp}.png")
+        plt.savefig(scatter_plot_path, dpi=300, bbox_inches='tight')
+        print(f"Scatter plot saved to {scatter_plot_path}")
+        plt.close(fig_sc) # Close the figure
+    else:
+         logging.warning("Skipping scatter plot due to insufficient data.")
+         scatter_plot_path = None
+
+    # Return dict of plot paths
+    plot_files = {}
+    if ts_plot_path: plot_files['time_series'] = ts_plot_path
+    if scatter_plot_path: plot_files['scatter'] = scatter_plot_path
+    return plot_files
 
 def plot_model_predictions(model, data_loader, target_cols, ticker, output_dir="models", device='cpu'):
     """

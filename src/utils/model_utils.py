@@ -14,6 +14,8 @@ from torch.utils.data import DataLoader
 from torch.utils.data.dataset import Subset
 from tqdm import tqdm
 
+from utils.visualization_utils import plot_predictions
+
 
 class EarlyStopping:
     def __init__(self, patience=5, min_delta=1e-5):
@@ -405,53 +407,77 @@ def run_existing_model(model_path, model_class, dataset, target_cols=["bid", "as
         logging.error(f"Error in run_existing_model: {str(e)}")
         raise
 
-def load_scaling_params(ticker: str, data_dir: str) -> Dict[str, Dict[str, float]]:
+def load_scaling_params(ticker: str, data_dir: str) -> Optional[Dict[str, Dict[str, float]]]:
     """
-    Load the scaling parameters for a specific ticker.
-    
+    Load the scaling parameters (mean, scale/std) for a specific ticker.
+    Looks for the file in the 'by_ticker/scaling_params' subdirectory.
+
     Args:
-        ticker: The ticker symbol
-        data_dir: Directory containing data files
-        
+        ticker (str): The ticker symbol.
+        data_dir (str): The base data directory (e.g., 'data_files/split_data').
+
     Returns:
-        Dictionary of scaling parameters
+        Optional[Dict[str, Dict[str, float]]]: Dictionary of scaling parameters or None if not found.
     """
     params_path = os.path.join(data_dir, 'by_ticker', 'scaling_params', f"{ticker}_scaling_params.json")
-    
+    logging.info(f"Attempting to load scaling parameters from: {params_path}")
     if not os.path.exists(params_path):
-        raise FileNotFoundError(f"Scaling parameters not found for {ticker} at {params_path}")
-    
-    with open(params_path, 'r') as f:
-        scaling_params = json.load(f)
-    
-    return scaling_params
+        logging.error(f"Scaling parameters file not found: {params_path}")
+        return None
+    try:
+        with open(params_path, 'r') as f:
+            scaling_params = json.load(f)
+        logging.info(f"Successfully loaded scaling parameters for {ticker}.")
+        return scaling_params
+    except Exception as e:
+        logging.error(f"Error loading or parsing scaling parameters file {params_path}: {e}")
+        return None
 
-def recover_original_values(normalized_values: np.ndarray, 
-                          column_names: List[str],
-                          scaling_params: Dict[str, Dict[str, float]]) -> np.ndarray:
+def recover_original_values(
+    normalized_values: np.ndarray,
+    column_names: List[str],
+    scaling_params: Dict[str, Dict[str, float]]
+) -> np.ndarray:
     """
     Recover original values from normalized values using scaling parameters.
-    
+
     Args:
-        normalized_values: Array of normalized values
-        column_names: List of column names corresponding to the values
-        scaling_params: Dictionary of scaling parameters
-        
+        normalized_values (np.ndarray): Array of normalized values (samples x features).
+        column_names (List[str]): List of column names corresponding to the feature dimension.
+        scaling_params (Dict[str, Dict[str, float]]): Dictionary of scaling parameters ({'mean': m, 'scale': s}).
+
     Returns:
-        Array with recovered original values
+        np.ndarray: Array with recovered original values.
     """
+    if not scaling_params:
+         logging.warning("Received empty scaling parameters. Cannot un-normalize data.")
+         return normalized_values # Return original if params are missing
+
     original_values = normalized_values.copy()
-    
-    for i, col in enumerate(column_names):
-        if col in scaling_params:
-            # Get parameters for this column
-            mean = scaling_params[col]['mean'] if 'mean' in scaling_params[col] else scaling_params[col].get('mean', 0)
-            scale = scaling_params[col]['scale'] if 'scale' in scaling_params[col] else scaling_params[col].get('std', 1)
-            
+    num_cols = normalized_values.shape[1]
+
+    if len(column_names) != num_cols:
+        logging.error(f"Mismatch between number of column names ({len(column_names)}) and data columns ({num_cols}). Cannot reliably un-normalize.")
+        return normalized_values # Return original on mismatch
+
+    logging.info(f"Recovering original values for columns: {column_names}")
+    for i, col_name in enumerate(column_names):
+        if col_name in scaling_params:
+            params = scaling_params[col_name]
+            mean = params.get('mean', 0)
+            # Use 'scale' if present (from StandardScaler), otherwise fallback to 'std'
+            scale = params.get('scale', params.get('std', 1))
+            if scale == 0: # Avoid division by zero if scale is zero
+                 logging.warning(f"Scaling factor is zero for column '{col_name}'. Skipping un-normalization for this column.")
+                 continue
             # Apply inverse transform: X_orig = X_scaled * scale + mean
             original_values[:, i] = normalized_values[:, i] * scale + mean
-    
+            logging.debug(f"Un-normalized '{col_name}' using mean={mean}, scale={scale}")
+        else:
+            logging.warning(f"No scaling parameters found for column '{col_name}'. Leaving it as is.")
+
     return original_values
+
 def visualize_predictions(y_true: np.ndarray, 
                          y_pred: np.ndarray, 
                          target_cols: List[str],
@@ -606,382 +632,290 @@ def visualize_predictions(y_true: np.ndarray,
     return plot_files
 
 def run_existing_model_with_visualization(
-    model_path: str, 
-    model_class: Any, 
-    dataset: Any, 
+    model_path: str,
+    model_class: Any,
+    dataset: Any, # Should be an instance of StockOptionDataset
     target_cols: List[str] = ["bid", "ask"],
     visualize: bool = True,
-    n_samples: int = 100,
-    data_dir: Optional[str] = None,
-    output_dir: str = "prediction_visualizations"
+    n_samples_plot: int = 250, # Renamed from n_samples to avoid confusion
+    data_dir: Optional[str] = None, # Needed to load scaling params
+    output_dir: str = "prediction_visualizations" # Changed default
 ) -> Tuple[Dict[str, float], Optional[Dict[str, str]]]:
     """
-    Load and run predictions with an existing model, with optional visualization.
-    
+    Load and run predictions, un-normalize results, calculate original-scale metrics,
+    and optionally visualize with annotations.
+
     Args:
-        model_path: Path to the saved model
-        model_class: Model class to use
-        dataset: Dataset containing the features and targets
-        target_cols: Target columns being predicted
-        visualize: Whether to create visualization plots
-        n_samples: Number of samples to visualize
-        data_dir: Path to data directory (needed for scaling parameters)
-        output_dir: Directory to save visualizations
-        
+        model_path (str): Path to the saved model.
+        model_class (Any): Model class (e.g., HybridRNNModel).
+        dataset (Any): Instance of StockOptionDataset for the desired ticker.
+        target_cols (List[str]): Target columns predicted by the model.
+        visualize (bool): Whether to generate plots.
+        n_samples_plot (int): Number of samples for time series plots.
+        data_dir (Optional[str]): Base data directory (e.g., 'data_files/split_data') needed for scaling params.
+        output_dir (str): Directory to save visualizations.
+
     Returns:
-        Tuple of (error metrics, visualization file paths)
+        Tuple[Dict[str, float], Optional[Dict[str, str]]]:
+            - Dictionary of error metrics (calculated on *original* scale).
+            - Dictionary mapping plot types to saved file paths if visualized, else None.
     """
-    model = load_model(
-        model_path, 
-        model_class,
-        input_size=dataset.n_features, 
-        output_size=len(dataset.target_cols)
-    )
-    model.eval()
-    
+    # Ensure output directory exists
+    Path(output_dir).mkdir(parents=True, exist_ok=True)
+
+    # --- Load Model and Get Predictions (Normalized) ---
+    try:
+        # Assume dataset provides necessary info like n_features, n_targets, ticker
+        model = load_model(
+            model_path, model_class,
+            input_size=dataset.n_features, output_size=dataset.n_targets
+        )
+        if model is None: raise ValueError("Failed to load model.")
+        model.eval()
+    except Exception as e:
+        logging.error(f"Error loading model {model_path}: {e}")
+        print(f"\nError loading model: {e}")
+        return {}, None # Return empty results on failure
+
+    # Determine device
+    try:
+         device = next(model.parameters()).device
+    except StopIteration:
+         device = torch.device('mps' if torch.backends.mps.is_available() else 'cuda' if torch.cuda.is_available() else 'cpu')
+    model.to(device)
+    logging.info(f"Running model on device: {device}")
+
     data_loader = DataLoader(dataset, batch_size=128, shuffle=False)
-    
-    all_y_true = []
-    all_y_pred = []
-    device = 'cuda' if torch.cuda.is_available() else 'mps' if torch.backends.mps.is_available() else 'cpu'
-    model = model.to(device)
-    
+    all_y_true_norm = []
+    all_y_pred_norm = []
+
     print(f"\nMaking predictions for {dataset.ticker}...")
     with torch.no_grad():
         for x_seq, y_val in data_loader:
-            x_seq, y_val = x_seq.to(device), y_val.to(device)
+            x_seq = x_seq.to(device)
+            # y_val stays on CPU for easier numpy conversion later
             y_pred = model(x_seq)
-            all_y_true.extend(y_val.cpu().numpy())
-            all_y_pred.extend(y_pred.cpu().numpy())
-    
-    # Calculate error metrics
-    errors = calculate_errors(torch.tensor(all_y_true), torch.tensor(all_y_pred))
-    
-    # Print error metrics
-    print("\nPrediction Metrics:")
+            all_y_true_norm.extend(y_val.cpu().numpy())
+            all_y_pred_norm.extend(y_pred.cpu().numpy())
+
+    y_true_norm_np = np.array(all_y_true_norm)
+    y_pred_norm_np = np.array(all_y_pred_norm)
+
+    # --- Un-normalize Predictions and Actuals ---
+    y_true_orig = y_true_norm_np # Default if un-normalization fails
+    y_pred_orig = y_pred_norm_np
+    scaling_params = None
+    un_normalized = False
+
+    if data_dir:
+        scaling_params = load_scaling_params(dataset.ticker, data_dir)
+        if scaling_params:
+            # Ensure target_cols matches the order/names expected by recover_original_values
+            try:
+                # We need to un-normalize based on the target column names
+                y_true_orig = recover_original_values(y_true_norm_np, target_cols, scaling_params)
+                y_pred_orig = recover_original_values(y_pred_norm_np, target_cols, scaling_params)
+                print(f"\nSuccessfully un-normalized predictions and actuals for {dataset.ticker}.")
+                un_normalized = True
+            except Exception as e:
+                logging.error(f"Failed to un-normalize data for {dataset.ticker}: {e}")
+                print("\nWarning: Could not un-normalize data. Metrics and plots will use normalized values.")
+        else:
+            print("\nWarning: Scaling parameters not found. Metrics and plots will use normalized values.")
+    else:
+        print("\nWarning: data_dir not provided. Cannot load scaling parameters. Metrics and plots will use normalized values.")
+
+    # --- Calculate Metrics (Original Scale if possible) ---
+    print("\nCalculating Prediction Metrics" + (" (Original Scale)" if un_normalized else " (Normalized Scale)") + ":")
+    # Use original scale arrays if available, otherwise use normalized ones
+    y_true_calc = torch.tensor(y_true_orig)
+    y_pred_calc = torch.tensor(y_pred_orig)
+    errors_orig = calculate_errors(y_true_calc, y_pred_calc) # Assumes calculate_errors handles numpy/torch tensor
+
+    # Format metrics for printing/plotting
+    rmse_val = errors_orig.get('rmse', np.nan)
+    mae_val = errors_orig.get('mae', np.nan)
+
     print("-" * 50)
-    print(f"MSE: {errors['mse']:.6f}")
-    print(f"RMSE: {errors['rmse']:.6f}")
-    print(f"MAE: {errors['mae']:.6f}")
-    print(f"MAPE: {errors['mape']:.2f}%")
-    
-    # Create visualizations if requested
+    print(f"RMSE: {rmse_val:.4f}") # Use more decimal places for dollar values potentially
+    print(f"MAE:  {mae_val:.4f}")
+    # Optionally calculate and print other metrics like MAPE, Dir Acc if needed,
+    # but calculate them on the *original scale* data (y_true_orig, y_pred_orig)
+    # MAPE might still be unstable if original prices are near zero.
+
+    # --- Visualize Results (If Requested) ---
     viz_files = None
     if visualize:
-        # Try to load scaling parameters if data_dir is provided
-        scaling_params = None
-        if data_dir:
-            try:
-                scaling_params = load_scaling_params(dataset.ticker, data_dir)
-                print(f"\nLoaded scaling parameters for {dataset.ticker} for visualization with original values")
-                
-                # Debug scaling parameters
-                print("\n=== SCALING PARAMETERS DEBUG INFO ===")
-                # Print all available target columns in the scaling params
-                all_available_cols = list(scaling_params.keys())
-                print(f"All columns available in scaling parameters: {all_available_cols}")
-                
-                # Check each target column
-                for col in target_cols:
-                    if col in scaling_params:
-                        print(f"Scaling params for {col}: mean={scaling_params[col].get('mean', 'MISSING')}, "
-                              f"scale={scaling_params[col].get('scale', 'MISSING')}")
-                    else:
-                        print(f"WARNING: No scaling parameters found for column '{col}'")
-                
-            except FileNotFoundError:
-                print(f"\nScaling parameters not found for {dataset.ticker}. Using normalized values for visualization.")
-        
-        # Add debugging for prediction values before visualization
-        print("\n=== PREDICTION VALUES DEBUG INFO ===")
-        # Convert to numpy for consistent handling
-        y_true_np = np.array(all_y_true)
-        y_pred_np = np.array(all_y_pred)
+        print("\nGenerating visualizations...")
+        try:
+            # Pass the ORIGINAL SCALE data and metrics to the plotting function
+            viz_files = plot_predictions(
+                y_true=y_true_orig, # Pass un-normalized
+                y_pred=y_pred_orig, # Pass un-normalized
+                target_cols=target_cols,
+                ticker=dataset.ticker,
+                output_dir=output_dir,
+                # Pass metrics for annotation
+                rmse=rmse_val,
+                mae=mae_val,
+                n_samples_plot=n_samples_plot # Pass plotting sample limit
+            )
+            print("\nVisualizations saved to:")
+            if viz_files:
+                 for target, file_path in viz_files.items():
+                      print(f"  {target}: {file_path}")
+            else:
+                 print("  Plotting function did not return file paths.")
+        except Exception as e:
+            logging.error(f"Error during visualization: {e}")
+            print(f"\nError generating plots: {e}")
 
-        # Ensure arrays are 2D for consistent indexing
-        if len(y_true_np.shape) == 1:
-            y_true_np = y_true_np.reshape(-1, 1)
-        if len(y_pred_np.shape) == 1:
-            y_pred_np = y_pred_np.reshape(-1, 1)
-
-        # Print statistics about the normalized predictions
-        print("Normalized prediction statistics:")
-        for i, col in enumerate(target_cols):
-            mean_true = np.mean(y_true_np[:, i])
-            std_true = np.std(y_true_np[:, i])
-            min_true = np.min(y_true_np[:, i])
-            max_true = np.max(y_true_np[:, i])
-            
-            mean_pred = np.mean(y_pred_np[:, i])
-            std_pred = np.std(y_pred_np[:, i])
-            min_pred = np.min(y_pred_np[:, i])
-            max_pred = np.max(y_pred_np[:, i])
-            
-            print(f"\nColumn: {col}")
-            print(f"  True - mean: {mean_true:.6f}, std: {std_true:.6f}, min: {min_true:.6f}, max: {max_true:.6f}")
-            print(f"  Pred - mean: {mean_pred:.6f}, std: {std_pred:.6f}, min: {min_pred:.6f}, max: {max_pred:.6f}")
-
-        # Check a few samples
-        print("\nSample of normalized predictions (first 5):")
-        for i in range(min(5, len(y_pred_np))):
-            true_values = y_true_np[i]
-            pred_values = y_pred_np[i]
-            print(f"  Sample {i+1}:")
-            for j, col in enumerate(target_cols):
-                print(f"    {col} - True: {true_values[j]:.6f}, Pred: {pred_values[j]:.6f}")
-
-        # Try recovery ourselves to double check
-        if scaling_params:
-            print("\nManually recovered values (sample):")
-            for i in range(min(5, len(y_pred_np))):
-                true_values = y_true_np[i]
-                pred_values = y_pred_np[i]
-                print(f"  Sample {i+1}:")
-                for j, col in enumerate(target_cols):
-                    if col in scaling_params:
-                        mean = scaling_params[col].get('mean', 0)
-                        scale = scaling_params[col].get('scale', 1)
-                        true_orig = true_values[j] * scale + mean
-                        pred_orig = pred_values[j] * scale + mean
-                        print(f"    {col} - True: {true_orig:.6f}, Pred: {pred_orig:.6f}")
-                    else:
-                        print(f"    {col} - MISSING SCALING PARAMETERS")
-        
-        # Create visualizations
-        viz_files = visualize_predictions(
-            y_true=np.array(all_y_true),
-            y_pred=np.array(all_y_pred),
-            target_cols=target_cols,
-            ticker=dataset.ticker,
-            scaling_params=scaling_params,
-            output_dir=output_dir,
-            show_plot=True,
-            n_samples=n_samples
-        )
-        
-        # Print visualization file paths
-        print("\nVisualizations saved to:")
-        for target, file_path in viz_files.items():
-            print(f"  {target}: {file_path}")
-    
-    return errors, viz_files
+    return errors_orig, viz_files # Return original scale errors
 # Handler Functions moved from nn.py
 def handle_train_model(config, HybridRNNModel, GRUGRUModel, LSTMLSTMModel,
                        save_and_display_results, extended_train_model_with_tracking,
                        get_available_tickers, select_ticker, StockOptionDataset):
-    """Handle the model training workflow with optional Greeks and enhanced logging."""
+    """Handle the model training workflow with optional Greeks/Rolling Features and enhanced logging."""
     try:
         logging.info("Starting model training workflow...")
 
         # --- User Prompts ---
         use_tracking = input("\nUse detailed performance tracking log? (y/n): ").lower().startswith('y')
         logging.info(f"Performance tracking enabled: {use_tracking}")
-        use_greeks_input = input("Include Option Greeks features for this training run? (y/n): ").lower()
+
+        # Prompt for Greeks
+        use_greeks_input = input("Include Option Greeks features? (y/n): ").lower()
         include_greeks_flag = use_greeks_input == 'y'
         logging.info(f"Include Option Greeks features: {include_greeks_flag}")
 
+        # >> NEW: Prompt for Rolling Window Features <<
+        use_rolling_input = input("Include Rolling Window features? (y/n): ").lower()
+        include_rolling_flag = use_rolling_input == 'y'
+        logging.info(f"Include Rolling Window features: {include_rolling_flag}")
+
+        # Prompt for architecture
         print("\nSelect model architecture:")
         print("1. LSTM-GRU Hybrid (default)")
         print("2. GRU-GRU")
         print("3. LSTM-LSTM")
         arch_choice = input("Enter choice (1-3): ").strip()
-
-        if arch_choice == "2":
-            architecture_type = "GRU-GRU"
-            SelectedModelClass = GRUGRUModel
-        elif arch_choice == "3":
-            architecture_type = "LSTM-LSTM"
-            SelectedModelClass = LSTMLSTMModel
-        else:
-            architecture_type = "LSTM-GRU" # Default
-            SelectedModelClass = HybridRNNModel
+        # [ ... same architecture selection logic ... ]
+        if arch_choice == "2": architecture_type = "GRU-GRU"; SelectedModelClass = GRUGRUModel
+        elif arch_choice == "3": architecture_type = "LSTM-LSTM"; SelectedModelClass = LSTMLSTMModel
+        else: architecture_type = "LSTM-GRU"; SelectedModelClass = HybridRNNModel
         logging.info(f"Selected architecture: {architecture_type}")
 
         # --- Data Preparation ---
         tickers, counts = get_available_tickers(config['data_dir'])
-        if not tickers:
-             logging.error("No tickers found."); print("\nError: No tickers available."); return
+        if not tickers: raise ValueError("No tickers available in the data directory.") # Raise error
         ticker = select_ticker(tickers, counts)
-        if not ticker:
-             logging.warning("No ticker selected."); print("\nNo ticker selected."); return
+        if not ticker: logging.warning("No ticker selected."); return
         logging.info(f"Selected ticker: {ticker}")
 
-        logging.info(f"Initializing dataset for {ticker}, include_greeks={include_greeks_flag}...")
+        # Initialize dataset with *both* flags
+        logging.info(f"Initializing dataset for {ticker}, include_greeks={include_greeks_flag}, include_rolling={include_rolling_flag}...")
         try:
-             # Assume StockOptionDataset is correctly imported
              dataset = StockOptionDataset(
                  data_dir=config['data_dir'], ticker=ticker,
                  seq_len=config['seq_len'], target_cols=config['target_cols'],
-                 include_greeks=include_greeks_flag, verbose=True
+                 include_greeks=include_greeks_flag, # Pass Greeks flag
+                 include_rolling_features=include_rolling_flag, # Pass Rolling flag
+                 verbose=True
              )
-        except FileNotFoundError as fnf_err:
-             logging.error(f"Dataset file not found for {ticker}: {fnf_err}")
-             print(f"\nError: Data file not found for ticker {ticker}. Ensure preprocessing is complete.")
-             return
-        except Exception as data_err:
-             logging.error(f"Error initializing dataset for {ticker}: {data_err}")
-             print(f"\nError creating dataset: {data_err}")
-             return
+        # [ ... same dataset error handling ... ]
+        except FileNotFoundError as fnf_err: logging.error(f"Dataset file not found: {fnf_err}"); print(f"\nError: Data file not found for {ticker}."); return
+        except Exception as data_err: logging.error(f"Error initializing dataset: {data_err}"); print(f"\nError creating dataset: {data_err}"); return
 
+
+        # Get features actually used (this will now reflect both flags)
         features_used_in_run = dataset.feature_cols
         logging.info(f"Number of features used in this run: {dataset.n_features}")
         logging.debug(f"Features list: {features_used_in_run}")
 
-        if dataset.n_features == 0:
-             logging.error("Dataset loaded with 0 features."); print("\nError: Dataset has 0 features."); return
+        # [ ... same data length checks ... ]
+        if dataset.n_features == 0: raise ValueError("Dataset loaded with 0 features.")
         seq_len = config.get('seq_len', 15)
-        if len(dataset) < seq_len + 1:
-            logging.error(f"Insufficient samples for ticker {ticker} ({len(dataset)}) for sequence length {seq_len}.")
-            print(f"\nError: Not enough data for {ticker}. Need {seq_len + 1}, have {len(dataset)}.")
-            return
+        if len(dataset) < seq_len + 1: raise ValueError(f"Insufficient samples for {ticker} ({len(dataset)}) for sequence length {seq_len}.")
 
-        # --- Data Splitting & Loaders ---
-        total_len = len(dataset)
-        train_len = int(0.80 * total_len)
-        val_len = int(0.10 * total_len)
-        if train_len == 0 or val_len == 0 or (total_len - train_len - val_len) == 0:
-             logging.error(f"Dataset for {ticker} too small for train/val/test split ({total_len}).")
-             print(f"\nError: Dataset for {ticker} too small ({total_len}) for train/val/test split.")
-             return
-
-        indices = list(range(total_len))
-        train_ds = Subset(dataset, indices[:train_len])
-        val_ds = Subset(dataset, indices[train_len:train_len+val_len])
-        test_ds = Subset(dataset, indices[train_len+val_len:])
-
+        # [ ... same Data Splitting & Loaders ... ]
+        total_len = len(dataset); train_len = int(0.80 * total_len); val_len = int(0.10 * total_len)
+        if train_len==0 or val_len==0 or (total_len-train_len-val_len)==0: raise ValueError(f"Dataset {ticker} too small for split.")
+        indices = list(range(total_len)); train_ds = Subset(dataset, indices[:train_len])
+        val_ds = Subset(dataset, indices[train_len:train_len+val_len]); test_ds = Subset(dataset, indices[train_len+val_len:])
         batch_size = config.get('batch_size', 32)
-        # Consider adding num_workers=os.cpu_count() if not on windows/certain envs
         train_loader = DataLoader(train_ds, batch_size=batch_size, shuffle=True, pin_memory=True)
         val_loader = DataLoader(val_ds, batch_size=batch_size, shuffle=False, pin_memory=True)
         test_loader = DataLoader(test_ds, batch_size=batch_size, shuffle=False, pin_memory=True)
         logging.info(f"DataLoaders created: Train={len(train_ds)}, Val={len(val_ds)}, Test={len(test_ds)} samples.")
 
-        # --- Model Initialization (Corrected) ---
+        # --- Model Initialization (No changes needed here, uses dataset.n_features) ---
         device = config.get('device', 'cpu')
-        model_input_size = dataset.n_features
+        model_input_size = dataset.n_features # Automatically adjusts based on dataset flags
         model_output_size = dataset.n_targets
-        num_layers_config = config.get('num_layers', 2) # Get common params
-
+        num_layers_config = config.get('num_layers', 2)
         logging.info(f"Initializing model {architecture_type} with input_size={model_input_size}, output_size={model_output_size}")
-
-        # Use if/elif/else to pass only relevant arguments
-        if SelectedModelClass == HybridRNNModel:
-            model = SelectedModelClass(
-                input_size=model_input_size,
-                hidden_size_lstm=config.get('hidden_size_lstm', 64),
-                hidden_size_gru=config.get('hidden_size_gru', 64),
-                num_layers=num_layers_config,
-                output_size=model_output_size
-            )
-        elif SelectedModelClass == GRUGRUModel:
-            model = SelectedModelClass(
-                input_size=model_input_size,
-                hidden_size_gru1=config.get('hidden_size_gru', 64), # Use base gru size or specific if needed
-                hidden_size_gru2=config.get('hidden_size_gru', 64),
-                num_layers=num_layers_config,
-                output_size=model_output_size
-            )
-        elif SelectedModelClass == LSTMLSTMModel:
-            model = SelectedModelClass(
-                input_size=model_input_size,
-                hidden_size_lstm1=config.get('hidden_size_lstm', 64), # Use base lstm size or specific
-                hidden_size_lstm2=config.get('hidden_size_lstm', 64),
-                num_layers=num_layers_config,
-                output_size=model_output_size
-            )
-        else:
-             # Should not happen if logic above is correct, but good practice
-             logging.error(f"Unknown model class selected: {SelectedModelClass.__name__}")
-             print("\nError: Invalid model selection.")
-             return
-
+        # [ ... same model initialization logic using if/elif/else ... ]
+        if SelectedModelClass == HybridRNNModel: model = SelectedModelClass(input_size=model_input_size, hidden_size_lstm=config.get('hidden_size_lstm', 64), hidden_size_gru=config.get('hidden_size_gru', 64), num_layers=num_layers_config, output_size=model_output_size)
+        elif SelectedModelClass == GRUGRUModel: model = SelectedModelClass(input_size=model_input_size, hidden_size_gru1=config.get('hidden_size_gru', 64), hidden_size_gru2=config.get('hidden_size_gru', 64), num_layers=num_layers_config, output_size=model_output_size)
+        elif SelectedModelClass == LSTMLSTMModel: model = SelectedModelClass(input_size=model_input_size, hidden_size_lstm1=config.get('hidden_size_lstm', 64), hidden_size_lstm2=config.get('hidden_size_lstm', 64), num_layers=num_layers_config, output_size=model_output_size)
+        else: raise ValueError(f"Unknown model class: {SelectedModelClass.__name__}")
         print(f"\nInitialized {architecture_type} architecture on device: {device}")
         model.to(device)
 
-        # --- Architecture Analysis ---
+        # --- Architecture Analysis (No changes needed here) ---
         logging.info("Analyzing model architecture...")
-        # Ensure analyze_model_architecture is imported
-        model_analysis = analyze_model_architecture(
-            model, input_size=model_input_size, seq_len=config['seq_len']
-        )
+        model_analysis = analyze_model_architecture( model, input_size=model_input_size, seq_len=config['seq_len'] )
         logging.info(f"Model analysis complete: Total Params={model_analysis.get('total_parameters', 'N/A')}")
 
-
-        # --- Training ---
-        history = None
-        log_path = None
-
+        # --- Training (No changes needed here, passes features_used_in_run) ---
+        history = None; log_path = None
         if use_tracking:
             logging.info("Starting training with performance tracking...")
-            # Ensure extended_train_model_with_tracking is imported and accepts new args
+            # extended_train_model_with_tracking call remains the same
             model, history, log_path = extended_train_model_with_tracking(
-                model=model, train_loader=train_loader, val_loader=val_loader,
-                test_loader=test_loader, epochs=config['epochs'],
-                lr=config.get('lr', 1e-3), device=device, ticker=ticker,
+                model=model, train_loader=train_loader, val_loader=val_loader, test_loader=test_loader,
+                epochs=config['epochs'], lr=config.get('lr', 1e-3), device=device, ticker=ticker,
                 architecture_name=architecture_type, target_cols=config['target_cols'],
-                # Pass new args for logging
-                used_features=features_used_in_run,
+                used_features=features_used_in_run, # This list now depends on both flags
                 model_analysis_dict=model_analysis
             )
             if log_path: print(f"\nPerformance log saved to: {log_path}")
-            else: logging.warning("Extended training finished but did not return a log path.")
-
         else:
-            # Standard training - Ensure train_model is imported
+            # Standard training logic remains the same
             logging.info("Starting standard training (no detailed log file)...")
-            train_losses, val_losses = train_model(
-                model=model, train_loader=train_loader, val_loader=val_loader,
-                epochs=config['epochs'], lr=config.get('lr', 1e-3), device=device
-            )
+            # [ ... standard training and evaluation logic ... ]
+            # Ensure train_model, calculate_errors are imported/available
+            train_losses, val_losses = train_model(model=model, train_loader=train_loader, val_loader=val_loader, epochs=config['epochs'], lr=config.get('lr', 1e-3), device=device)
             history = {'train_losses': train_losses, 'val_losses': val_losses}
-            logging.info("Standard training complete.")
-
-            # Perform final evaluation on test set
-            logging.info("Evaluating model on test set...")
-            model.eval()
-            test_loss = 0.0; all_y_true = []; all_y_pred = []
+            logging.info("Standard training complete. Evaluating on test set...")
+            model.eval(); all_y_true = []; all_y_pred = []
             criterion = torch.nn.MSELoss()
             with torch.no_grad():
-                for x_seq, y_val in test_loader:
-                    x_seq, y_val = x_seq.to(device), y_val.to(device)
-                    y_pred = model(x_seq)
-                    all_y_true.extend(y_val.cpu().numpy())
-                    all_y_pred.extend(y_pred.cpu().numpy())
-            # Ensure calculate_errors is imported
+                 for x_seq, y_val in test_loader:
+                      x_seq, y_val = x_seq.to(device), y_val.to(device)
+                      y_pred = model(x_seq)
+                      all_y_true.extend(y_val.cpu().numpy())
+                      all_y_pred.extend(y_pred.cpu().numpy())
             errors = calculate_errors(torch.tensor(all_y_true), torch.tensor(all_y_pred))
-            print("\nFinal Test Set Metrics:")
-            print("-" * 50)
-            print(f"MSE: {errors.get('mse', 'N/A'):.6f}")
-            print(f"RMSE: {errors.get('rmse', 'N/A'):.6f}")
-            print(f"MAE: {errors.get('mae', 'N/A'):.6f}")
-            print(f"MAPE: {errors.get('mape', 'N/A'):.2f}%")
+            print("\nFinal Test Set Metrics:"); print("-" * 50)
+            print(f"MSE: {errors.get('mse', 'N/A'):.6f}"); print(f"RMSE: {errors.get('rmse', 'N/A'):.6f}")
+            print(f"MAE: {errors.get('mae', 'N/A'):.6f}"); print(f"MAPE: {errors.get('mape', 'N/A'):.2f}%")
             history['y_true'] = all_y_true; history['y_pred'] = all_y_pred
 
-
-        # --- Save Results ---
+        # --- Save Results (No changes needed here) ---
         if history:
             logging.info("Saving model and results...")
             # Ensure save_and_display_results is imported
-            save_and_display_results(
-                model=model, history=history, analysis=model_analysis,
-                ticker=ticker, target_cols=config['target_cols'],
-                models_dir=config['models_dir']
-            )
+            save_and_display_results( model=model, history=history, analysis=model_analysis,
+                ticker=ticker, target_cols=config['target_cols'], models_dir=config['models_dir'] )
             logging.info("Model training workflow completed successfully.")
         else:
              logging.warning("Training did not produce history results. Skipping save.")
 
-    except FileNotFoundError as e:
-         logging.error(f"File not found during training setup: {e}")
-         print(f"\nError: A required file was not found. Details: {e}")
-    except ValueError as e:
-         logging.error(f"Value error during training setup: {e}")
-         print(f"\nError: {e}")
-    except Exception as e:
-        # Ensure traceback is imported
-        import traceback
-        logging.exception(f"An unexpected error occurred during model training: {str(e)}")
-        print(f"\nAn unexpected error occurred during training: {str(e)}")
+    # [ ... same error handling ... ]
+    except FileNotFoundError as e: logging.error(f"File not found: {e}"); print(f"\nError: File not found: {e}")
+    except ValueError as e: logging.error(f"Value error: {e}"); print(f"\nError: {e}")
+    except Exception as e: import traceback; logging.exception(f"Unexpected error: {e}"); print(f"\nUnexpected error: {e}")
 
 def handle_run_model(config, models_dir, HybridRNNModel, GRUGRUModel, LSTMLSTMModel, get_available_tickers, select_ticker, StockOptionDataset):
     """Handle the model prediction workflow."""

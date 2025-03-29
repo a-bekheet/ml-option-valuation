@@ -447,3 +447,202 @@
 2025-03-28 04:52:19,163 - INFO - Architecture benchmarking completed successfully
 2025-03-28 05:55:44,496 - INFO - Starting architecture benchmarking...
 2025-03-28 20:10:49,924 - INFO - Performance metrics saved to performance_logs/LSTM-GRU Hybrid_NVDA_20250328_055638.txt
+2025-03-28 21:52:00,545 - INFO - Starting Option Trading Model application
+2025-03-28 21:52:00,584 - INFO - Using device: mps
+2025-03-28 21:52:08,109 - INFO - Starting model training workflow...
+2025-03-28 21:52:10,566 - INFO - Performance tracking enabled: True
+2025-03-28 21:52:12,957 - INFO - Include Option Greeks features: True
+2025-03-28 21:52:14,701 - INFO - Selected architecture: LSTM-GRU
+2025-03-28 21:52:24,971 - INFO - Selected ticker: TD
+2025-03-28 21:52:24,971 - INFO - Initializing dataset for TD, include_greeks=True...
+2025-03-28 21:52:24,971 - INFO - Initializing StockOptionDataset for ticker: TD
+2025-03-28 21:52:24,971 - INFO - Loading data from: data_files/split_data/TD_normalized.csv
+2025-03-28 21:52:24,971 - INFO - Sequence length: 30, Target columns: ['bid', 'ask']
+2025-03-28 21:52:24,971 - INFO - Include Greeks: True
+2025-03-28 21:52:24,971 - ERROR - No data file found for ticker TD at data_files/split_data/TD_normalized.csv
+2025-03-28 21:52:24,971 - ERROR - Dataset file not found for TD: No data file found for ticker TD at data_files/split_data/TD_normalized.csv
+2025-03-28 21:56:58,183 - INFO - Application terminated by user
+2025-03-28 21:56:58,183 - INFO - Application shutdown
+2025-03-28 21:57:01,587 - INFO - Starting Option Trading Model application
+2025-03-28 21:57:01,609 - INFO - Using device: mps
+2025-03-28 21:57:06,415 - INFO - Starting model training workflow...
+2025-03-28 21:57:07,554 - INFO - Performance tracking enabled: True
+2025-03-28 21:57:09,056 - INFO - Include Option Greeks features: True
+2025-03-28 21:57:09,972 - INFO - Selected architecture: LSTM-GRU
+2025-03-28 21:57:11,412 - INFO - Selected ticker: TD
+2025-03-28 21:57:11,412 - INFO - Initializing dataset for TD, include_greeks=True...
+2025-03-28 21:57:11,412 - INFO - Initializing StockOptionDataset for ticker: TD
+2025-03-28 21:57:11,412 - INFO - Attempting to load data from: data_files/split_data/by_ticker/TD_normalized.csv
+2025-03-28 21:57:11,412 - INFO - Sequence length: 30, Target columns: ['bid', 'ask']
+2025-03-28 21:57:11,412 - INFO - Include Greeks: True
+2025-03-28 21:57:11,674 - INFO - Starting rolling window feature computation...
+2025-03-28 21:57:11,765 - INFO - Generated 108 rolling features.
+2025-03-28 21:57:11,801 - INFO - Including 5 Greek features: ['delta', 'gamma', 'vega', 'theta', 'rho']
+2025-03-28 21:57:11,850 - INFO - Dropped 6069 rows due to NaNs in needed columns.
+2025-03-28 21:57:11,863 - INFO - Dataset created for TD:
+2025-03-28 21:57:11,863 - INFO -   Number of features (n_features): 139
+2025-03-28 21:57:11,863 - INFO -   Number of targets (n_targets): 2
+2025-03-28 21:57:11,863 - INFO -   Number of samples (rows after dropna): 49896
+2025-03-28 21:57:11,863 - INFO -   Sequence length (seq_len): 30
+2025-03-28 21:57:11,863 - INFO -   Max index for __getitem__: 49865
+2025-03-28 21:57:11,868 - INFO - Number of features used in this run: 139
+2025-03-28 21:57:11,869 - INFO - DataLoaders created: Train=39892, Val=4986, Test=4988 samples.
+2025-03-28 21:57:11,869 - INFO - Initializing model LSTM-GRU with input_size=139, output_size=2
+2025-03-28 21:57:11,869 - ERROR - An unexpected error occurred during model training: HybridRNNModel.__init__() got an unexpected keyword argument 'hidden_size_lstm1'
+Traceback (most recent call last):
+  File "/Users/bekheet/dev/option-ml-prediction/src/utils/model_utils.py", line 814, in handle_train_model
+    model = SelectedModelClass(
+TypeError: HybridRNNModel.__init__() got an unexpected keyword argument 'hidden_size_lstm1'
+2025-03-28 22:00:36,869 - INFO - Application terminated by user
+2025-03-28 22:00:36,870 - INFO - Application shutdown
+2025-03-28 22:00:41,036 - INFO - Starting Option Trading Model application
+2025-03-28 22:00:41,056 - INFO - Using device: mps
+2025-03-28 22:00:42,818 - INFO - Starting model training workflow...
+2025-03-28 22:00:43,984 - INFO - Performance tracking enabled: True
+2025-03-28 22:00:45,681 - INFO - Include Option Greeks features: True
+2025-03-28 22:00:47,101 - INFO - Selected architecture: LSTM-GRU
+2025-03-28 22:00:48,532 - INFO - Selected ticker: TD
+2025-03-28 22:00:48,533 - INFO - Initializing dataset for TD, include_greeks=True...
+2025-03-28 22:00:48,533 - INFO - Initializing StockOptionDataset for ticker: TD
+2025-03-28 22:00:48,533 - INFO - Attempting to load data from: data_files/split_data/by_ticker/TD_normalized.csv
+2025-03-28 22:00:48,533 - INFO - Sequence length: 30, Target columns: ['bid', 'ask']
+2025-03-28 22:00:48,533 - INFO - Include Greeks: True
+2025-03-28 22:00:48,794 - INFO - Starting rolling window feature computation...
+2025-03-28 22:00:48,887 - INFO - Generated 108 rolling features.
+2025-03-28 22:00:48,924 - INFO - Including 5 Greek features: ['delta', 'gamma', 'vega', 'theta', 'rho']
+2025-03-28 22:00:48,973 - INFO - Dropped 6069 rows due to NaNs in needed columns.
+2025-03-28 22:00:48,982 - INFO - Dataset created for TD:
+2025-03-28 22:00:48,983 - INFO -   Number of features (n_features): 139
+2025-03-28 22:00:48,983 - INFO -   Number of targets (n_targets): 2
+2025-03-28 22:00:48,983 - INFO -   Number of samples (rows after dropna): 49896
+2025-03-28 22:00:48,983 - INFO -   Sequence length (seq_len): 30
+2025-03-28 22:00:48,983 - INFO -   Max index for __getitem__: 49865
+2025-03-28 22:00:48,989 - INFO - Number of features used in this run: 139
+2025-03-28 22:00:48,990 - INFO - DataLoaders created: Train=39892, Val=4986, Test=4988 samples.
+2025-03-28 22:00:48,990 - INFO - Initializing model LSTM-GRU with input_size=139, output_size=2
+2025-03-28 22:00:49,018 - INFO - Analyzing model architecture...
+2025-03-28 22:00:49,027 - ERROR - An unexpected error occurred during model training: Placeholder storage has not been allocated on MPS device!
+Traceback (most recent call last):
+  File "/Users/bekheet/dev/option-ml-prediction/src/utils/model_utils.py", line 832, in handle_train_model
+    model_analysis = analyze_model_architecture(
+  File "/Users/bekheet/dev/option-ml-prediction/src/utils/model_utils.py", line 84, in analyze_model_architecture
+    _ = model(dummy_input)
+  File "/opt/homebrew/anaconda3/envs/tf/lib/python3.10/site-packages/torch/nn/modules/module.py", line 1736, in _wrapped_call_impl
+    return self._call_impl(*args, **kwargs)
+  File "/opt/homebrew/anaconda3/envs/tf/lib/python3.10/site-packages/torch/nn/modules/module.py", line 1747, in _call_impl
+    return forward_call(*args, **kwargs)
+  File "/Users/bekheet/dev/option-ml-prediction/src/nn.py", line 54, in forward
+    x = self.input_bn(x)
+  File "/opt/homebrew/anaconda3/envs/tf/lib/python3.10/site-packages/torch/nn/modules/module.py", line 1736, in _wrapped_call_impl
+    return self._call_impl(*args, **kwargs)
+  File "/opt/homebrew/anaconda3/envs/tf/lib/python3.10/site-packages/torch/nn/modules/module.py", line 1844, in _call_impl
+    return inner()
+  File "/opt/homebrew/anaconda3/envs/tf/lib/python3.10/site-packages/torch/nn/modules/module.py", line 1790, in inner
+    result = forward_call(*args, **kwargs)
+  File "/opt/homebrew/anaconda3/envs/tf/lib/python3.10/site-packages/torch/nn/modules/batchnorm.py", line 193, in forward
+    return F.batch_norm(
+  File "/opt/homebrew/anaconda3/envs/tf/lib/python3.10/site-packages/torch/nn/functional.py", line 2812, in batch_norm
+    return torch.batch_norm(
+RuntimeError: Placeholder storage has not been allocated on MPS device!
+2025-03-28 22:02:52,230 - INFO - Application terminated by user
+2025-03-28 22:02:52,231 - INFO - Application shutdown
+2025-03-28 22:03:02,534 - INFO - Starting Option Trading Model application
+2025-03-28 22:03:02,555 - INFO - Using device: mps
+2025-03-28 22:03:05,678 - INFO - Starting model training workflow...
+2025-03-28 22:03:06,692 - INFO - Performance tracking enabled: True
+2025-03-28 22:03:07,345 - INFO - Include Option Greeks features: True
+2025-03-28 22:03:08,459 - INFO - Selected architecture: LSTM-GRU
+2025-03-28 22:03:09,827 - INFO - Selected ticker: TD
+2025-03-28 22:03:09,828 - INFO - Initializing dataset for TD, include_greeks=True...
+2025-03-28 22:03:09,828 - INFO - Initializing StockOptionDataset for ticker: TD
+2025-03-28 22:03:09,828 - INFO - Attempting to load data from: data_files/split_data/by_ticker/TD_normalized.csv
+2025-03-28 22:03:09,828 - INFO - Sequence length: 30, Target columns: ['bid', 'ask']
+2025-03-28 22:03:09,828 - INFO - Include Greeks: True
+2025-03-28 22:03:10,131 - INFO - Starting rolling window feature computation...
+2025-03-28 22:03:10,226 - INFO - Generated 108 rolling features.
+2025-03-28 22:03:10,266 - INFO - Including 5 Greek features: ['delta', 'gamma', 'vega', 'theta', 'rho']
+2025-03-28 22:03:10,314 - INFO - Dropped 6069 rows due to NaNs in needed columns.
+2025-03-28 22:03:10,326 - INFO - Dataset created for TD:
+2025-03-28 22:03:10,326 - INFO -   Number of features (n_features): 139
+2025-03-28 22:03:10,326 - INFO -   Number of targets (n_targets): 2
+2025-03-28 22:03:10,326 - INFO -   Number of samples (rows after dropna): 49896
+2025-03-28 22:03:10,326 - INFO -   Sequence length (seq_len): 30
+2025-03-28 22:03:10,326 - INFO -   Max index for __getitem__: 49865
+2025-03-28 22:03:10,331 - INFO - Number of features used in this run: 139
+2025-03-28 22:03:10,332 - INFO - DataLoaders created: Train=39892, Val=4986, Test=4988 samples.
+2025-03-28 22:03:10,332 - INFO - Initializing model LSTM-GRU with input_size=139, output_size=2
+2025-03-28 22:03:10,345 - INFO - Analyzing model architecture...
+2025-03-28 22:03:10,345 - INFO - Analyzing architecture on device: mps:0
+2025-03-28 22:03:10,517 - INFO - Model analysis complete: Total Params=138360
+2025-03-28 22:03:10,518 - INFO - Starting training with performance tracking...
+2025-03-28 22:03:10,518 - INFO - Initiating extended training with tracking for TD - LSTM-GRU
+2025-03-28 22:20:16,870 - INFO - Performance metrics saved to performance_logs/LSTM-GRU_TD_20250328_220310.txt
+2025-03-28 22:20:16,870 - INFO - Extended training for TD - LSTM-GRU complete. Log: performance_logs/LSTM-GRU_TD_20250328_220310.txt
+2025-03-28 22:20:16,870 - INFO - Saving model and results...
+2025-03-28 22:20:18,749 - INFO - Model training workflow completed successfully.
+2025-03-28 22:24:38,371 - INFO - Starting model training workflow...
+2025-03-28 22:24:42,813 - INFO - Performance tracking enabled: True
+2025-03-28 22:24:44,647 - INFO - Include Option Greeks features: False
+2025-03-28 22:24:45,864 - INFO - Selected architecture: LSTM-GRU
+2025-03-28 22:24:49,588 - INFO - Selected ticker: TD
+2025-03-28 22:24:49,588 - INFO - Initializing dataset for TD, include_greeks=False...
+2025-03-28 22:24:49,588 - INFO - Initializing StockOptionDataset for ticker: TD
+2025-03-28 22:24:49,588 - INFO - Attempting to load data from: data_files/split_data/by_ticker/TD_normalized.csv
+2025-03-28 22:24:49,588 - INFO - Sequence length: 30, Target columns: ['bid', 'ask']
+2025-03-28 22:24:49,588 - INFO - Include Greeks: False
+2025-03-28 22:24:49,828 - INFO - Starting rolling window feature computation...
+2025-03-28 22:24:49,928 - INFO - Generated 108 rolling features.
+2025-03-28 22:24:49,964 - INFO - Excluding Greek features as requested.
+2025-03-28 22:24:50,023 - INFO - Dropped 6069 rows due to NaNs in needed columns.
+2025-03-28 22:24:50,033 - INFO - Dataset created for TD:
+2025-03-28 22:24:50,033 - INFO -   Number of features (n_features): 134
+2025-03-28 22:24:50,033 - INFO -   Number of targets (n_targets): 2
+2025-03-28 22:24:50,034 - INFO -   Number of samples (rows after dropna): 49896
+2025-03-28 22:24:50,034 - INFO -   Sequence length (seq_len): 30
+2025-03-28 22:24:50,034 - INFO -   Max index for __getitem__: 49865
+2025-03-28 22:24:50,038 - INFO - Number of features used in this run: 134
+2025-03-28 22:24:50,039 - INFO - DataLoaders created: Train=39892, Val=4986, Test=4988 samples.
+2025-03-28 22:24:50,039 - INFO - Initializing model LSTM-GRU with input_size=134, output_size=2
+2025-03-28 22:24:50,050 - INFO - Analyzing model architecture...
+2025-03-28 22:24:50,050 - INFO - Analyzing architecture on device: mps:0
+2025-03-28 22:24:50,089 - INFO - Model analysis complete: Total Params=137070
+2025-03-28 22:24:50,089 - INFO - Starting training with performance tracking...
+2025-03-28 22:24:50,089 - INFO - Initiating extended training with tracking for TD - LSTM-GRU
+2025-03-28 22:38:07,906 - INFO - Performance metrics saved to performance_logs/LSTM-GRU_TD_20250328_222450.txt
+2025-03-28 22:38:07,906 - INFO - Extended training for TD - LSTM-GRU complete. Log: performance_logs/LSTM-GRU_TD_20250328_222450.txt
+2025-03-28 22:38:07,906 - INFO - Saving model and results...
+2025-03-28 22:38:09,757 - INFO - Model training workflow completed successfully.
+2025-03-28 22:42:15,133 - INFO - Application terminated by user
+2025-03-28 22:42:15,133 - INFO - Application shutdown
+2025-03-28 22:47:48,139 - INFO - Starting Option Trading Model application
+2025-03-28 22:47:48,164 - INFO - Using device: mps
+2025-03-28 22:47:50,000 - INFO - Application terminated by user
+2025-03-28 22:47:50,000 - INFO - Application shutdown
+2025-03-28 22:47:53,351 - INFO - Starting Option Trading Model application
+2025-03-28 22:47:53,371 - INFO - Using device: mps
+2025-03-28 22:47:57,281 - INFO - Starting model training workflow...
+2025-03-28 22:47:59,732 - INFO - Performance tracking enabled: True
+2025-03-28 22:48:01,684 - INFO - Include Option Greeks features: True
+2025-03-28 22:48:03,804 - INFO - Include Rolling Window features: True
+2025-03-28 22:48:05,173 - INFO - Selected architecture: LSTM-GRU
+2025-03-28 22:49:14,105 - INFO - Selected ticker: BNS
+2025-03-28 22:49:14,106 - INFO - Initializing dataset for BNS, include_greeks=True, include_rolling=True...
+2025-03-28 22:49:14,106 - INFO - Initializing StockOptionDataset for ticker: BNS
+2025-03-28 22:49:14,106 - INFO - Attempting to load data from: data_files/split_data/by_ticker/BNS_normalized.csv
+2025-03-28 22:49:14,106 - INFO - Sequence length: 30, Target columns: ['bid', 'ask']
+2025-03-28 22:49:14,106 - INFO - Include Greeks: True
+2025-03-28 22:49:14,106 - INFO - Include Rolling Features: True
+2025-03-28 22:49:14,268 - INFO - Starting rolling window feature computation...
+2025-03-28 22:49:14,322 - INFO - Generated 108 rolling features.
+2025-03-28 22:49:14,341 - INFO - Including 108 rolling features.
+2025-03-28 22:49:14,341 - INFO - Including 5 Greek features: ['delta', 'gamma', 'vega', 'theta', 'rho']
+2025-03-28 22:49:14,364 - INFO - Dropped 3102 rows due to NaNs.
+2025-03-28 22:49:14,367 - INFO - Dataset created for BNS: Features=139, Targets=2, Samples=27022, MaxIdx=26991
+2025-03-28 22:49:14,370 - INFO - Number of features used in this run: 139
+2025-03-28 22:49:14,371 - INFO - DataLoaders created: Train=21593, Val=2699, Test=2700 samples.
+2025-03-28 22:49:14,371 - INFO - Initializing model LSTM-GRU with input_size=139, output_size=2
+2025-03-28 22:49:14,387 - INFO - Analyzing model architecture...
+2025-03-28 22:49:14,387 - INFO - Analyzing architecture on device: mps:0
+2025-03-28 22:49:14,521 - INFO - Model analysis complete: Total Params=138360
+2025-03-28 22:49:14,522 - INFO - Starting training with performance tracking...
+2025-03-28 22:49:14,522 - INFO - Initiating extended training with tracking for BNS - LSTM-GRU

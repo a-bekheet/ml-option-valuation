@@ -294,60 +294,59 @@ def get_model_class_from_name(model_name, HybridRNNModel, GRUGRUModel, LSTMLSTMM
         # Default to HybridRNNModel if there's an error
         return HybridRNNModel, "LSTM-GRU"
         
-def load_model(model_path, model_class, input_size, 
-               hidden_size_lstm=64, hidden_size_gru=64,  # Change from 128 to 64
-               hidden_size_lstm1=64, hidden_size_lstm2=64,  # Change from 128 to 64
-               hidden_size_gru1=64, hidden_size_gru2=64,  # Change from 128 to 64
-               num_layers=2, output_size=1):
+def load_model(model_path, model_class, input_size,
+               hidden_size_lstm=64, hidden_size_gru=64,
+               hidden_size_lstm1=64, hidden_size_lstm2=64,
+               hidden_size_gru1=64, hidden_size_gru2=64,
+               num_layers=2, output_size=1,
+               device='cpu'): # <-- ADD device argument with default
     """
-    Load a saved model with proper architecture class.
+    Load a saved model with proper architecture class onto the specified device.
     Supports all three architecture types.
     """
     try:
+        model_path_obj = Path(model_path) # Use pathlib for robustness
+        if not model_path_obj.exists():
+             raise FileNotFoundError(f"Model file not found at: {model_path}")
+
         logging.info(f"Loading model from: {model_path}")
-        logging.info(f"Model class: {model_class.__name__}")
+        logging.info(f"Target device: {device}") # Log the target device
+        logging.info(f"Using Model class: {model_class.__name__}")
         logging.info(f"Input size: {input_size}, Output size: {output_size}")
-        
-        # Create the model instance
+
+        # Create the model instance (ensure parameters match the saved model's arch)
+        # (Your existing logic for creating the correct model class instance remains here)
         if model_class.__name__ == 'HybridRNNModel':
             logging.info(f"Creating HybridRNNModel with hidden sizes: LSTM={hidden_size_lstm}, GRU={hidden_size_gru}")
-            model = model_class(
-                input_size=input_size,
-                hidden_size_lstm=hidden_size_lstm,
-                hidden_size_gru=hidden_size_gru,
-                num_layers=num_layers,
-                output_size=output_size
-            )
+            model = model_class(input_size=input_size, hidden_size_lstm=hidden_size_lstm, hidden_size_gru=hidden_size_gru, num_layers=num_layers, output_size=output_size)
         elif model_class.__name__ == 'GRUGRUModel':
             logging.info(f"Creating GRUGRUModel with hidden sizes: GRU1={hidden_size_gru1}, GRU2={hidden_size_gru2}")
-            model = model_class(
-                input_size=input_size,
-                hidden_size_gru1=hidden_size_gru1,
-                hidden_size_gru2=hidden_size_gru2,
-                num_layers=num_layers,
-                output_size=output_size
-            )
+            model = model_class(input_size=input_size, hidden_size_gru1=hidden_size_gru1, hidden_size_gru2=hidden_size_gru2, num_layers=num_layers, output_size=output_size)
         elif model_class.__name__ == 'LSTMLSTMModel':
             logging.info(f"Creating LSTMLSTMModel with hidden sizes: LSTM1={hidden_size_lstm1}, LSTM2={hidden_size_lstm2}")
-            model = model_class(
-                input_size=input_size,
-                hidden_size_lstm1=hidden_size_lstm1,
-                hidden_size_lstm2=hidden_size_lstm2,
-                num_layers=num_layers,
-                output_size=output_size
-            )
+            model = model_class(input_size=input_size, hidden_size_lstm1=hidden_size_lstm1, hidden_size_lstm2=hidden_size_lstm2, num_layers=num_layers, output_size=output_size)
         else:
             raise ValueError(f"Unknown model class: {model_class.__name__}")
-            
-        # Load the model weights
-        logging.info("Loading model state dict")
-        model.load_state_dict(torch.load(model_path))
-        logging.info("Model loaded successfully")
+
+        # Load the model weights using map_location to load directly onto the target device
+        logging.info(f"Loading model state_dict to device: {device}")
+        # Use map_location=torch.device(device)
+        model.load_state_dict(torch.load(model_path, map_location=torch.device(device)))
+
+        # Explicitly move model to the target device (redundant if map_location worked, but safe)
+        model.to(device)
+
+        # Set to evaluation mode *after* loading and moving
+        model.eval()
+        logging.info("Model loaded and set to evaluation mode successfully on device: %s", device)
         return model
-        
+
+    except FileNotFoundError as fnf_err:
+         logging.error(f"Model file not found: {fnf_err}")
+         raise # Re-raise error
     except Exception as e:
-        logging.error(f"Error loading model: {str(e)}")
-        raise
+        logging.error(f"Error loading model: {str(e)}", exc_info=True) # Log traceback
+        raise # Re-raise error
 
 def run_existing_model(model_path, model_class, dataset, target_cols=["bid", "ask"]):
     """Load and run predictions with an existing model."""

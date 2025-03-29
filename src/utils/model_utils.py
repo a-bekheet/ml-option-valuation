@@ -1,3 +1,5 @@
+# src/utils/model_utils.py
+
 import json
 import os
 import logging
@@ -775,192 +777,329 @@ def run_existing_model_with_visualization(
 def handle_train_model(config, HybridRNNModel, GRUGRUModel, LSTMLSTMModel,
                        save_and_display_results, extended_train_model_with_tracking,
                        get_available_tickers, select_ticker, StockOptionDataset):
-    """Handle the model training workflow with optional Greeks/Rolling Features and enhanced logging."""
+    """
+    Handle the model training workflow.
+    Prompts user for tracking, feature inclusion (Greeks, Rolling, Cyclical), architecture, and epochs.
+    Uses paths and device settings from the config dictionary.
+    """
+    logging.info("Starting model training workflow...")
     try:
-        logging.info("Starting model training workflow...")
+        # Get paths and device from config
+        data_dir = Path(config['data_dir'])
+        models_dir = Path(config['models_dir'])
+        performance_logs_dir = Path(config['performance_logs_dir'])
+        viz_dir = Path(config.get('viz_dir', models_dir / '../plots'))
+        device = config.get('device', 'cpu')
 
-        # --- User Prompts ---
-        use_tracking = input("\nUse detailed performance tracking log? (y/n): ").lower().startswith('y')
-        logging.info(f"Performance tracking enabled: {use_tracking}")
+        # --- User Inputs ---
+        try:
+            use_tracking = input("\nUse detailed performance tracking log? (y/n, default: y): ").lower().strip()
+            use_tracking = not use_tracking.startswith('n')
+            logging.info(f"Performance tracking enabled: {use_tracking}")
 
-        # Prompt for Greeks
-        use_greeks_input = input("Include Option Greeks features? (y/n): ").lower()
-        include_greeks_flag = use_greeks_input == 'y'
-        logging.info(f"Include Option Greeks features: {include_greeks_flag}")
+            use_greeks_input = input("Include Option Greeks features? (y/n, default: y): ").lower().strip()
+            include_greeks_flag = not use_greeks_input.startswith('n')
+            logging.info(f"Include Option Greeks features: {include_greeks_flag}")
 
-        # >> NEW: Prompt for Rolling Window Features <<
-        use_rolling_input = input("Include Rolling Window features? (y/n): ").lower()
-        include_rolling_flag = use_rolling_input == 'y'
-        logging.info(f"Include Rolling Window features: {include_rolling_flag}")
+            use_rolling_input = input("Include Rolling Window features? (y/n, default: y): ").lower().strip()
+            include_rolling_flag = not use_rolling_input.startswith('n')
+            logging.info(f"Include Rolling Window features: {include_rolling_flag}")
 
-        # Prompt for architecture
-        print("\nSelect model architecture:")
-        print("1. LSTM-GRU Hybrid (default)")
-        print("2. GRU-GRU")
-        print("3. LSTM-LSTM")
-        arch_choice = input("Enter choice (1-3): ").strip()
-        # [ ... same architecture selection logic ... ]
-        if arch_choice == "2": architecture_type = "GRU-GRU"; SelectedModelClass = GRUGRUModel
-        elif arch_choice == "3": architecture_type = "LSTM-LSTM"; SelectedModelClass = LSTMLSTMModel
-        else: architecture_type = "LSTM-GRU"; SelectedModelClass = HybridRNNModel
-        logging.info(f"Selected architecture: {architecture_type}")
+            # --- NEW: Prompt for Cyclical Features ---
+            use_cyclical_input = input("Use Cyclical Date Features (sin/cos)? (y/n, default: y): ").lower().strip()
+            include_cyclical_flag = not use_cyclical_input.startswith('n')
+            logging.info(f"Include Cyclical Date Features: {include_cyclical_flag}")
+            # --- END NEW ---
+
+            print("\nSelect model architecture:")
+            print("1. LSTM-GRU Hybrid (default)")
+            print("2. GRU-GRU")
+            print("3. LSTM-LSTM")
+            arch_choice = input("Enter choice (1-3, default: 1): ").strip()
+            if arch_choice == "2": architecture_type, SelectedModelClass = "GRU-GRU", GRUGRUModel
+            elif arch_choice == "3": architecture_type, SelectedModelClass = "LSTM-LSTM", LSTMLSTMModel
+            else: architecture_type, SelectedModelClass = "LSTM-GRU", HybridRNNModel
+            logging.info(f"Selected architecture: {architecture_type}")
+
+            epochs_input = input(f"Enter number of epochs (default: {config.get('epochs', 20)}): ").strip()
+            if epochs_input:
+                try:
+                    epochs = int(epochs_input); assert epochs > 0
+                except (ValueError, AssertionError):
+                    epochs = config.get('epochs', 20); print(f"Invalid input. Using default epochs: {epochs}")
+            else: epochs = config.get('epochs', 20)
+            logging.info(f"Number of epochs set to: {epochs}")
+
+        except EOFError:
+             print("\nInput stream closed. Using default settings for training.")
+             logging.warning("EOFError during input, using default training settings.")
+             use_tracking = True; include_greeks_flag = True; include_rolling_flag = True; include_cyclical_flag = True # Default cyclical to True
+             architecture_type, SelectedModelClass = "LSTM-GRU", HybridRNNModel
+             epochs = config.get('epochs', 20)
+
 
         # --- Data Preparation ---
-        tickers, counts = get_available_tickers(config['data_dir'])
-        if not tickers: raise ValueError("No tickers available in the data directory.") # Raise error
-        ticker = select_ticker(tickers, counts)
-        if not ticker: logging.warning("No ticker selected."); return
-        logging.info(f"Selected ticker: {ticker}")
+        tickers, counts = get_available_tickers(str(data_dir))
+        if not tickers: raise ValueError("No tickers available.")
 
-        # Initialize dataset with *both* flags
-        logging.info(f"Initializing dataset for {ticker}, include_greeks={include_greeks_flag}, include_rolling={include_rolling_flag}...")
-        try:
-             dataset = StockOptionDataset(
-                 data_dir=config['data_dir'], ticker=ticker,
-                 seq_len=config['seq_len'], target_cols=config['target_cols'],
-                 include_greeks=include_greeks_flag, # Pass Greeks flag
-                 include_rolling_features=include_rolling_flag, # Pass Rolling flag
-                 verbose=True
-             )
-        # [ ... same dataset error handling ... ]
-        except FileNotFoundError as fnf_err: logging.error(f"Dataset file not found: {fnf_err}"); print(f"\nError: Data file not found for {ticker}."); return
-        except Exception as data_err: logging.error(f"Error initializing dataset: {data_err}"); print(f"\nError creating dataset: {data_err}"); return
+        ticker = config.get('ticker_to_train')
+        if not ticker: # Fallback to interactive/default
+            try: ticker = select_ticker(tickers, counts); assert ticker is not None
+            except (EOFError, AssertionError): ticker = tickers[0]; print(f"\nUsing first ticker: {ticker}")
 
+        if not ticker or ticker not in tickers: raise ValueError(f"Selected ticker '{ticker}' not found.")
+        logging.info(f"Selected ticker for training: {ticker}")
 
-        # Get features actually used (this will now reflect both flags)
+        # Initialize dataset with ALL flags
+        logging.info(f"Initializing dataset for {ticker}, Greeks={include_greeks_flag}, Rolling={include_rolling_flag}, Cyclical={include_cyclical_flag}...")
+        dataset = StockOptionDataset(
+             data_dir=str(data_dir), ticker=ticker,
+             seq_len=config['seq_len'], target_cols=config['target_cols'],
+             include_greeks=include_greeks_flag,
+             include_rolling_features=include_rolling_flag,
+             include_cyclical_features=include_cyclical_flag, # <-- Pass new flag
+             verbose=True
+        )
+        if len(dataset) < config['seq_len'] + 1: raise ValueError(f"Insufficient samples for {ticker}.")
         features_used_in_run = dataset.feature_cols
-        logging.info(f"Number of features used in this run: {dataset.n_features}")
-        logging.debug(f"Features list: {features_used_in_run}")
+        logging.info(f"Number of features used: {dataset.n_features}")
+        if dataset.n_features == 0: raise ValueError("Dataset has 0 features.")
 
-        # [ ... same data length checks ... ]
-        if dataset.n_features == 0: raise ValueError("Dataset loaded with 0 features.")
-        seq_len = config.get('seq_len', 15)
-        if len(dataset) < seq_len + 1: raise ValueError(f"Insufficient samples for {ticker} ({len(dataset)}) for sequence length {seq_len}.")
 
-        # [ ... same Data Splitting & Loaders ... ]
+        # --- Data Splitting & Loaders (Keep MPS optimization) ---
         total_len = len(dataset); train_len = int(0.80 * total_len); val_len = int(0.10 * total_len)
-        if train_len==0 or val_len==0 or (total_len-train_len-val_len)==0: raise ValueError(f"Dataset {ticker} too small for split.")
+        if train_len==0 or val_len==0 or (total_len-train_len-val_len)<=0: raise ValueError(f"Dataset {ticker} too small for split.")
         indices = list(range(total_len)); train_ds = Subset(dataset, indices[:train_len])
         val_ds = Subset(dataset, indices[train_len:train_len+val_len]); test_ds = Subset(dataset, indices[train_len+val_len:])
         batch_size = config.get('batch_size', 32)
-        train_loader = DataLoader(train_ds, batch_size=batch_size, shuffle=True, pin_memory=True)
-        val_loader = DataLoader(val_ds, batch_size=batch_size, shuffle=False, pin_memory=True)
-        test_loader = DataLoader(test_ds, batch_size=batch_size, shuffle=False, pin_memory=True)
-        logging.info(f"DataLoaders created: Train={len(train_ds)}, Val={len(val_ds)}, Test={len(test_ds)} samples.")
+        dl_num_workers = 0 if device == 'mps' else (2 if device == 'cuda' else 0)
+        dl_pin_memory = False if device == 'mps' else (True if device == 'cuda' else False)
+        train_loader = DataLoader(train_ds, batch_size=batch_size, shuffle=True, pin_memory=dl_pin_memory, num_workers=dl_num_workers)
+        val_loader = DataLoader(val_ds, batch_size=batch_size, shuffle=False, pin_memory=dl_pin_memory, num_workers=dl_num_workers)
+        test_loader = DataLoader(test_ds, batch_size=batch_size, shuffle=False, pin_memory=dl_pin_memory, num_workers=dl_num_workers)
+        logging.info(f"DataLoaders created: Train={len(train_ds)}, Val={len(val_ds)}, Test={len(test_ds)} samples. Settings: workers={dl_num_workers}, pin_mem={dl_pin_memory}")
 
-        # --- Model Initialization (No changes needed here, uses dataset.n_features) ---
-        device = config.get('device', 'cpu')
-        model_input_size = dataset.n_features # Automatically adjusts based on dataset flags
-        model_output_size = dataset.n_targets
-        num_layers_config = config.get('num_layers', 2)
-        logging.info(f"Initializing model {architecture_type} with input_size={model_input_size}, output_size={model_output_size}")
-        # [ ... same model initialization logic using if/elif/else ... ]
-        if SelectedModelClass == HybridRNNModel: model = SelectedModelClass(input_size=model_input_size, hidden_size_lstm=config.get('hidden_size_lstm', 64), hidden_size_gru=config.get('hidden_size_gru', 64), num_layers=num_layers_config, output_size=model_output_size)
-        elif SelectedModelClass == GRUGRUModel: model = SelectedModelClass(input_size=model_input_size, hidden_size_gru1=config.get('hidden_size_gru', 64), hidden_size_gru2=config.get('hidden_size_gru', 64), num_layers=num_layers_config, output_size=model_output_size)
-        elif SelectedModelClass == LSTMLSTMModel: model = SelectedModelClass(input_size=model_input_size, hidden_size_lstm1=config.get('hidden_size_lstm', 64), hidden_size_lstm2=config.get('hidden_size_lstm', 64), num_layers=num_layers_config, output_size=model_output_size)
+        # --- Model Initialization ---
+        model_input_size = dataset.n_features; model_output_size = dataset.n_targets
+        num_layers_config = config.get('num_layers', 2); hidden_size_lstm = config.get('hidden_size_lstm', 64)
+        hidden_size_gru = config.get('hidden_size_gru', 64)
+        logging.info(f"Initializing {architecture_type} (In:{model_input_size}, Out:{model_output_size}, H_LSTM:{hidden_size_lstm}, H_GRU:{hidden_size_gru}, Layers:{num_layers_config}) on {device}")
+        if SelectedModelClass == HybridRNNModel: model = SelectedModelClass(input_size=model_input_size, hidden_size_lstm=hidden_size_lstm, hidden_size_gru=hidden_size_gru, num_layers=num_layers_config, output_size=model_output_size)
+        elif SelectedModelClass == GRUGRUModel: model = SelectedModelClass(input_size=model_input_size, hidden_size_gru1=hidden_size_gru, hidden_size_gru2=hidden_size_gru, num_layers=num_layers_config, output_size=model_output_size)
+        elif SelectedModelClass == LSTMLSTMModel: model = SelectedModelClass(input_size=model_input_size, hidden_size_lstm1=hidden_size_lstm, hidden_size_lstm2=hidden_size_lstm, num_layers=num_layers_config, output_size=model_output_size)
         else: raise ValueError(f"Unknown model class: {SelectedModelClass.__name__}")
-        print(f"\nInitialized {architecture_type} architecture on device: {device}")
         model.to(device)
 
-        # --- Architecture Analysis (No changes needed here) ---
+        # --- Architecture Analysis ---
         logging.info("Analyzing model architecture...")
-        model_analysis = analyze_model_architecture( model, input_size=model_input_size, seq_len=config['seq_len'] )
+        from .model_utils import analyze_model_architecture # Ensure imported
+        model_analysis = analyze_model_architecture(model, input_size=model_input_size, seq_len=config['seq_len'])
         logging.info(f"Model analysis complete: Total Params={model_analysis.get('total_parameters', 'N/A')}")
 
-        # --- Training (No changes needed here, passes features_used_in_run) ---
-        history = None; log_path = None
+
+        # --- Training ---
+        history = None; log_path = None; lr = config.get('lr', 1e-3)
         if use_tracking:
             logging.info("Starting training with performance tracking...")
-            # extended_train_model_with_tracking call remains the same
+            from .performance_utils import extended_train_model_with_tracking # Ensure imported
             model, history, log_path = extended_train_model_with_tracking(
                 model=model, train_loader=train_loader, val_loader=val_loader, test_loader=test_loader,
-                epochs=config['epochs'], lr=config.get('lr', 1e-3), device=device, ticker=ticker,
+                epochs=epochs, lr=lr, device=device, ticker=ticker,
                 architecture_name=architecture_type, target_cols=config['target_cols'],
-                used_features=features_used_in_run, # This list now depends on both flags
-                model_analysis_dict=model_analysis
+                used_features=features_used_in_run,
+                model_analysis_dict=model_analysis,
+                performance_logs_dir=str(performance_logs_dir),
+                # --- Pass new flag ---
+                include_greeks=include_greeks_flag,
+                include_rolling=include_rolling_flag,
+                include_cyclical=include_cyclical_flag
             )
             if log_path: print(f"\nPerformance log saved to: {log_path}")
-        else:
-            # Standard training logic remains the same
-            logging.info("Starting standard training (no detailed log file)...")
-            # [ ... standard training and evaluation logic ... ]
-            # Ensure train_model, calculate_errors are imported/available
-            train_losses, val_losses = train_model(model=model, train_loader=train_loader, val_loader=val_loader, epochs=config['epochs'], lr=config.get('lr', 1e-3), device=device)
-            history = {'train_losses': train_losses, 'val_losses': val_losses}
-            logging.info("Standard training complete. Evaluating on test set...")
-            model.eval(); all_y_true = []; all_y_pred = []
-            criterion = torch.nn.MSELoss()
-            with torch.no_grad():
-                 for x_seq, y_val in test_loader:
-                      x_seq, y_val = x_seq.to(device), y_val.to(device)
-                      y_pred = model(x_seq)
-                      all_y_true.extend(y_val.cpu().numpy())
-                      all_y_pred.extend(y_pred.cpu().numpy())
-            errors = calculate_errors(torch.tensor(all_y_true), torch.tensor(all_y_pred))
-            print("\nFinal Test Set Metrics:"); print("-" * 50)
-            print(f"MSE: {errors.get('mse', 'N/A'):.6f}"); print(f"RMSE: {errors.get('rmse', 'N/A'):.6f}")
-            print(f"MAE: {errors.get('mae', 'N/A'):.6f}"); print(f"MAPE: {errors.get('mape', 'N/A'):.2f}%")
-            history['y_true'] = all_y_true; history['y_pred'] = all_y_pred
+        else: # Standard training
+             logging.info("Starting standard training...")
+             from .model_utils import train_model, calculate_errors # Ensure imported
+             train_losses, val_losses = train_model( model=model, train_loader=train_loader, val_loader=val_loader, epochs=epochs, lr=lr, device=device )
+             history = {'train_losses': train_losses, 'val_losses': val_losses}
+             # Standard evaluation logic... (remains the same)
+             logging.info("Standard training complete. Evaluating on test set...")
+             model.eval(); all_y_true = []; all_y_pred = []
+             with torch.no_grad():
+                  for x_seq, y_val in tqdm(test_loader, desc="Testing", leave=False):
+                       x_seq, y_val = x_seq.to(device), y_val.to(device)
+                       y_pred = model(x_seq)
+                       all_y_true.extend(y_val.cpu().numpy())
+                       all_y_pred.extend(y_pred.cpu().numpy())
+             if all_y_true and all_y_pred:
+                 errors = calculate_errors(torch.tensor(all_y_true), torch.tensor(all_y_pred))
+                 print("\nFinal Test Set Metrics:"); print("-" * 50)
+                 print(f"MSE: {errors.get('mse', np.nan):.6f}"); print(f"RMSE: {errors.get('rmse', np.nan):.6f}")
+                 print(f"MAE: {errors.get('mae', np.nan):.6f}"); print(f"MAPE: {errors.get('mape', np.nan):.2f}%")
+                 history['test_metrics'] = errors
+             else: logging.warning("No test results generated.")
+             history['y_true'] = all_y_true; history['y_pred'] = all_y_pred
 
-        # --- Save Results (No changes needed here) ---
+
+        # --- Save Results ---
         if history:
             logging.info("Saving model and results...")
-            # Ensure save_and_display_results is imported
-            save_and_display_results( model=model, history=history, analysis=model_analysis,
-                ticker=ticker, target_cols=config['target_cols'], models_dir=config['models_dir'] )
+            from .visualization_utils import save_and_display_results # Ensure imported
+            # Pass feature flags to save_and_display_results if needed for filename or plots
+            save_and_display_results(
+                model=model, history=history, analysis=model_analysis,
+                ticker=ticker, target_cols=config['target_cols'],
+                models_dir=str(models_dir), plots_dir=str(viz_dir),
+                # Optional: Pass flags if needed by saving function
+                # include_greeks=include_greeks_flag,
+                # include_rolling=include_rolling_flag,
+                # include_cyclical=include_cyclical_flag
+            )
             logging.info("Model training workflow completed successfully.")
-        else:
-             logging.warning("Training did not produce history results. Skipping save.")
+        else: logging.warning("Training did not produce history results. Skipping save.")
 
-    # [ ... same error handling ... ]
-    except FileNotFoundError as e: logging.error(f"File not found: {e}"); print(f"\nError: File not found: {e}")
+    # --- Error Handling (remains the same) ---
+    except FileNotFoundError as e: logging.error(f"File/Dir not found: {e}"); print(f"\nError: File not found: {e}")
     except ValueError as e: logging.error(f"Value error: {e}"); print(f"\nError: {e}")
-    except Exception as e: import traceback; logging.exception(f"Unexpected error: {e}"); print(f"\nUnexpected error: {e}")
+    except Exception as e: import traceback; logging.exception(f"Unexpected error in handle_train_model: {e}"); print(f"\nUnexpected error: {e}")
 
-def handle_run_model(config, models_dir, HybridRNNModel, GRUGRUModel, LSTMLSTMModel, get_available_tickers, select_ticker, StockOptionDataset):
-    """Handle the model prediction workflow."""
+def handle_run_model(config, models_dir, HybridRNNModel, GRUGRUModel, LSTMLSTMModel, get_available_tickers, select_ticker, StockOptionDataset, run_existing_model_with_visualization=None):
+    """Handle the model prediction workflow, adapted for Colab."""
     try:
-        model_files = list_available_models(models_dir)
-        if not model_files:
-            return
+        logging.info("Starting model prediction workflow...")
+        # Use pathlib
+        models_path = Path(models_dir)
+        data_dir = Path(config['data_dir'])
+        viz_dir = Path(config.get('viz_dir', 'prediction_visualizations')) # Get viz dir from config or default
+        viz_dir.mkdir(parents=True, exist_ok=True) # Ensure viz dir exists
 
-        selected_model = select_model(model_files)
-        if not selected_model:
-            return
+        # List available models
+        model_files = list_available_models(str(models_path)) # Pass path as string
+        if not model_files: return
 
-        model_path = os.path.join(models_dir, selected_model)
-        
-        # Determine model architecture based on filename
-        model_class, architecture_name = get_model_class_from_name(
-            selected_model, 
-            HybridRNNModel, 
-            GRUGRUModel, 
-            LSTMLSTMModel
-        )
-        print(f"\nDetected {architecture_name} architecture")
-        
-        # Get available tickers and select one
-        tickers, counts = get_available_tickers(config['data_dir'])
-        ticker = select_ticker(tickers, counts)
-        
+        # Select a model (replace input with parameter or default for non-interactive)
+        selected_model_name = config.get('model_to_run')
+        if not selected_model_name or selected_model_name not in model_files:
+            try:
+                selected_model_name = select_model(model_files)
+                if not selected_model_name:
+                    logging.warning("No model selected.")
+                    return
+            except EOFError:
+                 selected_model_name = model_files[0] # Default to first model
+                 print(f"\nInput stream closed. Using first model: {selected_model_name}")
+                 logging.warning(f"EOFError selecting model, defaulting to {selected_model_name}")
+
+        logging.info(f"Selected model file: {selected_model_name}")
+        model_path = models_path / selected_model_name
+
+        # Determine model architecture
+        model_class, arch_name = get_model_class_from_name(selected_model_name, HybridRNNModel, GRUGRUModel, LSTMLSTMModel)
+        print(f"\nDetected {arch_name} architecture for {selected_model_name}")
+
+        # Get available tickers
+        tickers, counts = get_available_tickers(str(data_dir)) # Pass path as string
+        if not tickers: raise ValueError("No tickers available for prediction.")
+
+        # Select ticker (replace input for non-interactive)
+        ticker = config.get('ticker_to_predict')
+        if not ticker or ticker not in tickers:
+             try:
+                 ticker = select_ticker(tickers, counts)
+                 if not ticker:
+                      logging.warning("No ticker selected for prediction.")
+                      return
+             except EOFError:
+                  ticker = tickers[0] # Default to first ticker
+                  print(f"\nInput stream closed. Using first ticker: {ticker}")
+                  logging.warning(f"EOFError selecting ticker, defaulting to {ticker}")
+
+        if not ticker or ticker not in tickers:
+            logging.error(f"Selected ticker '{ticker}' not found.")
+            return
+        logging.info(f"Selected ticker for prediction: {ticker}")
+
         # Create dataset for the selected ticker
+        # Determine flags based on config or assume defaults
+        include_greeks_flag = config.get('include_greeks', True)
+        include_rolling_flag = config.get('include_rolling', True)
+        logging.info(f"Creating dataset for {ticker} with Greeks={include_greeks_flag}, Rolling={include_rolling_flag}")
         dataset = StockOptionDataset(
-            data_dir=config['data_dir'],
+            data_dir=str(data_dir), # Pass path as string
             ticker=ticker,
-            target_cols=config['target_cols']
+            seq_len=config['seq_len'], # Use seq_len from config
+            target_cols=config['target_cols'],
+            include_greeks=include_greeks_flag,
+            include_rolling_features=include_rolling_flag,
+            verbose=False # Less verbose for prediction run
         )
-        
-        logging.info(f"Running predictions with model: {selected_model}")
-        run_existing_model(
-            model_path,
-            model_class,
-            dataset,
-            target_cols=config['target_cols']
-        )
-        logging.info("Predictions completed successfully")
+        if len(dataset) == 0:
+             logging.warning(f"Dataset for ticker {ticker} is empty or has insufficient data for sequences. Cannot run prediction.")
+             return
+
+        # Decide whether to visualize (get from config or prompt)
+        visualize = config.get('visualize_predictions')
+        if visualize is None: # If not set in config, prompt user
+            try:
+                visualize_input = input("\nVisualize predictions with original values? (y/n, default: y): ").lower().strip()
+                visualize = not visualize_input.startswith('n')
+            except EOFError:
+                 visualize = True # Default to visualizing if input fails
+                 print("\nInput stream closed. Defaulting to visualizing predictions.")
+                 logging.warning("EOFError getting visualization preference, defaulting to True.")
+        n_samples_plot = config.get('n_samples_plot', 250) # Use config value or default
+
+
+        logging.info(f"Running predictions for {ticker} using {selected_model_name}")
+        if visualize and run_existing_model_with_visualization:
+            logging.info("Attempting prediction with visualization...")
+            # Use the visualization-enabled runner function
+            errors, viz_files = run_existing_model_with_visualization(
+                model_path=str(model_path), # Pass path as string
+                model_class=model_class,
+                dataset=dataset,
+                target_cols=config['target_cols'],
+                visualize=True, # Explicitly true here
+                n_samples_plot=n_samples_plot,
+                data_dir=str(data_dir), # Pass path as string for scaling params
+                output_dir=str(viz_dir) # Pass path as string
+            )
+            if viz_files: logging.info(f"Visualization files created: {viz_files}")
+        else:
+            logging.info("Running standard prediction (no visualization)...")
+            # Fallback to standard run_existing_model if visualization isn't requested or available
+            # Ensure run_existing_model is imported/available
+            # from .model_utils import run_existing_model
+            try:
+                 # Need to re-implement or ensure run_existing_model is available
+                 # For now, just log and show metrics if calculate_errors is available
+                 model = load_model(str(model_path), model_class, dataset.n_features, output_size=dataset.n_targets, device=config.get('device', 'cpu'))
+                 model.eval()
+                 data_loader = DataLoader(dataset, batch_size=config.get('batch_size', 128), shuffle=False)
+                 all_y_true, all_y_pred = [], []
+                 with torch.no_grad():
+                     for x, y in tqdm(data_loader, desc="Standard Predicting", leave=False):
+                         x = x.to(config.get('device', 'cpu'))
+                         pred = model(x)
+                         all_y_true.extend(y.cpu().numpy())
+                         all_y_pred.extend(pred.cpu().numpy())
+                 if all_y_true and all_y_pred:
+                    # from .model_utils import calculate_errors
+                     errors = calculate_errors(torch.tensor(all_y_true), torch.tensor(all_y_pred))
+                     print("\nStandard Prediction Metrics (Normalized Scale):")
+                     print(f"  MSE: {errors.get('mse', np.nan):.6f}, RMSE: {errors.get('rmse', np.nan):.6f}")
+                 else:
+                     print("\nNo standard predictions generated.")
+            except Exception as std_run_err:
+                 logging.error(f"Error during standard prediction run: {std_run_err}")
+                 print(f"\nError during standard prediction run: {std_run_err}")
+
+
+        logging.info(f"Prediction workflow for {ticker} completed successfully.")
+
+    except FileNotFoundError as e: logging.error(f"File/Dir not found: {e}"); print(f"\nError: Required file or directory not found: {e}")
+    except ValueError as e: logging.error(f"Value error: {e}"); print(f"\nError: {e}")
     except Exception as e:
-        logging.error(f"Error during model prediction: {str(e)}")
-        print(f"\nError: {str(e)}")
+        logging.error(f"Error during model prediction: {str(e)}", exc_info=True)
+        print(f"\nError running model: {str(e)}")
 
 def handle_run_model_enhanced(config, models_dir, HybridRNNModel, GRUGRUModel, LSTMLSTMModel, 
                          get_available_tickers, select_ticker, StockOptionDataset, 
@@ -1071,265 +1210,178 @@ def handle_run_model_enhanced(config, models_dir, HybridRNNModel, GRUGRUModel, L
         print(f"\nError: {str(e)}")
 
 def handle_analyze_architecture(config, HybridRNNModel, GRUGRUModel, LSTMLSTMModel, display_model_analysis):
-    """Handle the model architecture analysis workflow."""
     try:
-        # Allow user to select architecture to analyze
-        print("\nSelect model architecture to analyze:")
-        print("1. LSTM-GRU Hybrid (default)")
-        print("2. GRU-GRU")
-        print("3. LSTM-LSTM")
-        
-        arch_choice = input("\nEnter choice (1-3): ").strip()
-        
-        if arch_choice == "2":
-            model = GRUGRUModel(
-                input_size=23,
-                hidden_size_gru1=config['hidden_size_gru'],
-                hidden_size_gru2=config['hidden_size_gru'],
-                num_layers=config['num_layers'],
-                output_size=len(config['target_cols'])
-            )
-            print("\nAnalyzing GRU-GRU architecture...")
-        elif arch_choice == "3":
-            model = LSTMLSTMModel(
-                input_size=23,
-                hidden_size_lstm1=config['hidden_size_lstm'],
-                hidden_size_lstm2=config['hidden_size_lstm'],
-                num_layers=config['num_layers'],
-                output_size=len(config['target_cols'])
-            )
-            print("\nAnalyzing LSTM-LSTM architecture...")
-        else:
-            model = HybridRNNModel(
-                input_size=23,
-                hidden_size_lstm=config['hidden_size_lstm'],
-                hidden_size_gru=config['hidden_size_gru'],
-                num_layers=config['num_layers'],
-                output_size=len(config['target_cols'])
-            )
-            print("\nAnalyzing LSTM-GRU hybrid architecture...")
-                
-        analysis = analyze_model_architecture(model)
-        display_model_analysis(analysis)
+        arch_choice = config.get('architecture_to_analyze')
+        if not arch_choice:
+            try:
+                 print("\nSelect model architecture to analyze:")
+                 print("1. LSTM-GRU Hybrid (default)")
+                 print("2. GRU-GRU")
+                 print("3. LSTM-LSTM")
+                 arch_choice = input("Enter choice (1-3, default: 1): ").strip() or '1'
+            except EOFError:
+                 arch_choice = '1' # Default if input fails
+                 print("\nInput stream closed. Defaulting to architecture 1.")
+                 logging.warning("EOFError getting architecture choice, defaulting to 1.")
+
+        # Determine input_size - use a typical value or get from config if data isn't loaded
+        input_size = config.get('typical_input_size', 50) # Example: Get typical size from config
+        output_size = len(config['target_cols'])
+        hidden_size = config.get('hidden_size_lstm', 64) # Use a consistent hidden size name
+        num_layers = config.get('num_layers', 2)
+
+        print(f"\nAnalyzing architecture choice: {arch_choice}")
+        if arch_choice == "2": model = GRUGRUModel(input_size=input_size, hidden_size_gru1=hidden_size, hidden_size_gru2=hidden_size, num_layers=num_layers, output_size=output_size)
+        elif arch_choice == "3": model = LSTMLSTMModel(input_size=input_size, hidden_size_lstm1=hidden_size, hidden_size_lstm2=hidden_size, num_layers=num_layers, output_size=output_size)
+        else: model = HybridRNNModel(input_size=input_size, hidden_size_lstm=hidden_size, hidden_size_gru=hidden_size, num_layers=num_layers, output_size=output_size)
+
+        analysis = analyze_model_architecture(model, input_size=input_size, seq_len=config['seq_len'])
+        display_model_analysis(analysis) # Assumes this function just prints
         logging.info("Architecture analysis completed")
     except Exception as e:
-        logging.error(f"Error during architecture analysis: {str(e)}")
-        print(f"\nError: {str(e)}")
+        logging.error(f"Error during architecture analysis: {str(e)}", exc_info=True)
+        print(f"\nError analyzing architecture: {str(e)}")
 
-def handle_benchmark_architectures(config, HybridRNNModel, GRUGRUModel, LSTMLSTMModel, 
-                                  benchmark_architectures, generate_architecture_comparison, 
-                                  visualize_architectures, get_available_tickers, 
+
+def handle_benchmark_architectures(config, HybridRNNModel, GRUGRUModel, LSTMLSTMModel,
+                                  benchmark_architectures, generate_architecture_comparison,
+                                  visualize_architectures, get_available_tickers,
                                   select_ticker, StockOptionDataset):
-    """Handle architecture benchmarking workflow with detailed progress output."""
+    """Handle architecture benchmarking workflow, including feature flags."""
+    # ... (Initial setup, path definitions - remain the same) ...
     try:
         logging.info("Starting architecture benchmarking...")
-        print("\n" + "="*70)
-        print(f"{'BENCHMARKING MULTIPLE ARCHITECTURES':^70}")
-        print("="*70)
-        
-        # Get ticker
-        print("\n" + "-"*70)
-        print("STEP 1: SELECT TICKER")
-        print("-"*70)
-        tickers, counts = get_available_tickers(config['data_dir'])
-        ticker = select_ticker(tickers, counts)
-        
-        # Initialize dataset
-        print("\n" + "-"*70)
-        print("STEP 2: LOADING DATASET")
-        print("-"*70)
+        print("\n" + "="*70 + f"\n{'BENCHMARKING MULTIPLE ARCHITECTURES':^70}\n" + "="*70)
+        data_dir = Path(config['data_dir']); perf_logs_dir = Path(config['performance_logs_dir'])
+        viz_dir = Path(config.get('viz_dir', perf_logs_dir)); perf_logs_dir.mkdir(exist_ok=True); viz_dir.mkdir(exist_ok=True)
+
+        # --- Step 1: Select Ticker (remains the same) ---
+        print("\n" + "-"*70 + "\nSTEP 1: SELECT TICKER\n" + "-"*70)
+        tickers, counts = get_available_tickers(str(data_dir))
+        if not tickers: raise ValueError("No tickers available.")
+        ticker = config.get('ticker_to_benchmark')
+        if not ticker: # Interactive fallback
+            try: ticker = select_ticker(tickers, counts); assert ticker is not None
+            except (EOFError, AssertionError): ticker = tickers[0]; print(f"\nUsing first ticker: {ticker}")
+        if not ticker or ticker not in tickers: raise ValueError(f"Ticker {ticker} not found.")
+        print(f"Selected ticker for benchmarking: {ticker}"); logging.info(f"Benchmarking on ticker: {ticker}")
+
+        # --- Step 1.5: Select Feature Flags ---
+        print("\n" + "-"*70 + "\nSTEP 1.5: SELECT FEATURES\n" + "-"*70)
+        try:
+            # Get feature flags from config OR prompt user
+            include_greeks = config.get('benchmark_include_greeks')
+            if include_greeks is None:
+                 greeks_input = input("Include Greeks for benchmark? (y/n, default: y): ").lower().strip()
+                 include_greeks = not greeks_input.startswith('n')
+
+            include_rolling = config.get('benchmark_include_rolling')
+            if include_rolling is None:
+                 rolling_input = input("Include Rolling Features for benchmark? (y/n, default: y): ").lower().strip()
+                 include_rolling = not rolling_input.startswith('n')
+
+            include_cyclical = config.get('benchmark_include_cyclical')
+            if include_cyclical is None:
+                 cyclical_input = input("Include Cyclical Date Features for benchmark? (y/n, default: y): ").lower().strip()
+                 include_cyclical = not cyclical_input.startswith('n')
+
+        except EOFError:
+             print("\nInput stream closed. Using default features for benchmark (Greeks=Y, Rolling=Y, Cyclical=Y).")
+             include_greeks, include_rolling, include_cyclical = True, True, True
+
+        logging.info(f"Benchmark features: Greeks={include_greeks}, Rolling={include_rolling}, Cyclical={include_cyclical}")
+        print(f"Using features: Greeks={include_greeks}, Rolling={include_rolling}, Cyclical={include_cyclical}")
+
+        # --- Step 2: Loading Dataset ---
+        print("\n" + "-"*70 + "\nSTEP 2: LOADING DATASET\n" + "-"*70)
         print(f"Loading dataset for {ticker}...")
-        
-        start_time = time.time()
+        dataset_start_time = time.time()
         dataset = StockOptionDataset(
-            data_dir=config['data_dir'], 
-            ticker=ticker, 
-            seq_len=config['seq_len'], 
-            target_cols=config['target_cols']
+             str(data_dir), ticker, config['seq_len'], config['target_cols'],
+             include_greeks=include_greeks, # Use selected flag
+             include_rolling_features=include_rolling, # Use selected flag
+             include_cyclical_features=include_cyclical, # Use selected flag
+             verbose=False
         )
-        
-        if len(dataset) < 1:
-            raise ValueError("Insufficient data for sequence creation!")
-            
-        print(f"✓ Dataset loaded successfully: {len(dataset):,} data points")
-        print(f"✓ Input features: {dataset.n_features}")
-        print(f"✓ Target columns: {', '.join(config['target_cols'])}")
-        print(f"✓ Time taken: {time.time() - start_time:.2f} seconds")
-            
-        # Split dataset
-        print("\n" + "-"*70)
-        print("STEP 3: PREPARING DATA LOADERS")
-        print("-"*70)
-        
-        print("Splitting dataset into train, validation, and test sets...")
-        total_len = len(dataset)
-        train_len = int(0.80 * total_len)
-        val_len = int(0.10 * total_len)
-        test_len = total_len - train_len - val_len
-        
-        indices = list(range(total_len))
-        train_indices = indices[:train_len]
-        val_indices = indices[train_len:train_len+val_len]
-        test_indices = indices[train_len+val_len:]
-        
-        train_ds = Subset(dataset, train_indices)
-        val_ds = Subset(dataset, val_indices)
-        test_ds = Subset(dataset, test_indices)
-        
-        print(f"✓ Training set: {len(train_ds):,} samples ({train_len/total_len*100:.1f}%)")
-        print(f"✓ Validation set: {len(val_ds):,} samples ({val_len/total_len*100:.1f}%)")
-        print(f"✓ Test set: {len(test_ds):,} samples ({test_len/total_len*100:.1f}%)")
-        
-        # Get benchmark parameters
-        print("\n" + "-"*70)
-        print("STEP 4: CONFIGURE BENCHMARK PARAMETERS")
-        print("-"*70)
-        
-        batch_size = int(input("\nEnter batch size (default: 32): ") or "32")
-        epochs = int(input("Enter number of epochs (default: 20): ") or "20")
-        
-        print("\nCreating data loaders...")
-        train_loader = DataLoader(train_ds, batch_size=batch_size, shuffle=True)
-        val_loader = DataLoader(val_ds, batch_size=batch_size, shuffle=False)
-        test_loader = DataLoader(test_ds, batch_size=batch_size, shuffle=False)
-        
-        data_loaders = {
-            'train': train_loader,
-            'val': val_loader,
-            'test': test_loader
-        }
-        
-        print(f"✓ Data loaders created with batch size: {batch_size}")
-        print(f"✓ Each epoch will process {len(train_loader)} training batches")
-        
-        # Create the models to benchmark
-        print("\n" + "-"*70)
-        print("STEP 5: INITIALIZING MODEL ARCHITECTURES")
-        print("-"*70)
-        
-        hidden_size = config['hidden_size_lstm']  # Use same hidden size for fair comparison
-        num_layers = config['num_layers']
-        input_size = dataset.n_features
-        output_size = len(config['target_cols'])
-        
-        print("\nInitializing LSTM-GRU Hybrid architecture...")
-        lstm_gru_model = HybridRNNModel(
-            input_size=input_size,
-            hidden_size_lstm=hidden_size,
-            hidden_size_gru=hidden_size,
-            num_layers=num_layers,
-            output_size=output_size
-        )
-        lstm_gru_params = sum(p.numel() for p in lstm_gru_model.parameters())
-        print(f"✓ LSTM-GRU model initialized with {lstm_gru_params:,} parameters")
-        
-        print("\nInitializing GRU-GRU architecture...")
-        gru_gru_model = GRUGRUModel(
-            input_size=input_size,
-            hidden_size_gru1=hidden_size,
-            hidden_size_gru2=hidden_size,
-            num_layers=num_layers,
-            output_size=output_size
-        )
-        gru_gru_params = sum(p.numel() for p in gru_gru_model.parameters())
-        print(f"✓ GRU-GRU model initialized with {gru_gru_params:,} parameters")
-        
-        print("\nInitializing LSTM-LSTM architecture...")
-        lstm_lstm_model = LSTMLSTMModel(
-            input_size=input_size,
-            hidden_size_lstm1=hidden_size,
-            hidden_size_lstm2=hidden_size,
-            num_layers=num_layers,
-            output_size=output_size
-        )
-        lstm_lstm_params = sum(p.numel() for p in lstm_lstm_model.parameters())
-        print(f"✓ LSTM-LSTM model initialized with {lstm_lstm_params:,} parameters")
-        
-        # Prepare model configurations
-        models = [
-            {'name': 'LSTM-GRU Hybrid', 'model': lstm_gru_model},
-            {'name': 'GRU-GRU', 'model': gru_gru_model},
-            {'name': 'LSTM-LSTM', 'model': lstm_lstm_model}
-        ]
-        
-        print("\nAll architectures will be trained with:")
-        print(f"- Hidden size: {hidden_size}")
-        print(f"- Number of layers: {num_layers}")
-        print(f"- Input features: {input_size}")
-        print(f"- Output size: {output_size}")
-        print(f"- Epochs: {epochs}")
-        print(f"- Batch size: {batch_size}")
-        
-        # Run benchmarks
-        print("\n" + "-"*70)
-        print("STEP 6: RUNNING ARCHITECTURE BENCHMARKS")
-        print("-"*70)
-        
-        print("\nStarting benchmark process for all architectures...")
-        print("⚠ This may take considerable time. A detailed log will be created for each architecture.")
-        print("\nTraining and evaluation sequence:")
-        for i, model_config in enumerate(models, 1):
-            print(f"  {i}. {model_config['name']}")
-        
+        if len(dataset) < config['seq_len'] + 1: raise ValueError("Insufficient data.")
+        print(f"✓ Dataset loaded: {len(dataset):,} samples, {dataset.n_features} features. Time: {time.time() - dataset_start_time:.2f}s")
+
+        # --- Step 3 & 4: DataLoaders & Config Params (remain the same, uses dataset.n_features) ---
+        print("\n" + "-"*70 + "\nSTEP 3 & 4: DATA LOADERS & CONFIG\n" + "-"*70)
+        total_len=len(dataset); train_len=int(0.8*total_len); val_len=int(0.1*total_len); test_len=total_len-train_len-val_len
+        if train_len==0 or val_len==0 or test_len<=0: raise ValueError("Dataset too small for split.")
+        indices=list(range(total_len)); train_ds=Subset(dataset, indices[:train_len]); val_ds=Subset(dataset, indices[train_len:train_len+val_len]); test_ds=Subset(dataset, indices[train_len+val_len:])
+        batch_size=config['batch_size']; device=config['device']
+        dl_num_workers = 0 if device == 'mps' else (2 if device == 'cuda' else 0)
+        dl_pin_memory = False if device == 'mps' else (True if device == 'cuda' else False)
+        train_loader = DataLoader(train_ds, batch_size=batch_size, shuffle=True, num_workers=dl_num_workers, pin_memory=dl_pin_memory)
+        val_loader = DataLoader(val_ds, batch_size=batch_size, shuffle=False, num_workers=dl_num_workers, pin_memory=dl_pin_memory)
+        test_loader = DataLoader(test_ds, batch_size=batch_size, shuffle=False, num_workers=dl_num_workers, pin_memory=dl_pin_memory)
+        data_loaders = {'train': train_loader, 'val': val_loader, 'test': test_loader}
+        print(f"✓ DataLoaders created (Batch: {batch_size}, Workers: {dl_num_workers}, PinMem: {dl_pin_memory})")
+
+        epochs = config.get('benchmark_epochs')
+        if epochs is None:
+             try: epochs = int(input(f"Enter benchmark epochs (default: 5): ").strip() or '5'); assert epochs > 0
+             except (EOFError, ValueError, AssertionError): epochs = 5; print("\nUsing default benchmark epochs: 5")
+        print(f"Epochs per architecture: {epochs}")
+
+
+        # --- Step 5: Initializing Models (remain the same) ---
+        print("\n" + "-"*70 + "\nSTEP 5: INITIALIZING MODELS\n" + "-"*70)
+        input_size = dataset.n_features; output_size = dataset.n_targets; hidden_size = config.get('hidden_size_lstm', 64); num_layers = config.get('num_layers', 2)
+        models_to_benchmark = []
+        for ModelClass, name in [(HybridRNNModel, 'LSTM-GRU Hybrid'), (GRUGRUModel, 'GRU-GRU'), (LSTMLSTMModel, 'LSTM-LSTM')]:
+             print(f"Initializing {name}...")
+             if ModelClass == HybridRNNModel: model_instance = ModelClass(input_size, hidden_size_lstm=hidden_size, hidden_size_gru=hidden_size, num_layers=num_layers, output_size=output_size)
+             elif ModelClass == GRUGRUModel: model_instance = ModelClass(input_size, hidden_size_gru1=hidden_size, hidden_size_gru2=hidden_size, num_layers=num_layers, output_size=output_size)
+             elif ModelClass == LSTMLSTMModel: model_instance = ModelClass(input_size, hidden_size_lstm1=hidden_size, hidden_size_lstm2=hidden_size, num_layers=num_layers, output_size=output_size)
+             else: continue
+             params = sum(p.numel() for p in model_instance.parameters()); print(f"✓ {name} initialized: {params:,} params")
+             analysis = analyze_model_architecture(model_instance, input_size=input_size, seq_len=config['seq_len'])
+             models_to_benchmark.append({'name': name, 'model': model_instance, 'analysis': analysis})
+
+
+        # --- Step 6: Running Benchmarks ---
+        print("\n" + "-"*70 + "\nSTEP 6: RUNNING BENCHMARKS\n" + "-"*70)
+        print("Starting benchmark...")
         benchmark_start_time = time.time()
-        
-        # First announce that we're starting benchmarks
-        for i, model_config in enumerate(models, 1):
-            arch_name = model_config['name']
-            print(f"\n[{i}/{len(models)}] Benchmarking {arch_name}...")
-            print("  This architecture will now be trained, validated, and tested.")
-            print("  Progress will be shown for each epoch.")
-            print("  A detailed performance log will be saved at the end.")
-            print("  " + "-"*66)
-            
+        from .performance_utils import benchmark_architectures # Ensure imported
+
+        # Pass ALL feature flags to benchmark_architectures
         log_paths = benchmark_architectures(
-            models=models,
-            data_loaders=data_loaders,
-            epochs=epochs,
-            ticker=ticker,
-            target_cols=config['target_cols'],
-            save_dir=config['performance_logs_dir']
+            models=models_to_benchmark, data_loaders=data_loaders, epochs=epochs, ticker=ticker,
+            target_cols=config['target_cols'], save_dir=str(perf_logs_dir), device=device,
+            lr=config.get('lr', 1e-3),
+            include_greeks=include_greeks, # <-- Pass flag
+            include_rolling=include_rolling, # <-- Pass flag
+            include_cyclical=include_cyclical # <-- Pass flag
         )
-        
         benchmark_time = time.time() - benchmark_start_time
-        hours, remainder = divmod(benchmark_time, 3600)
-        minutes, seconds = divmod(remainder, 60)
-        
-        print("\n" + "-"*70)
-        print("STEP 7: GENERATING COMPARISON REPORT")
-        print("-"*70)
-        
-        print(f"\nBenchmarking completed in {int(hours):02d}:{int(minutes):02d}:{seconds:.2f}")
-        print("\nGenerating architecture comparison summary...")
-        
-        # Generate comparison summary
-        summary_path = generate_architecture_comparison(log_paths)
-        print(f"\n✓ Architecture comparison saved to: {summary_path}")
-        
-        print("\n" + "-"*70)
-        print("STEP 8: CREATING VISUALIZATION CHARTS")
-        print("-"*70)
-        
-        print("\nCreating performance visualization charts...")
-        # Create visualizations
-        viz_paths = visualize_architectures(log_paths, output_dir=config['performance_logs_dir'])
-        
-        if viz_paths:
-            print(f"\n✓ Visualization charts created:")
-            for i, path in enumerate(viz_paths, 1):
-                print(f"  {i}. {path}")
-            
-        print("\n" + "="*70)
-        print(f"{'BENCHMARKING COMPLETE':^70}")
-        print("="*70)
-        print("\nYou can now analyze the results to determine which architecture")
-        print("performs best for your specific option pricing task.")
-                
+        hours, rem = divmod(benchmark_time, 3600); mins, secs = divmod(rem, 60)
+
+
+        # --- Step 7 & 8: Report & Visualize (remain the same) ---
+        print("\n" + "-"*70 + "\nSTEP 7 & 8: REPORT & VISUALIZE\n" + "-"*70)
+        print(f"\nBenchmarking completed in {int(hours):02d}:{int(mins):02d}:{secs:.2f}")
+        from .performance_utils import generate_architecture_comparison, visualize_architectures # Ensure imported
+        if log_paths:
+             summary_filename = f"comparison_{ticker}_feats_{include_greeks}_{include_rolling}_{include_cyclical}_{datetime.now():%Y%m%d_%H%M%S}.txt"
+             summary_path = perf_logs_dir / summary_filename
+             summary_path_str = generate_architecture_comparison(log_paths, output_path=str(summary_path))
+             print(f"\n✓ Comparison summary: {summary_path_str}")
+             viz_paths = visualize_architectures(log_paths, output_dir=str(viz_dir))
+             if viz_paths: print(f"\n✓ Visualizations saved to: {viz_dir}")
+        else: print("\nNo log paths generated, cannot create reports.")
+
+        print("\n" + "="*70 + f"\n{'BENCHMARKING COMPLETE':^70}\n" + "="*70)
         logging.info("Architecture benchmarking completed successfully")
-        
-    except Exception as e:
-        logging.error(f"Error during architecture benchmarking: {str(e)}")
-        print(f"\n❌ Error: {str(e)}")
+
+    # --- Error Handling (remains the same) ---
+    except FileNotFoundError as e: logging.error(f"File/Dir not found: {e}"); print(f"\nError: {e}")
+    except ValueError as e: logging.error(f"Value error: {e}"); print(f"\nError: {e}")
+    except Exception as e: import traceback; logging.exception(f"Error during benchmarking: {e}"); print(f"\nError: {e}")
+
 
 def debug_scaling_parameters(ticker: str, data_dir: str) -> None:
     """

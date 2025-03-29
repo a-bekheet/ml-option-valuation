@@ -3,6 +3,8 @@ import torch.nn as nn
 import logging
 import os
 import platform
+import sys
+from pathlib import Path
 
 from utils.data_utils import get_available_tickers, select_ticker, validate_paths, StockOptionDataset
 from utils.model_utils import (
@@ -12,7 +14,7 @@ from utils.model_utils import (
     run_existing_model_with_visualization, visualize_predictions
 )
 from utils.menu_utils import display_menu, run_application_loop
-from utils.visualization_utils import save_and_display_results, display_model_analysis
+from utils.visualization_utils import save_and_display_results, display_model_analysis, plot_predictions
 from utils.performance_utils import (
     track_performance, benchmark_architectures, generate_architecture_comparison,
     visualize_architectures, extended_train_model_with_tracking,
@@ -185,81 +187,57 @@ def check_gpu():
     """
     Check if GPU acceleration is available and display information.
     Supports both CUDA (NVIDIA) and MPS (Apple Silicon) GPUs.
-    
+
     Returns:
         tuple: (using_gpu, device_type) where device_type is 'cuda', 'mps', or 'cpu'
     """
-    # Check for Apple Silicon Mac (M1/M2/M3)
     is_mac = platform.system() == 'Darwin'
     is_apple_silicon = is_mac and platform.processor() == 'arm'
-    
-    # Define variables with default values
+
     using_gpu = False
     device_type = 'cpu'
-    
-    # Check for MPS (Metal Performance Shaders) for Apple Silicon
     has_mps = False
+
     if is_apple_silicon:
-        # Need to check if PyTorch was built with MPS support
-        if hasattr(torch, 'has_mps') and torch.has_mps:
-            has_mps = torch.backends.mps.is_available() if hasattr(torch.backends, 'mps') else False
-        # For newer PyTorch versions
-        elif hasattr(torch.backends, 'mps') and hasattr(torch.backends.mps, 'is_available'):
-            has_mps = torch.backends.mps.is_available()
-    
-    # Check for CUDA (NVIDIA GPUs)
+        # Check for MPS (Metal Performance Shaders) for Apple Silicon
+        # Updated check for newer PyTorch versions
+        try:
+            has_mps = torch.backends.mps.is_available() and torch.backends.mps.is_built()
+        except AttributeError: # Fallback for older PyTorch versions
+            has_mps = False
+            logging.warning("Could not determine MPS availability (AttributeError). Assuming MPS is unavailable.")
+
     has_cuda = torch.cuda.is_available()
-    
-    # Prioritize GPU based on what's available
+
     if has_cuda:
         using_gpu = True
         device_type = 'cuda'
-        
-        # Display CUDA GPU information
         gpu_count = torch.cuda.device_count()
         gpu_name = torch.cuda.get_device_name(0) if gpu_count > 0 else "Unknown"
         cuda_version = torch.version.cuda
-        
-        print(f"\n{'='*80}")
-        print(f"NVIDIA GPU ACCELERATION AVAILABLE")
-        print(f"{'='*80}")
-        print(f"GPU Count: {gpu_count}")
-        print(f"GPU Device: {gpu_name}")
-        print(f"CUDA Version: {cuda_version}")
-        
-        # Print memory information if available
+        print(f"\n{'='*80}\nNVIDIA GPU ACCELERATION AVAILABLE\n{'='*80}")
+        print(f"GPU Count: {gpu_count}\nGPU Device: {gpu_name}\nCUDA Version: {cuda_version}")
         try:
-            memory_allocated = torch.cuda.memory_allocated(0)
-            memory_reserved = torch.cuda.memory_reserved(0)
-            print(f"Memory Allocated: {memory_allocated / 1024**2:.2f} MB")
-            print(f"Memory Reserved: {memory_reserved / 1024**2:.2f} MB")
-        except:
-            pass
-        
+            memory_allocated = torch.cuda.memory_allocated(0) / 1024**2
+            memory_reserved = torch.cuda.memory_reserved(0) / 1024**2
+            print(f"Memory Allocated: {memory_allocated:.2f} MB\nMemory Reserved: {memory_reserved:.2f} MB")
+        except: pass # Ignore memory info errors
     elif has_mps:
         using_gpu = True
         device_type = 'mps'
-        
-        # Display Apple Silicon GPU information
-        print(f"\n{'='*80}")
-        print(f"APPLE SILICON GPU ACCELERATION AVAILABLE")
-        print(f"{'='*80}")
+        print(f"\n{'='*80}\nAPPLE SILICON GPU ACCELERATION AVAILABLE\n{'='*80}")
         print(f"Device: Apple {platform.processor().capitalize()} GPU")
-        print(f"PyTorch MPS: {has_mps}")
+        print(f"PyTorch MPS Available: {has_mps}")
         print(f"Operating System: {platform.system()} {platform.mac_ver()[0] if is_mac else ''}")
-        
     else:
-        # No GPU acceleration available
-        print(f"\n{'='*80}")
-        print(f"NO GPU ACCELERATION AVAILABLE - RUNNING ON CPU")
-        print(f"{'='*80}")
+        print(f"\n{'='*80}\nNO GPU ACCELERATION AVAILABLE - RUNNING ON CPU\n{'='*80}")
         print("Training will be significantly slower on CPU.")
         if is_apple_silicon:
-            print("Your Mac has Apple Silicon, but PyTorch MPS acceleration is not available.")
-            print("Consider installing PyTorch with MPS support.")
+            print("Your Mac has Apple Silicon, but PyTorch MPS acceleration is not available or built.")
+            print("Ensure you have the correct PyTorch version for MPS.")
         else:
-            print("Consider running on a system with a GPU.")
-        
+            print("Consider running on a system with an NVIDIA GPU (CUDA) for faster training.")
+
     print(f"{'='*80}")
     return using_gpu, device_type
 
@@ -275,110 +253,113 @@ def setup_logging():
     )
 
 def load_config():
-    """Load and return the configuration settings."""
-    # Check GPU availability and determine device type
+    """Load configuration, detect environment, and set paths."""
+    logging.info("Loading configuration...")
     using_gpu, device_type = check_gpu()
-    
-    # Set default values
+
+    # Environment detection
+    IN_COLAB = 'google.colab' in sys.modules or 'COLAB_GPU' in os.environ
+    if IN_COLAB:
+        logging.info("Running in Google Colab environment.")
+        print("It looks like you're running in Google Colab.")
+        print("Please ensure your Google Drive is mounted if data/models are stored there.")
+        print("Example mount command: from google.colab import drive; drive.mount('/content/drive')")
+        # Define Colab base paths (assuming Drive is mounted at /content/drive)
+        # MODIFY 'MyDrive/your_project_folder' TO YOUR ACTUAL PROJECT PATH IN DRIVE
+        drive_base = Path('/content/drive/MyDrive/option-ml-prediction') #<- ADJUST THIS
+        if not drive_base.exists():
+             logging.warning(f"Google Drive path '{drive_base}' not found. Using /content/ as base.")
+             # Fallback to /content if drive path incorrect or not mounted
+             base_path = Path('/content')
+             colab_data_dir = base_path / 'data_files/split_data'
+             colab_models_dir = base_path / 'models'
+             colab_perf_logs_dir = base_path / 'performance_logs'
+             colab_viz_dir = base_path / 'plots'
+        else:
+             base_path = drive_base
+             colab_data_dir = base_path / 'data_files/split_data'
+             colab_models_dir = base_path / 'models'
+             colab_perf_logs_dir = base_path / 'performance_logs'
+             colab_viz_dir = base_path / 'plots' # Separate plots directory
+
+        # Ensure Colab directories exist
+        colab_data_dir.mkdir(parents=True, exist_ok=True)
+        colab_models_dir.mkdir(parents=True, exist_ok=True)
+        colab_perf_logs_dir.mkdir(parents=True, exist_ok=True)
+        colab_viz_dir.mkdir(parents=True, exist_ok=True)
+
+        default_data_dir = str(colab_data_dir)
+        default_models_dir = str(colab_models_dir)
+        default_perf_logs_dir = str(colab_perf_logs_dir)
+        default_viz_dir = str(colab_viz_dir)
+    else:
+        logging.info("Running in local environment.")
+        # Use relative paths for local execution
+        base_path = Path('.') # Current working directory
+        default_data_dir = str(base_path / "data_files/split_data")
+        default_models_dir = str(base_path / "models")
+        default_perf_logs_dir = str(base_path / "performance_logs")
+        default_viz_dir = str(base_path / "plots") # Separate plots directory
+
+    # Default model/training parameters
     config = {
-        'data_dir': "data_files/split_data",  # Directory containing ticker-specific files
         'seq_len': 30,
-        'batch_size': 32,
+        'batch_size': 32, # Default, will be adjusted based on device
         'epochs': 20,
+        'lr': 1e-3, # Added Learning Rate
         'hidden_size_lstm': 64,
         'hidden_size_gru': 64,
         'num_layers': 2,
-        'ticker': None,
+        'ticker': None, # Will be set later by user or default
         'target_cols': ["bid", "ask"],
-        'models_dir': "models",
-        'performance_logs_dir': "performance_logs",
-        'device': device_type  # Set to 'cuda', 'mps', or 'cpu' based on availability
+        'device': device_type,
+        # --- Paths defined based on environment ---
+        'data_dir': default_data_dir,
+        'models_dir': default_models_dir,
+        'performance_logs_dir': default_perf_logs_dir,
+        'viz_dir': default_viz_dir # Visualization output directory
     }
-    
-    # Adjust batch size based on device
+
+    # Adjust batch size based on device (existing logic)
     if device_type == 'cuda':
-        # For CUDA GPUs, adjust based on available memory
         try:
             gpu_memory = torch.cuda.get_device_properties(0).total_memory / (1024**3)
-            if gpu_memory < 4:  # Less than 4GB
-                config['batch_size'] = 16
-                print(f"Low GPU memory ({gpu_memory:.1f}GB), reducing batch size to {config['batch_size']}")
-            elif gpu_memory >= 8:  # 8GB or more
-                config['batch_size'] = 64
-                print(f"High GPU memory ({gpu_memory:.1f}GB), increasing batch size to {config['batch_size']}")
-        except:
-            pass
+            if gpu_memory < 4: config['batch_size'] = 16
+            elif gpu_memory >= 12: config['batch_size'] = 64 # Increased threshold for larger batch
+            else: config['batch_size'] = 32
+            logging.info(f"CUDA GPU memory: {gpu_memory:.1f}GB. Setting batch size to {config['batch_size']}")
+        except Exception as e:
+            logging.warning(f"Could not get GPU memory, using default batch size {config['batch_size']}. Error: {e}")
     elif device_type == 'mps':
-        # For Apple Silicon, use a moderate batch size
-        # Apple Silicon shares memory with the system, so we're more conservative
-        config['batch_size'] = 48
-        print(f"Using batch size {config['batch_size']} for Apple Silicon GPU")
-    
+        config['batch_size'] = 48 # Keep moderate for MPS
+        logging.info(f"Apple Silicon MPS detected. Setting batch size to {config['batch_size']}")
+    else: # CPU
+         logging.info(f"Running on CPU. Using default batch size {config['batch_size']}")
+
+    logging.info("Configuration loaded:")
+    for key, value in config.items():
+        logging.info(f"  {key}: {value}")
+
     return config
 
 def main():
     """Main application entry point."""
-    # Setup logging
-    setup_logging()
+    setup_logging() # Setup logging first
     logging.info("Starting Option Trading Model application")
-    
-    # Load configuration with appropriate device settings
+
     config = load_config()
-    
-    # Log device being used
     logging.info(f"Using device: {config['device']}")
-    
-    # Set PyTorch to benchmark mode for better performance (if using CUDA)
     if config['device'] == 'cuda':
         torch.backends.cudnn.benchmark = True
-    
-    # Package model classes
-    models = {
-        'HybridRNNModel': HybridRNNModel,
-        'GRUGRUModel': GRUGRUModel,
-        'LSTMLSTMModel': LSTMLSTMModel
-    }
-    
-    # Package handler functions
-    handlers = {
-        'handle_train_model': handle_train_model,
-        'handle_run_model': handle_run_model,
-        'handle_analyze_architecture': handle_analyze_architecture,
-        'handle_benchmark_architectures': handle_benchmark_architectures
-    }
-    
-    # Package data utilities
-    data_utils = {
-        'get_available_tickers': get_available_tickers,
-        'select_ticker': select_ticker,
-        'validate_paths': validate_paths,
-        'StockOptionDataset': StockOptionDataset
-    }
-    
-    # Package visualization utilities
-    visualization_utils = {
-        'save_and_display_results': save_and_display_results,
-        'display_model_analysis': display_model_analysis
-    }
-    
-    # Package performance utilities
-    performance_utils = {
-        'track_performance': track_performance,
-        'benchmark_architectures': benchmark_architectures,
-        'generate_architecture_comparison': generate_architecture_comparison,
-        'visualize_architectures': visualize_architectures,
-        'extended_train_model_with_tracking': extended_train_model_with_tracking
-    }
-    
-    # Run application loop
-    run_application_loop(
-        config, 
-        models, 
-        handlers, 
-        data_utils, 
-        visualization_utils, 
-        performance_utils
-    )
+        logging.info("Enabled CuDNN benchmark mode.")
+
+    models = { 'HybridRNNModel': HybridRNNModel, 'GRUGRUModel': GRUGRUModel, 'LSTMLSTMModel': LSTMLSTMModel }
+    handlers = { 'handle_train_model': handle_train_model, 'handle_run_model': handle_run_model, 'handle_analyze_architecture': handle_analyze_architecture, 'handle_benchmark_architectures': handle_benchmark_architectures }
+    data_utils = { 'get_available_tickers': get_available_tickers, 'select_ticker': select_ticker, 'validate_paths': validate_paths, 'StockOptionDataset': StockOptionDataset }
+    visualization_utils = { 'save_and_display_results': save_and_display_results, 'display_model_analysis': display_model_analysis, 'plot_predictions': plot_predictions }
+    performance_utils = { 'track_performance': track_performance, 'benchmark_architectures': benchmark_architectures, 'generate_architecture_comparison': generate_architecture_comparison, 'visualize_architectures': visualize_architectures, 'extended_train_model_with_tracking': extended_train_model_with_tracking }
+
+    run_application_loop( config, models, handlers, data_utils, visualization_utils, performance_utils )
 
 if __name__ == "__main__":
     main()

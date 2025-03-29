@@ -13,8 +13,6 @@ from typing import Dict, List, Optional, Union, Tuple, Any
 from torch.utils.data import DataLoader
 from torch.utils.data.dataset import Subset
 from tqdm import tqdm
-import nn
-from .model_utils import analyze_model_architecture
 
 
 class EarlyStopping:
@@ -54,40 +52,112 @@ def calculate_errors(y_true, y_pred):
         'mape': mape
     }
 
-def analyze_model_architecture(model, input_size=23, seq_len=15, batch_size=32):
-    """Analyze the architecture of the model, including parameter count and tensor shapes."""
+def analyze_model_architecture(model, input_size=None, seq_len=15, batch_size=32):
+    """
+    Analyze the architecture of the model, including parameter count and tensor shapes.
+    Ensures dummy input is on the correct device.
+
+    Args:
+        model: The PyTorch model instance.
+        input_size (int): The number of input features. If None, tries to infer from model.
+        seq_len (int): Sequence length for dummy input.
+        batch_size (int): Batch size for dummy input.
+
+    Returns:
+        dict: Dictionary containing architecture analysis results.
+    """
+    if input_size is None:
+        # Try to infer input size (e.g., from the first linear layer or LSTM/GRU input_size)
+        # This is a basic inference, might need adjustment based on your specific models
+        try:
+            if hasattr(model, 'lstm') and hasattr(model.lstm, 'input_size'):
+                input_size = model.lstm.input_size
+            elif hasattr(model, 'gru1') and hasattr(model.gru1, 'input_size'):
+                input_size = model.gru1.input_size
+            elif hasattr(model, 'lstm1') and hasattr(model.lstm1, 'input_size'):
+                input_size = model.lstm1.input_size
+            # Add fallbacks for other potential first layers if necessary
+            else:
+                 # Attempt to find any LSTM or GRU layer
+                 for layer in model.children():
+                      if isinstance(layer, (torch.nn.LSTM, torch.nn.GRU)):
+                           input_size = layer.input_size
+                           break
+                 if input_size is None:
+                      raise ValueError("Could not automatically infer input_size.")
+            logging.info(f"Inferred input_size for analysis: {input_size}")
+        except Exception as e:
+            logging.error(f"Failed to infer input_size for architecture analysis: {e}")
+            logging.error("Please provide input_size explicitly to analyze_model_architecture.")
+            # Return basic parameter counts if size inference fails
+            total_params = sum(p.numel() for p in model.parameters())
+            trainable_params = sum(p.numel() for p in model.parameters() if p.requires_grad)
+            return {
+                'total_parameters': total_params,
+                'trainable_parameters': trainable_params,
+                'layer_shapes': {"Error": "Could not perform forward pass for shape analysis."}
+            }
+
+
     total_params = sum(p.numel() for p in model.parameters())
     trainable_params = sum(p.numel() for p in model.parameters() if p.requires_grad)
-    
+
+    # Determine the device the model is on
+    try:
+        device = next(model.parameters()).device
+    except StopIteration:
+        device = torch.device("cpu") # Model has no parameters? Fallback to CPU
+    logging.info(f"Analyzing architecture on device: {device}")
+
+    # Create dummy input and move it to the model's device
     dummy_input = torch.randn(batch_size, seq_len, input_size)
+    dummy_input = dummy_input.to(device) # <-- Explicitly move to device
+
     layer_shapes = {}
-    
-    def hook_fn(module, input, output, name):
-        def get_tensor_shape(x):
-            if isinstance(x, torch.Tensor):
-                return tuple(x.shape)
-            elif isinstance(x, tuple):
-                return tuple(get_tensor_shape(t) for t in x if isinstance(t, torch.Tensor))
+
+    def hook_fn(module, input_tensors, output_tensors, name):
+        def get_tensor_shape(t):
+            if isinstance(t, torch.Tensor):
+                return tuple(t.shape)
+            elif isinstance(t, (list, tuple)):
+                # Handle nested tuples/lists, e.g., LSTM output (output, (h_n, c_n))
+                return tuple(get_tensor_shape(sub_t) for sub_t in t if isinstance(sub_t, (torch.Tensor, list, tuple)))
             return None
 
+        # input_tensors is typically a tuple
+        input_shapes = [get_tensor_shape(t) for t in input_tensors]
+        # If input_shapes is like [(shape1,), (shape2,)], flatten it
+        if len(input_shapes) == 1:
+             input_shapes = input_shapes[0]
+
         layer_shapes[name] = {
-            'input_shape': [tuple(i.shape) for i in input],
-            'output_shape': get_tensor_shape(output)
+            'input_shape': input_shapes,
+            'output_shape': get_tensor_shape(output_tensors)
         }
-    
+
     hooks = []
     for name, layer in model.named_children():
+        # Use lambda with default argument capture for name
         hooks.append(layer.register_forward_hook(
-            lambda m, i, o, name=name: hook_fn(m, i, o, name)
+            lambda m, i, o, layer_name=name: hook_fn(m, i, o, layer_name)
         ))
-    
-    model.eval()
-    with torch.no_grad():
-        _ = model(dummy_input)
-    
-    for hook in hooks:
-        hook.remove()
-    
+
+    # Perform forward pass with dummy input
+    model.eval() # Ensure model is in eval mode for analysis
+    try:
+        with torch.no_grad():
+            logging.debug(f"Performing forward pass for analysis with dummy input shape: {dummy_input.shape} on device {dummy_input.device}")
+            _ = model(dummy_input) # <--- Error occurred around here previously
+        logging.debug("Forward pass for analysis successful.")
+    except Exception as e:
+         logging.error(f"Error during dummy forward pass in analyze_model_architecture: {e}")
+         logging.error("Layer shape analysis might be incomplete.")
+         layer_shapes = {"Error": f"Forward pass failed: {e}"} # Indicate analysis failure
+    finally:
+        # Remove hooks
+        for hook in hooks:
+            hook.remove()
+
     return {
         'total_parameters': total_params,
         'trainable_parameters': trainable_params,
@@ -704,22 +774,18 @@ def handle_train_model(config, HybridRNNModel, GRUGRUModel, LSTMLSTMModel,
         logging.info("Starting model training workflow...")
 
         # --- User Prompts ---
-        # Ask if user wants to use performance tracking (if applicable)
         use_tracking = input("\nUse detailed performance tracking log? (y/n): ").lower().startswith('y')
         logging.info(f"Performance tracking enabled: {use_tracking}")
-
-        # >> NEW: Ask if user wants to include Option Greeks <<
         use_greeks_input = input("Include Option Greeks features for this training run? (y/n): ").lower()
         include_greeks_flag = use_greeks_input == 'y'
         logging.info(f"Include Option Greeks features: {include_greeks_flag}")
 
-        # Ask user to select model architecture
         print("\nSelect model architecture:")
         print("1. LSTM-GRU Hybrid (default)")
         print("2. GRU-GRU")
         print("3. LSTM-LSTM")
-
         arch_choice = input("Enter choice (1-3): ").strip()
+
         if arch_choice == "2":
             architecture_type = "GRU-GRU"
             SelectedModelClass = GRUGRUModel
@@ -727,33 +793,26 @@ def handle_train_model(config, HybridRNNModel, GRUGRUModel, LSTMLSTMModel,
             architecture_type = "LSTM-LSTM"
             SelectedModelClass = LSTMLSTMModel
         else:
-            architecture_type = "LSTM-GRU"
+            architecture_type = "LSTM-GRU" # Default
             SelectedModelClass = HybridRNNModel
         logging.info(f"Selected architecture: {architecture_type}")
 
         # --- Data Preparation ---
-        # Get available tickers and select one
         tickers, counts = get_available_tickers(config['data_dir'])
         if not tickers:
-             logging.error("No tickers found. Ensure data preprocessing is complete.")
-             print("\nError: No tickers available in the data directory.")
-             return
+             logging.error("No tickers found."); print("\nError: No tickers available."); return
         ticker = select_ticker(tickers, counts)
         if not ticker:
-             logging.warning("No ticker selected. Aborting training.")
-             return
+             logging.warning("No ticker selected."); print("\nNo ticker selected."); return
         logging.info(f"Selected ticker: {ticker}")
 
-        # Initialize dataset with the user's choice for including Greeks
         logging.info(f"Initializing dataset for {ticker}, include_greeks={include_greeks_flag}...")
         try:
+             # Assume StockOptionDataset is correctly imported
              dataset = StockOptionDataset(
-                 data_dir=config['data_dir'],
-                 ticker=ticker,
-                 seq_len=config['seq_len'],
-                 target_cols=config['target_cols'],
-                 include_greeks=include_greeks_flag, # Pass the flag here
-                 verbose=True # Enable verbose dataset logging for debugging
+                 data_dir=config['data_dir'], ticker=ticker,
+                 seq_len=config['seq_len'], target_cols=config['target_cols'],
+                 include_greeks=include_greeks_flag, verbose=True
              )
         except FileNotFoundError as fnf_err:
              logging.error(f"Dataset file not found for {ticker}: {fnf_err}")
@@ -764,140 +823,131 @@ def handle_train_model(config, HybridRNNModel, GRUGRUModel, LSTMLSTMModel,
              print(f"\nError creating dataset: {data_err}")
              return
 
-
-        # >> Get the actual features used by the dataset <<
         features_used_in_run = dataset.feature_cols
         logging.info(f"Number of features used in this run: {dataset.n_features}")
         logging.debug(f"Features list: {features_used_in_run}")
 
         if dataset.n_features == 0:
-             logging.error("Dataset loaded with 0 features. Check data file and feature selection logic.")
-             print("\nError: Dataset has no features. Cannot train model.")
-             return
-        if len(dataset) < config.get('seq_len', 15) + 1: # Use configured seq_len
-            logging.error(f"Insufficient data for sequence creation for ticker {ticker}. Samples: {len(dataset)}, Required: {config.get('seq_len', 15) + 1}")
-            print(f"\nError: Not enough data ({len(dataset)} samples) for ticker {ticker} to create sequences of length {config.get('seq_len', 15)}. Need at least {config.get('seq_len', 15) + 1}.")
+             logging.error("Dataset loaded with 0 features."); print("\nError: Dataset has 0 features."); return
+        seq_len = config.get('seq_len', 15)
+        if len(dataset) < seq_len + 1:
+            logging.error(f"Insufficient samples for ticker {ticker} ({len(dataset)}) for sequence length {seq_len}.")
+            print(f"\nError: Not enough data for {ticker}. Need {seq_len + 1}, have {len(dataset)}.")
             return
 
-        # Split dataset maintaining temporal order
+        # --- Data Splitting & Loaders ---
         total_len = len(dataset)
         train_len = int(0.80 * total_len)
         val_len = int(0.10 * total_len)
-
-        # Ensure there are enough samples for validation and testing
         if train_len == 0 or val_len == 0 or (total_len - train_len - val_len) == 0:
-             logging.error(f"Dataset for {ticker} too small for train/val/test split ({total_len} samples).")
-             print(f"\nError: Dataset for {ticker} is too small ({total_len} samples) to split into training, validation, and testing sets.")
+             logging.error(f"Dataset for {ticker} too small for train/val/test split ({total_len}).")
+             print(f"\nError: Dataset for {ticker} too small ({total_len}) for train/val/test split.")
              return
 
         indices = list(range(total_len))
-        train_indices = indices[:train_len]
-        val_indices = indices[train_len:train_len+val_len]
-        test_indices = indices[train_len+val_len:]
+        train_ds = Subset(dataset, indices[:train_len])
+        val_ds = Subset(dataset, indices[train_len:train_len+val_len])
+        test_ds = Subset(dataset, indices[train_len+val_len:])
 
-        train_ds = Subset(dataset, train_indices)
-        val_ds = Subset(dataset, val_indices)
-        test_ds = Subset(dataset, test_indices)
-
-        # Use configured batch size
         batch_size = config.get('batch_size', 32)
-        train_loader = DataLoader(train_ds, batch_size=batch_size, shuffle=True, num_workers=4, pin_memory=True) # Added num_workers/pin_memory
-        val_loader = DataLoader(val_ds, batch_size=batch_size, shuffle=False, num_workers=4, pin_memory=True)
-        test_loader = DataLoader(test_ds, batch_size=batch_size, shuffle=False, num_workers=4, pin_memory=True)
+        # Consider adding num_workers=os.cpu_count() if not on windows/certain envs
+        train_loader = DataLoader(train_ds, batch_size=batch_size, shuffle=True, pin_memory=True)
+        val_loader = DataLoader(val_ds, batch_size=batch_size, shuffle=False, pin_memory=True)
+        test_loader = DataLoader(test_ds, batch_size=batch_size, shuffle=False, pin_memory=True)
         logging.info(f"DataLoaders created: Train={len(train_ds)}, Val={len(val_ds)}, Test={len(test_ds)} samples.")
 
-        # --- Model Initialization ---
-        device = config.get('device', 'cpu') # Get device from config
-        # >> Initialize model with the correct input size from the dataset <<
+        # --- Model Initialization (Corrected) ---
+        device = config.get('device', 'cpu')
         model_input_size = dataset.n_features
-        model_output_size = dataset.n_targets # Use n_targets from dataset
+        model_output_size = dataset.n_targets
+        num_layers_config = config.get('num_layers', 2) # Get common params
 
         logging.info(f"Initializing model {architecture_type} with input_size={model_input_size}, output_size={model_output_size}")
-        model = SelectedModelClass(
-            input_size=model_input_size,
-            # Pass other hyperparameters from config, ensure names match model __init__ args
-            hidden_size_lstm=config.get('hidden_size_lstm', 64),
-            hidden_size_gru=config.get('hidden_size_gru', 64),
-            hidden_size_lstm1=config.get('hidden_size_lstm', 64), # Assuming same size for simplicity
-            hidden_size_lstm2=config.get('hidden_size_lstm', 64),
-            hidden_size_gru1=config.get('hidden_size_gru', 64),
-            hidden_size_gru2=config.get('hidden_size_gru', 64),
-            num_layers=config.get('num_layers', 2),
-            output_size=model_output_size
-        )
-        print(f"\nInitialized {architecture_type} architecture on device: {device}")
-        model.to(device) # Move model to device
 
-        # >> Analyze the initialized model architecture <<
+        # Use if/elif/else to pass only relevant arguments
+        if SelectedModelClass == HybridRNNModel:
+            model = SelectedModelClass(
+                input_size=model_input_size,
+                hidden_size_lstm=config.get('hidden_size_lstm', 64),
+                hidden_size_gru=config.get('hidden_size_gru', 64),
+                num_layers=num_layers_config,
+                output_size=model_output_size
+            )
+        elif SelectedModelClass == GRUGRUModel:
+            model = SelectedModelClass(
+                input_size=model_input_size,
+                hidden_size_gru1=config.get('hidden_size_gru', 64), # Use base gru size or specific if needed
+                hidden_size_gru2=config.get('hidden_size_gru', 64),
+                num_layers=num_layers_config,
+                output_size=model_output_size
+            )
+        elif SelectedModelClass == LSTMLSTMModel:
+            model = SelectedModelClass(
+                input_size=model_input_size,
+                hidden_size_lstm1=config.get('hidden_size_lstm', 64), # Use base lstm size or specific
+                hidden_size_lstm2=config.get('hidden_size_lstm', 64),
+                num_layers=num_layers_config,
+                output_size=model_output_size
+            )
+        else:
+             # Should not happen if logic above is correct, but good practice
+             logging.error(f"Unknown model class selected: {SelectedModelClass.__name__}")
+             print("\nError: Invalid model selection.")
+             return
+
+        print(f"\nInitialized {architecture_type} architecture on device: {device}")
+        model.to(device)
+
+        # --- Architecture Analysis ---
         logging.info("Analyzing model architecture...")
+        # Ensure analyze_model_architecture is imported
         model_analysis = analyze_model_architecture(
-            model,
-            input_size=model_input_size, # Use actual input size
-            seq_len=config['seq_len']
-            # batch_size is implicitly handled by the dummy input in analyze_model_architecture
+            model, input_size=model_input_size, seq_len=config['seq_len']
         )
         logging.info(f"Model analysis complete: Total Params={model_analysis.get('total_parameters', 'N/A')}")
 
+
         # --- Training ---
         history = None
-        log_path = None # Initialize log_path
+        log_path = None
 
         if use_tracking:
             logging.info("Starting training with performance tracking...")
-            # Call extended training function, passing features and analysis
-            # Note: extended_train_model_with_tracking needs to accept these new args
+            # Ensure extended_train_model_with_tracking is imported and accepts new args
             model, history, log_path = extended_train_model_with_tracking(
-                model=model,
-                train_loader=train_loader,
-                val_loader=val_loader,
-                test_loader=test_loader, # Pass test_loader if extended function uses it
-                epochs=config['epochs'],
-                lr=config.get('lr', 1e-3), # Use configured LR
-                device=device,
-                ticker=ticker,
-                architecture_name=architecture_type,
-                target_cols=config['target_cols'],
-                # >> Pass new args for logging <<
+                model=model, train_loader=train_loader, val_loader=val_loader,
+                test_loader=test_loader, epochs=config['epochs'],
+                lr=config.get('lr', 1e-3), device=device, ticker=ticker,
+                architecture_name=architecture_type, target_cols=config['target_cols'],
+                # Pass new args for logging
                 used_features=features_used_in_run,
-                model_analysis_dict=model_analysis # Pass the analysis dict
+                model_analysis_dict=model_analysis
             )
-            if log_path:
-                 print(f"\nPerformance log saved to: {log_path}")
-            else:
-                 logging.warning("Extended training finished but did not return a log path.")
+            if log_path: print(f"\nPerformance log saved to: {log_path}")
+            else: logging.warning("Extended training finished but did not return a log path.")
 
         else:
-            # Standard training without detailed performance log file
+            # Standard training - Ensure train_model is imported
             logging.info("Starting standard training (no detailed log file)...")
-            # Ensure train_model is compatible or adapt this section
             train_losses, val_losses = train_model(
-                model=model,
-                train_loader=train_loader,
-                val_loader=val_loader,
-                epochs=config['epochs'],
-                lr=config.get('lr', 1e-3),
-                device=device
+                model=model, train_loader=train_loader, val_loader=val_loader,
+                epochs=config['epochs'], lr=config.get('lr', 1e-3), device=device
             )
             history = {'train_losses': train_losses, 'val_losses': val_losses}
             logging.info("Standard training complete.")
 
-            # Optional: Perform final evaluation on test set even without tracking log
+            # Perform final evaluation on test set
             logging.info("Evaluating model on test set...")
             model.eval()
-            test_loss = 0.0
-            all_y_true = []
-            all_y_pred = []
-            criterion = torch.nn.MSELoss() # Assuming MSE Loss
-
+            test_loss = 0.0; all_y_true = []; all_y_pred = []
+            criterion = torch.nn.MSELoss()
             with torch.no_grad():
                 for x_seq, y_val in test_loader:
                     x_seq, y_val = x_seq.to(device), y_val.to(device)
                     y_pred = model(x_seq)
-                    loss = criterion(y_pred, y_val)
-                    test_loss += loss.item()
                     all_y_true.extend(y_val.cpu().numpy())
                     all_y_pred.extend(y_pred.cpu().numpy())
-
+            # Ensure calculate_errors is imported
             errors = calculate_errors(torch.tensor(all_y_true), torch.tensor(all_y_pred))
             print("\nFinal Test Set Metrics:")
             print("-" * 50)
@@ -905,21 +955,16 @@ def handle_train_model(config, HybridRNNModel, GRUGRUModel, LSTMLSTMModel,
             print(f"RMSE: {errors.get('rmse', 'N/A'):.6f}")
             print(f"MAE: {errors.get('mae', 'N/A'):.6f}")
             print(f"MAPE: {errors.get('mape', 'N/A'):.2f}%")
-
-            # Add predictions to history for potential plotting by save_and_display_results
-            history['y_true'] = all_y_true
-            history['y_pred'] = all_y_pred
+            history['y_true'] = all_y_true; history['y_pred'] = all_y_pred
 
 
         # --- Save Results ---
-        if history: # Only save if training occurred
+        if history:
             logging.info("Saving model and results...")
+            # Ensure save_and_display_results is imported
             save_and_display_results(
-                model=model,
-                history=history,
-                analysis=model_analysis, # Pass analysis for display
-                ticker=ticker,
-                target_cols=config['target_cols'],
+                model=model, history=history, analysis=model_analysis,
+                ticker=ticker, target_cols=config['target_cols'],
                 models_dir=config['models_dir']
             )
             logging.info("Model training workflow completed successfully.")
@@ -933,7 +978,9 @@ def handle_train_model(config, HybridRNNModel, GRUGRUModel, LSTMLSTMModel,
          logging.error(f"Value error during training setup: {e}")
          print(f"\nError: {e}")
     except Exception as e:
-        logging.exception(f"An unexpected error occurred during model training: {str(e)}") # Use exception for traceback
+        # Ensure traceback is imported
+        import traceback
+        logging.exception(f"An unexpected error occurred during model training: {str(e)}")
         print(f"\nAn unexpected error occurred during training: {str(e)}")
 
 def handle_run_model(config, models_dir, HybridRNNModel, GRUGRUModel, LSTMLSTMModel, get_available_tickers, select_ticker, StockOptionDataset):

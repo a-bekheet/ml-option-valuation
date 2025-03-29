@@ -66,12 +66,14 @@ def validate_paths(config):
 class StockOptionDataset(Dataset):
     def __init__(self, data_dir, ticker, seq_len=15, target_cols=["bid", "ask"],
                  window_sizes=[3, 5, 10], verbose=False,
-                 include_greeks: bool = True): # <-- Added include_greeks flag
+                 include_greeks: bool = True):
         """
         Loads data for a given ticker, adds rolling window features, and optionally includes Greeks.
+        Looks for data in the 'by_ticker' subdirectory of data_dir.
 
         Args:
-            data_dir (str): Directory containing ticker-specific files (e.g., '.../by_ticker').
+            data_dir (str): Base directory containing the 'by_ticker' subdirectory
+                            (e.g., 'data_files/split_data').
             ticker (str): The stock ticker symbol.
             seq_len (int): Length of the input sequence.
             target_cols (list): List of target column names.
@@ -79,26 +81,28 @@ class StockOptionDataset(Dataset):
             verbose (bool): If True, print detailed loading information.
             include_greeks (bool): If True, include calculated Greek columns as features.
         """
-        # Construct the expected file path within the 'by_ticker' structure
-        # Assumes normalized files with greeks are saved like '{ticker}_normalized.csv'
-        # or similar from the preprocessing pipeline.
-        file_path = os.path.join(data_dir, f"{ticker}_normalized.csv")
+        # --- CORRECTED FILE PATH CONSTRUCTION ---
+        # Construct the expected file path *within the 'by_ticker'* subdirectory
+        # Assumes normalized files with greeks are saved like '{TICKER}_normalized.csv'
+        file_path = os.path.join(data_dir, 'by_ticker', f"{ticker}_normalized.csv")
+        # --- END CORRECTION ---
 
         if verbose:
             logging.info(f"Initializing StockOptionDataset for ticker: {ticker}")
-            logging.info(f"Loading data from: {file_path}")
+            logging.info(f"Attempting to load data from: {file_path}") # Log the corrected path
             logging.info(f"Sequence length: {seq_len}, Target columns: {target_cols}")
             logging.info(f"Include Greeks: {include_greeks}")
 
         if not os.path.exists(file_path):
             logging.error(f"No data file found for ticker {ticker} at {file_path}")
-            raise FileNotFoundError(f"No data file found for ticker {ticker} at {file_path}")
+            # Also check the base directory provided
+            logging.error(f"Checked in base directory: {data_dir}")
+            raise FileNotFoundError(f"No data file found for ticker {ticker} at expected path: {file_path}")
 
         try:
             df = pd.read_csv(file_path)
             if df.empty:
                  logging.warning(f"Data file for ticker {ticker} is empty.")
-                 # Handle empty dataframe appropriately, maybe raise error or set empty data
                  self.data = np.empty((0, 0), dtype=np.float32)
                  self.n_features = 0
                  self.n_targets = len(target_cols)
@@ -108,7 +112,7 @@ class StockOptionDataset(Dataset):
                  self.feature_cols = []
                  self.target_cols = target_cols
                  self.ticker = ticker
-                 return # Stop initialization
+                 return # Stop initializationinitialization
 
         except pd.errors.EmptyDataError:
              logging.warning(f"Data file for ticker {ticker} is empty or invalid.")

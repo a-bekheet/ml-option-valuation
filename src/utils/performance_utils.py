@@ -91,6 +91,8 @@ def track_performance(model, train_loader, val_loader, test_loader,
     log_filename = f"{architecture_name}_{ticker}_{timestamp}.txt"; log_path = log_dir_path / log_filename
     logging.info(f"Performance log: {log_path}")
 
+    start_run_time = datetime.datetime.now()
+
     try: device = next(model.parameters()).device
     except StopIteration: device = torch.device('mps' if torch.backends.mps.is_available() else 'cuda' if torch.cuda.is_available() else 'cpu')
     model.to(device)
@@ -157,10 +159,9 @@ def track_performance(model, train_loader, val_loader, test_loader,
     if verbose: print(f"\n{'-' * 80}\n{architecture_name} - TRAINING PHASE ({ticker})\n{'-' * 80}") # ... (verbose print setup) ...
 
     for epoch in range(epochs):
-        # ... (training phase logic remains the same - train_iter, loss calc, backward, step) ...
-        # ... (validation phase logic remains the same - val_iter, loss calc) ...
-        # ... (scheduler, early stopping logic remains the same) ...
-        # ... (Record epoch time and memory logic remains the same) ...
+        # Start measuring epoch time here, at the beginning of the epoch
+        epoch_start_time = time.time()
+        
         # --- Training phase ---
         model.train(); total_train_loss = 0.0
         train_iter = tqdm(train_loader, desc=f"Epoch {epoch+1}/{epochs} [Train]", unit="batch", disable=not verbose, leave=False)
@@ -186,9 +187,8 @@ def track_performance(model, train_loader, val_loader, test_loader,
         history['val_losses'].append(avg_val_loss)
 
         # --- Scheduler, Early Stopping, Logging ---
-        epoch_start_time = time.time() # Need start time measurement if not already done
         scheduler.step(avg_val_loss); early_stopping(avg_val_loss)
-        epoch_time = time.time() - epoch_start_time # Measure time AFTER validation too
+        epoch_time = time.time() - epoch_start_time  # Calculate total epoch time
         history['epoch_times'].append(epoch_time); total_train_time += epoch_time
         memory_allocated = np.nan
         try:

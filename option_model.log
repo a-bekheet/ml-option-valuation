@@ -1312,3 +1312,238 @@ Traceback (most recent call last):
 NameError: name 'start_run_time' is not defined
 2025-03-29 03:06:32,271 - INFO - Application terminated by user choice
 2025-03-29 03:06:32,271 - INFO - Application shutdown sequence finished.
+2025-03-29 03:12:35,400 - INFO - Starting Option Trading Model application
+2025-03-29 03:12:35,400 - INFO - Loading configuration...
+2025-03-29 03:12:35,421 - INFO - Running in local environment.
+2025-03-29 03:12:35,421 - INFO - Apple Silicon MPS detected. Setting batch size to 48
+2025-03-29 03:12:35,421 - INFO - Configuration loaded:
+2025-03-29 03:12:35,421 - INFO -   seq_len: 30
+2025-03-29 03:12:35,421 - INFO -   batch_size: 48
+2025-03-29 03:12:35,421 - INFO -   epochs: 20
+2025-03-29 03:12:35,421 - INFO -   lr: 0.001
+2025-03-29 03:12:35,421 - INFO -   hidden_size_lstm: 64
+2025-03-29 03:12:35,421 - INFO -   hidden_size_gru: 64
+2025-03-29 03:12:35,421 - INFO -   num_layers: 2
+2025-03-29 03:12:35,421 - INFO -   ticker: None
+2025-03-29 03:12:35,421 - INFO -   target_cols: ['bid', 'ask']
+2025-03-29 03:12:35,421 - INFO -   device: mps
+2025-03-29 03:12:35,421 - INFO -   data_dir: data_files/split_data
+2025-03-29 03:12:35,421 - INFO -   models_dir: models
+2025-03-29 03:12:35,421 - INFO -   performance_logs_dir: performance_logs
+2025-03-29 03:12:35,421 - INFO -   viz_dir: plots
+2025-03-29 03:12:35,421 - INFO - Using device: mps
+2025-03-29 03:12:35,421 - INFO - Checking data directory: data_files/split_data
+2025-03-29 03:12:35,421 - INFO - Found 'by_ticker' subdirectory in data_files/split_data
+2025-03-29 03:12:35,421 - INFO - Ensuring directory exists: models (for models_dir)
+2025-03-29 03:12:35,421 - INFO - Ensuring directory exists: performance_logs (for performance_logs_dir)
+2025-03-29 03:12:35,421 - INFO - Ensuring directory exists: plots (for viz_dir)
+2025-03-29 03:12:35,421 - INFO - Validated and ensured necessary directories exist.
+2025-03-29 03:12:38,733 - INFO - Starting model training workflow...
+2025-03-29 03:12:40,341 - INFO - Performance tracking enabled: True
+2025-03-29 03:12:41,660 - INFO - Include Option Greeks features: True
+2025-03-29 03:12:43,374 - INFO - Include Rolling Window features: False
+2025-03-29 03:12:45,811 - INFO - Include Cyclical Date Features: True
+2025-03-29 03:12:47,172 - INFO - Selected architecture: LSTM-GRU
+2025-03-29 03:12:50,974 - INFO - Number of epochs set to: 10
+2025-03-29 03:12:55,903 - INFO - Selected ticker for training: TD
+2025-03-29 03:12:55,904 - INFO - Initializing dataset for TD, Greeks=True, Rolling=False, Cyclical=True...
+2025-03-29 03:12:55,904 - INFO - Initializing StockOptionDataset for ticker: TD
+2025-03-29 03:12:55,904 - INFO - Attempting to load data from Colab path: data_files/split_data/by_ticker/TD_normalized.csv
+2025-03-29 03:12:55,904 - INFO - Sequence length: 30, Target columns: ['bid', 'ask']
+2025-03-29 03:12:55,904 - INFO - Include Greeks: True
+2025-03-29 03:12:55,904 - INFO - Include Rolling Features: False
+2025-03-29 03:12:55,904 - INFO - Include Cyclical Date Features: True
+2025-03-29 03:12:56,180 - INFO - Skipping rolling window feature computation.
+2025-03-29 03:12:56,181 - INFO - Excluding rolling features as requested.
+2025-03-29 03:12:56,181 - INFO - Including 5 Greek features: ['delta', 'gamma', 'vega', 'theta', 'rho']
+2025-03-29 03:12:56,181 - INFO - Including 6 cyclical date features.
+2025-03-29 03:12:56,195 - INFO - Dropped 6069 rows (10.84%) due to NaNs in needed columns.
+2025-03-29 03:12:56,198 - INFO - Dataset created for TD: Features=31, Targets=2, Samples=49896, MaxIdx=49865
+2025-03-29 03:12:56,198 - INFO - Final features used (31): ['change', 'day_of_month_cos', 'day_of_month_sin', 'day_of_week_cos', 'day_of_week_sin', 'day_of_year_cos', 'day_of_year_sin', 'daysToExpiry', 'delta', 'gamma', 'impliedVolatility', 'lastPrice', 'openInterest', 'percentChange', 'rho', 'risk_free_rate', 'stockAdjClose', 'stockClose', 'stockClose_ewm_135d', 'stockClose_ewm_15d', 'stockClose_ewm_45d', 'stockClose_ewm_5d', 'stockHigh', 'stockLow', 'stockOpen', 'stockVolume', 'strike', 'strikeDelta', 'theta', 'vega', 'volume']
+2025-03-29 03:12:56,199 - INFO - Number of features used: 31
+2025-03-29 03:12:56,200 - INFO - DataLoaders created: Train=39892, Val=4986, Test=4988 samples. Settings: workers=0, pin_mem=False
+2025-03-29 03:12:56,200 - INFO - Initializing LSTM-GRU (In:31, Out:2, H_LSTM:64, H_GRU:64, Layers:2) on mps
+2025-03-29 03:12:56,213 - INFO - Analyzing model architecture...
+2025-03-29 03:12:56,214 - INFO - Analyzing architecture on device: mps:0
+2025-03-29 03:12:56,336 - INFO - Model analysis complete: Total Params=110496
+2025-03-29 03:12:56,336 - INFO - Starting training with performance tracking...
+2025-03-29 03:12:56,336 - INFO - Initiating extended training with tracking for TD - LSTM-GRU
+2025-03-29 03:12:56,336 - INFO - Performance logs will be saved to: performance_logs
+2025-03-29 03:12:56,336 - INFO - Performance log: performance_logs/LSTM-GRU_TD_20250329_031256.txt
+2025-03-29 03:13:12,191 - WARNING - Operation cancelled by KeyboardInterrupt.
+2025-03-29 03:17:29,582 - WARNING - Operation cancelled by KeyboardInterrupt.
+2025-03-29 03:17:31,947 - INFO - Application terminated by user choice
+2025-03-29 03:17:31,948 - INFO - Application shutdown sequence finished.
+2025-03-29 03:17:35,049 - INFO - Starting Option Trading Model application
+2025-03-29 03:17:35,050 - INFO - Loading configuration...
+2025-03-29 03:17:35,071 - INFO - Running in local environment.
+2025-03-29 03:17:35,071 - INFO - Apple Silicon MPS detected. Setting batch size to 48
+2025-03-29 03:17:35,071 - INFO - Configuration loaded:
+2025-03-29 03:17:35,071 - INFO -   seq_len: 30
+2025-03-29 03:17:35,071 - INFO -   batch_size: 48
+2025-03-29 03:17:35,071 - INFO -   epochs: 20
+2025-03-29 03:17:35,071 - INFO -   lr: 0.001
+2025-03-29 03:17:35,071 - INFO -   hidden_size_lstm: 64
+2025-03-29 03:17:35,071 - INFO -   hidden_size_gru: 64
+2025-03-29 03:17:35,071 - INFO -   num_layers: 2
+2025-03-29 03:17:35,071 - INFO -   ticker: None
+2025-03-29 03:17:35,071 - INFO -   target_cols: ['bid', 'ask']
+2025-03-29 03:17:35,071 - INFO -   device: mps
+2025-03-29 03:17:35,071 - INFO -   data_dir: data_files/split_data
+2025-03-29 03:17:35,071 - INFO -   models_dir: models
+2025-03-29 03:17:35,071 - INFO -   performance_logs_dir: performance_logs
+2025-03-29 03:17:35,071 - INFO -   viz_dir: plots
+2025-03-29 03:17:35,071 - INFO - Using device: mps
+2025-03-29 03:17:35,071 - INFO - Checking data directory: data_files/split_data
+2025-03-29 03:17:35,071 - INFO - Found 'by_ticker' subdirectory in data_files/split_data
+2025-03-29 03:17:35,071 - INFO - Ensuring directory exists: models (for models_dir)
+2025-03-29 03:17:35,071 - INFO - Ensuring directory exists: performance_logs (for performance_logs_dir)
+2025-03-29 03:17:35,071 - INFO - Ensuring directory exists: plots (for viz_dir)
+2025-03-29 03:17:35,071 - INFO - Validated and ensured necessary directories exist.
+2025-03-29 03:17:36,359 - INFO - Starting model training workflow...
+2025-03-29 03:17:38,960 - INFO - Performance tracking enabled: True
+2025-03-29 03:17:40,182 - INFO - Include Option Greeks features: True
+2025-03-29 03:17:41,300 - INFO - Include Rolling Window features: True
+2025-03-29 03:17:45,090 - INFO - Include Cyclical Date Features: True
+2025-03-29 03:17:46,380 - INFO - Selected architecture: LSTM-GRU
+2025-03-29 03:17:47,787 - INFO - Number of epochs set to: 10
+2025-03-29 03:17:52,169 - INFO - Selected ticker for training: RDSB
+2025-03-29 03:17:52,169 - INFO - Initializing dataset for RDSB, Greeks=True, Rolling=True, Cyclical=True...
+2025-03-29 03:17:52,169 - INFO - Initializing StockOptionDataset for ticker: RDSB
+2025-03-29 03:17:52,169 - INFO - Attempting to load data from Colab path: data_files/split_data/by_ticker/RDSB_normalized.csv
+2025-03-29 03:17:52,169 - INFO - Sequence length: 30, Target columns: ['bid', 'ask']
+2025-03-29 03:17:52,170 - INFO - Include Greeks: True
+2025-03-29 03:17:52,170 - INFO - Include Rolling Features: True
+2025-03-29 03:17:52,170 - INFO - Include Cyclical Date Features: True
+2025-03-29 03:17:52,194 - INFO - Starting rolling window feature computation...
+2025-03-29 03:17:52,212 - INFO - Generated 108 rolling features.
+2025-03-29 03:17:52,212 - INFO - Including 108 rolling features.
+2025-03-29 03:17:52,212 - INFO - Including 5 Greek features: ['delta', 'gamma', 'vega', 'theta', 'rho']
+2025-03-29 03:17:52,212 - INFO - Including 6 cyclical date features.
+2025-03-29 03:17:52,216 - INFO - Dropped 333 rows (7.86%) due to NaNs in needed columns.
+2025-03-29 03:17:52,217 - INFO - Dataset created for RDSB: Features=139, Targets=2, Samples=3904, MaxIdx=3873
+2025-03-29 03:17:52,218 - INFO - Final features used (139): ['change', 'change_mean_10d', 'change_mean_3d', 'change_mean_5d', 'change_std_10d', 'change_std_3d', 'change_std_5d', 'day_of_month_cos', 'day_of_month_sin', 'day_of_week_cos', 'day_of_week_sin', 'day_of_year_cos', 'day_of_year_sin', 'daysToExpiry', 'delta', 'gamma', 'impliedVolatility', 'impliedVolatility_mean_10d', 'impliedVolatility_mean_3d', 'impliedVolatility_mean_5d', 'impliedVolatility_std_10d', 'impliedVolatility_std_3d', 'impliedVolatility_std_5d', 'lastPrice', 'lastPrice_mean_10d', 'lastPrice_mean_3d', 'lastPrice_mean_5d', 'lastPrice_std_10d', 'lastPrice_std_3d', 'lastPrice_std_5d', 'openInterest', 'openInterest_mean_10d', 'openInterest_mean_3d', 'openInterest_mean_5d', 'openInterest_std_10d', 'openInterest_std_3d', 'openInterest_std_5d', 'percentChange', 'percentChange_mean_10d', 'percentChange_mean_3d', 'percentChange_mean_5d', 'percentChange_std_10d', 'percentChange_std_3d', 'percentChange_std_5d', 'rho', 'risk_free_rate', 'stockAdjClose', 'stockAdjClose_mean_10d', 'stockAdjClose_mean_3d', 'stockAdjClose_mean_5d', 'stockAdjClose_std_10d', 'stockAdjClose_std_3d', 'stockAdjClose_std_5d', 'stockClose', 'stockClose_ewm_135d', 'stockClose_ewm_135d_mean_10d', 'stockClose_ewm_135d_mean_3d', 'stockClose_ewm_135d_mean_5d', 'stockClose_ewm_135d_std_10d', 'stockClose_ewm_135d_std_3d', 'stockClose_ewm_135d_std_5d', 'stockClose_ewm_15d', 'stockClose_ewm_15d_mean_10d', 'stockClose_ewm_15d_mean_3d', 'stockClose_ewm_15d_mean_5d', 'stockClose_ewm_15d_std_10d', 'stockClose_ewm_15d_std_3d', 'stockClose_ewm_15d_std_5d', 'stockClose_ewm_45d', 'stockClose_ewm_45d_mean_10d', 'stockClose_ewm_45d_mean_3d', 'stockClose_ewm_45d_mean_5d', 'stockClose_ewm_45d_std_10d', 'stockClose_ewm_45d_std_3d', 'stockClose_ewm_45d_std_5d', 'stockClose_ewm_5d', 'stockClose_ewm_5d_mean_10d', 'stockClose_ewm_5d_mean_3d', 'stockClose_ewm_5d_mean_5d', 'stockClose_ewm_5d_std_10d', 'stockClose_ewm_5d_std_3d', 'stockClose_ewm_5d_std_5d', 'stockClose_mean_10d', 'stockClose_mean_3d', 'stockClose_mean_5d', 'stockClose_std_10d', 'stockClose_std_3d', 'stockClose_std_5d', 'stockHigh', 'stockHigh_mean_10d', 'stockHigh_mean_3d', 'stockHigh_mean_5d', 'stockHigh_std_10d', 'stockHigh_std_3d', 'stockHigh_std_5d', 'stockLow', 'stockLow_mean_10d', 'stockLow_mean_3d', 'stockLow_mean_5d', 'stockLow_std_10d', 'stockLow_std_3d', 'stockLow_std_5d', 'stockOpen', 'stockOpen_mean_10d', 'stockOpen_mean_3d', 'stockOpen_mean_5d', 'stockOpen_std_10d', 'stockOpen_std_3d', 'stockOpen_std_5d', 'stockVolume', 'stockVolume_mean_10d', 'stockVolume_mean_3d', 'stockVolume_mean_5d', 'stockVolume_std_10d', 'stockVolume_std_3d', 'stockVolume_std_5d', 'strike', 'strikeDelta', 'strikeDelta_mean_10d', 'strikeDelta_mean_3d', 'strikeDelta_mean_5d', 'strikeDelta_std_10d', 'strikeDelta_std_3d', 'strikeDelta_std_5d', 'strike_mean_10d', 'strike_mean_3d', 'strike_mean_5d', 'strike_std_10d', 'strike_std_3d', 'strike_std_5d', 'theta', 'vega', 'volume', 'volume_mean_10d', 'volume_mean_3d', 'volume_mean_5d', 'volume_std_10d', 'volume_std_3d', 'volume_std_5d']
+2025-03-29 03:17:52,219 - INFO - Number of features used: 139
+2025-03-29 03:17:52,219 - INFO - DataLoaders created: Train=3099, Val=387, Test=388 samples. Settings: workers=0, pin_mem=False
+2025-03-29 03:17:52,219 - INFO - Initializing LSTM-GRU (In:139, Out:2, H_LSTM:64, H_GRU:64, Layers:2) on mps
+2025-03-29 03:17:52,232 - INFO - Analyzing model architecture...
+2025-03-29 03:17:52,232 - INFO - Analyzing architecture on device: mps:0
+2025-03-29 03:17:52,357 - INFO - Model analysis complete: Total Params=138360
+2025-03-29 03:17:52,357 - INFO - Starting training with performance tracking...
+2025-03-29 03:17:52,357 - INFO - Initiating extended training with tracking for RDSB - LSTM-GRU
+2025-03-29 03:17:52,357 - INFO - Performance logs will be saved to: performance_logs
+2025-03-29 03:17:52,357 - INFO - Performance log: performance_logs/LSTM-GRU_RDSB_20250329_031752.txt
+2025-03-29 03:18:57,850 - INFO - Time series plot saved to performance_logs/plots/RDSB_timeseries_LSTM-GRU_20250329_031752.png
+2025-03-29 03:18:58,570 - INFO - Density heatmap saved to performance_logs/plots/RDSB_density_heatmap_LSTM-GRU_20250329_031752.png
+2025-03-29 03:18:58,570 - INFO - Performance metrics saved to performance_logs/LSTM-GRU_RDSB_20250329_031752.txt
+2025-03-29 03:18:58,571 - INFO - Extended training complete. Log: performance_logs/LSTM-GRU_RDSB_20250329_031752.txt
+2025-03-29 03:18:58,571 - INFO - Saving model and results...
+2025-03-29 03:18:58,582 - INFO - Model saved to models/HybridRNN_RDSB_target_bid-ask_20250329_031858.pth
+2025-03-29 03:18:58,954 - INFO - Training plot saved to plots/training_plot_RDSB_bid-ask_20250329_031858.png
+2025-03-29 03:18:59,729 - INFO - Time series plot saved to plots/RDSB_timeseries_test_set_20250329_031858.png
+2025-03-29 03:19:00,405 - INFO - Density heatmap saved to plots/RDSB_density_heatmap_test_set_20250329_031858.png
+2025-03-29 03:19:00,405 - INFO - Model training workflow completed successfully.
+2025-03-29 03:19:28,312 - INFO - Starting model training workflow...
+2025-03-29 03:19:29,919 - INFO - Performance tracking enabled: True
+2025-03-29 03:19:30,234 - INFO - Include Option Greeks features: True
+2025-03-29 03:19:30,560 - INFO - Include Rolling Window features: True
+2025-03-29 03:19:31,192 - INFO - Include Cyclical Date Features: True
+2025-03-29 03:19:32,089 - INFO - Selected architecture: LSTM-GRU
+2025-03-29 03:19:32,795 - INFO - Number of epochs set to: 20
+2025-03-29 03:19:34,857 - INFO - Selected ticker for training: TU
+2025-03-29 03:19:34,857 - INFO - Initializing dataset for TU, Greeks=True, Rolling=True, Cyclical=True...
+2025-03-29 03:19:34,857 - INFO - Initializing StockOptionDataset for ticker: TU
+2025-03-29 03:19:34,857 - INFO - Attempting to load data from Colab path: data_files/split_data/by_ticker/TU_normalized.csv
+2025-03-29 03:19:34,858 - INFO - Sequence length: 30, Target columns: ['bid', 'ask']
+2025-03-29 03:19:34,858 - INFO - Include Greeks: True
+2025-03-29 03:19:34,858 - INFO - Include Rolling Features: True
+2025-03-29 03:19:34,858 - INFO - Include Cyclical Date Features: True
+2025-03-29 03:19:34,889 - INFO - Starting rolling window feature computation...
+2025-03-29 03:19:34,909 - INFO - Generated 108 rolling features.
+2025-03-29 03:19:34,910 - INFO - Including 108 rolling features.
+2025-03-29 03:19:34,910 - INFO - Including 5 Greek features: ['delta', 'gamma', 'vega', 'theta', 'rho']
+2025-03-29 03:19:34,910 - INFO - Including 6 cyclical date features.
+2025-03-29 03:19:34,915 - INFO - Dropped 917 rows (14.31%) due to NaNs in needed columns.
+2025-03-29 03:19:34,917 - INFO - Dataset created for TU: Features=139, Targets=2, Samples=5491, MaxIdx=5460
+2025-03-29 03:19:34,917 - INFO - Final features used (139): ['change', 'change_mean_10d', 'change_mean_3d', 'change_mean_5d', 'change_std_10d', 'change_std_3d', 'change_std_5d', 'day_of_month_cos', 'day_of_month_sin', 'day_of_week_cos', 'day_of_week_sin', 'day_of_year_cos', 'day_of_year_sin', 'daysToExpiry', 'delta', 'gamma', 'impliedVolatility', 'impliedVolatility_mean_10d', 'impliedVolatility_mean_3d', 'impliedVolatility_mean_5d', 'impliedVolatility_std_10d', 'impliedVolatility_std_3d', 'impliedVolatility_std_5d', 'lastPrice', 'lastPrice_mean_10d', 'lastPrice_mean_3d', 'lastPrice_mean_5d', 'lastPrice_std_10d', 'lastPrice_std_3d', 'lastPrice_std_5d', 'openInterest', 'openInterest_mean_10d', 'openInterest_mean_3d', 'openInterest_mean_5d', 'openInterest_std_10d', 'openInterest_std_3d', 'openInterest_std_5d', 'percentChange', 'percentChange_mean_10d', 'percentChange_mean_3d', 'percentChange_mean_5d', 'percentChange_std_10d', 'percentChange_std_3d', 'percentChange_std_5d', 'rho', 'risk_free_rate', 'stockAdjClose', 'stockAdjClose_mean_10d', 'stockAdjClose_mean_3d', 'stockAdjClose_mean_5d', 'stockAdjClose_std_10d', 'stockAdjClose_std_3d', 'stockAdjClose_std_5d', 'stockClose', 'stockClose_ewm_135d', 'stockClose_ewm_135d_mean_10d', 'stockClose_ewm_135d_mean_3d', 'stockClose_ewm_135d_mean_5d', 'stockClose_ewm_135d_std_10d', 'stockClose_ewm_135d_std_3d', 'stockClose_ewm_135d_std_5d', 'stockClose_ewm_15d', 'stockClose_ewm_15d_mean_10d', 'stockClose_ewm_15d_mean_3d', 'stockClose_ewm_15d_mean_5d', 'stockClose_ewm_15d_std_10d', 'stockClose_ewm_15d_std_3d', 'stockClose_ewm_15d_std_5d', 'stockClose_ewm_45d', 'stockClose_ewm_45d_mean_10d', 'stockClose_ewm_45d_mean_3d', 'stockClose_ewm_45d_mean_5d', 'stockClose_ewm_45d_std_10d', 'stockClose_ewm_45d_std_3d', 'stockClose_ewm_45d_std_5d', 'stockClose_ewm_5d', 'stockClose_ewm_5d_mean_10d', 'stockClose_ewm_5d_mean_3d', 'stockClose_ewm_5d_mean_5d', 'stockClose_ewm_5d_std_10d', 'stockClose_ewm_5d_std_3d', 'stockClose_ewm_5d_std_5d', 'stockClose_mean_10d', 'stockClose_mean_3d', 'stockClose_mean_5d', 'stockClose_std_10d', 'stockClose_std_3d', 'stockClose_std_5d', 'stockHigh', 'stockHigh_mean_10d', 'stockHigh_mean_3d', 'stockHigh_mean_5d', 'stockHigh_std_10d', 'stockHigh_std_3d', 'stockHigh_std_5d', 'stockLow', 'stockLow_mean_10d', 'stockLow_mean_3d', 'stockLow_mean_5d', 'stockLow_std_10d', 'stockLow_std_3d', 'stockLow_std_5d', 'stockOpen', 'stockOpen_mean_10d', 'stockOpen_mean_3d', 'stockOpen_mean_5d', 'stockOpen_std_10d', 'stockOpen_std_3d', 'stockOpen_std_5d', 'stockVolume', 'stockVolume_mean_10d', 'stockVolume_mean_3d', 'stockVolume_mean_5d', 'stockVolume_std_10d', 'stockVolume_std_3d', 'stockVolume_std_5d', 'strike', 'strikeDelta', 'strikeDelta_mean_10d', 'strikeDelta_mean_3d', 'strikeDelta_mean_5d', 'strikeDelta_std_10d', 'strikeDelta_std_3d', 'strikeDelta_std_5d', 'strike_mean_10d', 'strike_mean_3d', 'strike_mean_5d', 'strike_std_10d', 'strike_std_3d', 'strike_std_5d', 'theta', 'vega', 'volume', 'volume_mean_10d', 'volume_mean_3d', 'volume_mean_5d', 'volume_std_10d', 'volume_std_3d', 'volume_std_5d']
+2025-03-29 03:19:34,918 - INFO - Number of features used: 139
+2025-03-29 03:19:34,918 - INFO - DataLoaders created: Train=4368, Val=546, Test=547 samples. Settings: workers=0, pin_mem=False
+2025-03-29 03:19:34,918 - INFO - Initializing LSTM-GRU (In:139, Out:2, H_LSTM:64, H_GRU:64, Layers:2) on mps
+2025-03-29 03:19:34,929 - INFO - Analyzing model architecture...
+2025-03-29 03:19:34,929 - INFO - Analyzing architecture on device: mps:0
+2025-03-29 03:19:34,958 - INFO - Model analysis complete: Total Params=138360
+2025-03-29 03:19:34,958 - INFO - Starting training with performance tracking...
+2025-03-29 03:19:34,958 - INFO - Initiating extended training with tracking for TU - LSTM-GRU
+2025-03-29 03:19:34,958 - INFO - Performance logs will be saved to: performance_logs
+2025-03-29 03:19:34,958 - INFO - Performance log: performance_logs/LSTM-GRU_TU_20250329_031934.txt
+2025-03-29 03:21:20,964 - INFO - Time series plot saved to performance_logs/plots/TU_timeseries_LSTM-GRU_20250329_031934.png
+2025-03-29 03:21:21,674 - INFO - Density heatmap saved to performance_logs/plots/TU_density_heatmap_LSTM-GRU_20250329_031934.png
+2025-03-29 03:21:21,674 - INFO - Performance metrics saved to performance_logs/LSTM-GRU_TU_20250329_031934.txt
+2025-03-29 03:21:21,675 - INFO - Extended training complete. Log: performance_logs/LSTM-GRU_TU_20250329_031934.txt
+2025-03-29 03:21:21,675 - INFO - Saving model and results...
+2025-03-29 03:21:21,687 - INFO - Model saved to models/HybridRNN_TU_target_bid-ask_20250329_032121.pth
+2025-03-29 03:21:22,063 - INFO - Training plot saved to plots/training_plot_TU_bid-ask_20250329_032121.png
+2025-03-29 03:21:22,824 - INFO - Time series plot saved to plots/TU_timeseries_test_set_20250329_032121.png
+2025-03-29 03:21:23,526 - INFO - Density heatmap saved to plots/TU_density_heatmap_test_set_20250329_032121.png
+2025-03-29 03:21:23,526 - INFO - Model training workflow completed successfully.
+2025-03-29 03:28:38,037 - INFO - Application terminated by user choice
+2025-03-29 03:28:38,038 - INFO - Application shutdown sequence finished.
+2025-03-29 03:28:41,190 - INFO - Starting Option Trading Model application
+2025-03-29 03:28:41,190 - INFO - Loading configuration...
+2025-03-29 03:28:41,211 - INFO - Running in local environment.
+2025-03-29 03:28:41,211 - INFO - Apple Silicon MPS detected. Setting batch size to 48
+2025-03-29 03:28:41,211 - INFO - Configuration loaded:
+2025-03-29 03:28:41,211 - INFO -   seq_len: 30
+2025-03-29 03:28:41,211 - INFO -   batch_size: 48
+2025-03-29 03:28:41,211 - INFO -   epochs: 20
+2025-03-29 03:28:41,211 - INFO -   lr: 0.001
+2025-03-29 03:28:41,211 - INFO -   hidden_size_lstm: 64
+2025-03-29 03:28:41,211 - INFO -   hidden_size_gru: 64
+2025-03-29 03:28:41,211 - INFO -   num_layers: 2
+2025-03-29 03:28:41,211 - INFO -   ticker: None
+2025-03-29 03:28:41,211 - INFO -   target_cols: ['bid', 'ask']
+2025-03-29 03:28:41,211 - INFO -   device: mps
+2025-03-29 03:28:41,211 - INFO -   data_dir: data_files/split_data
+2025-03-29 03:28:41,211 - INFO -   models_dir: models
+2025-03-29 03:28:41,211 - INFO -   performance_logs_dir: performance_logs
+2025-03-29 03:28:41,211 - INFO -   viz_dir: plots
+2025-03-29 03:28:41,212 - INFO - Using device: mps
+2025-03-29 03:28:41,212 - INFO - Checking data directory: data_files/split_data
+2025-03-29 03:28:41,212 - INFO - Found 'by_ticker' subdirectory in data_files/split_data
+2025-03-29 03:28:41,212 - INFO - Ensuring directory exists: models (for models_dir)
+2025-03-29 03:28:41,212 - INFO - Ensuring directory exists: performance_logs (for performance_logs_dir)
+2025-03-29 03:28:41,212 - INFO - Ensuring directory exists: plots (for viz_dir)
+2025-03-29 03:28:41,212 - INFO - Validated and ensured necessary directories exist.
+2025-03-29 03:28:47,149 - INFO - Starting model training workflow...
+2025-03-29 03:28:48,229 - INFO - Performance tracking enabled: True
+2025-03-29 03:28:48,845 - INFO - Include Option Greeks features: True
+2025-03-29 03:28:49,442 - INFO - Include Rolling Window features: True
+2025-03-29 03:28:50,420 - INFO - Include Cyclical Date Features: True
+2025-03-29 03:28:51,733 - INFO - Selected architecture: LSTM-GRU
+2025-03-29 03:28:53,178 - INFO - Number of epochs set to: 10
+2025-03-29 03:28:55,174 - INFO - Selected ticker for training: TU
+2025-03-29 03:28:55,175 - INFO - Initializing dataset for TU, Greeks=True, Rolling=True, Cyclical=True...
+2025-03-29 03:28:55,175 - INFO - Initializing StockOptionDataset for ticker: TU
+2025-03-29 03:28:55,175 - INFO - Attempting to load data from Colab path: data_files/split_data/by_ticker/TU_normalized.csv
+2025-03-29 03:28:55,175 - INFO - Sequence length: 30, Target columns: ['bid', 'ask']
+2025-03-29 03:28:55,175 - INFO - Include Greeks: True
+2025-03-29 03:28:55,175 - INFO - Include Rolling Features: True
+2025-03-29 03:28:55,175 - INFO - Include Cyclical Date Features: True
+2025-03-29 03:28:55,228 - INFO - Starting rolling window feature computation...
+2025-03-29 03:28:55,250 - INFO - Generated 108 rolling features.
+2025-03-29 03:28:55,250 - INFO - Including 108 rolling features.
+2025-03-29 03:28:55,251 - INFO - Including 5 Greek features: ['delta', 'gamma', 'vega', 'theta', 'rho']
+2025-03-29 03:28:55,251 - INFO - Including 6 cyclical date features.
+2025-03-29 03:28:55,257 - INFO - Dropped 917 rows (14.31%) due to NaNs in needed columns.
+2025-03-29 03:28:55,258 - INFO - Dataset created for TU: Features=139, Targets=2, Samples=5491, MaxIdx=5460
+2025-03-29 03:28:55,258 - INFO - Final features used (139): ['change', 'change_mean_10d', 'change_mean_3d', 'change_mean_5d', 'change_std_10d', 'change_std_3d', 'change_std_5d', 'day_of_month_cos', 'day_of_month_sin', 'day_of_week_cos', 'day_of_week_sin', 'day_of_year_cos', 'day_of_year_sin', 'daysToExpiry', 'delta', 'gamma', 'impliedVolatility', 'impliedVolatility_mean_10d', 'impliedVolatility_mean_3d', 'impliedVolatility_mean_5d', 'impliedVolatility_std_10d', 'impliedVolatility_std_3d', 'impliedVolatility_std_5d', 'lastPrice', 'lastPrice_mean_10d', 'lastPrice_mean_3d', 'lastPrice_mean_5d', 'lastPrice_std_10d', 'lastPrice_std_3d', 'lastPrice_std_5d', 'openInterest', 'openInterest_mean_10d', 'openInterest_mean_3d', 'openInterest_mean_5d', 'openInterest_std_10d', 'openInterest_std_3d', 'openInterest_std_5d', 'percentChange', 'percentChange_mean_10d', 'percentChange_mean_3d', 'percentChange_mean_5d', 'percentChange_std_10d', 'percentChange_std_3d', 'percentChange_std_5d', 'rho', 'risk_free_rate', 'stockAdjClose', 'stockAdjClose_mean_10d', 'stockAdjClose_mean_3d', 'stockAdjClose_mean_5d', 'stockAdjClose_std_10d', 'stockAdjClose_std_3d', 'stockAdjClose_std_5d', 'stockClose', 'stockClose_ewm_135d', 'stockClose_ewm_135d_mean_10d', 'stockClose_ewm_135d_mean_3d', 'stockClose_ewm_135d_mean_5d', 'stockClose_ewm_135d_std_10d', 'stockClose_ewm_135d_std_3d', 'stockClose_ewm_135d_std_5d', 'stockClose_ewm_15d', 'stockClose_ewm_15d_mean_10d', 'stockClose_ewm_15d_mean_3d', 'stockClose_ewm_15d_mean_5d', 'stockClose_ewm_15d_std_10d', 'stockClose_ewm_15d_std_3d', 'stockClose_ewm_15d_std_5d', 'stockClose_ewm_45d', 'stockClose_ewm_45d_mean_10d', 'stockClose_ewm_45d_mean_3d', 'stockClose_ewm_45d_mean_5d', 'stockClose_ewm_45d_std_10d', 'stockClose_ewm_45d_std_3d', 'stockClose_ewm_45d_std_5d', 'stockClose_ewm_5d', 'stockClose_ewm_5d_mean_10d', 'stockClose_ewm_5d_mean_3d', 'stockClose_ewm_5d_mean_5d', 'stockClose_ewm_5d_std_10d', 'stockClose_ewm_5d_std_3d', 'stockClose_ewm_5d_std_5d', 'stockClose_mean_10d', 'stockClose_mean_3d', 'stockClose_mean_5d', 'stockClose_std_10d', 'stockClose_std_3d', 'stockClose_std_5d', 'stockHigh', 'stockHigh_mean_10d', 'stockHigh_mean_3d', 'stockHigh_mean_5d', 'stockHigh_std_10d', 'stockHigh_std_3d', 'stockHigh_std_5d', 'stockLow', 'stockLow_mean_10d', 'stockLow_mean_3d', 'stockLow_mean_5d', 'stockLow_std_10d', 'stockLow_std_3d', 'stockLow_std_5d', 'stockOpen', 'stockOpen_mean_10d', 'stockOpen_mean_3d', 'stockOpen_mean_5d', 'stockOpen_std_10d', 'stockOpen_std_3d', 'stockOpen_std_5d', 'stockVolume', 'stockVolume_mean_10d', 'stockVolume_mean_3d', 'stockVolume_mean_5d', 'stockVolume_std_10d', 'stockVolume_std_3d', 'stockVolume_std_5d', 'strike', 'strikeDelta', 'strikeDelta_mean_10d', 'strikeDelta_mean_3d', 'strikeDelta_mean_5d', 'strikeDelta_std_10d', 'strikeDelta_std_3d', 'strikeDelta_std_5d', 'strike_mean_10d', 'strike_mean_3d', 'strike_mean_5d', 'strike_std_10d', 'strike_std_3d', 'strike_std_5d', 'theta', 'vega', 'volume', 'volume_mean_10d', 'volume_mean_3d', 'volume_mean_5d', 'volume_std_10d', 'volume_std_3d', 'volume_std_5d']
+2025-03-29 03:28:55,259 - INFO - Number of features used: 139
+2025-03-29 03:28:55,259 - INFO - DataLoaders created: Train=4368, Val=546, Test=547 samples. Settings: workers=0, pin_mem=False
+2025-03-29 03:28:55,259 - INFO - Initializing LSTM-GRU (In:139, Out:2, H_LSTM:64, H_GRU:64, Layers:2) on mps
+2025-03-29 03:28:55,273 - INFO - Analyzing model architecture...
+2025-03-29 03:28:55,273 - INFO - Analyzing architecture on device: mps:0
+2025-03-29 03:28:55,392 - INFO - Model analysis complete: Total Params=138360
+2025-03-29 03:28:55,392 - INFO - Starting training with performance tracking...
+2025-03-29 03:28:55,393 - INFO - Initiating extended training with tracking for TU - LSTM-GRU
+2025-03-29 03:28:55,393 - INFO - Performance logs will be saved to: performance_logs
+2025-03-29 03:28:55,393 - INFO - Performance log: performance_logs/LSTM-GRU_TU_20250329_032855.txt

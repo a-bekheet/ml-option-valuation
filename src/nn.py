@@ -255,7 +255,14 @@ def setup_logging():
 def load_config():
     """Load configuration, detect environment, and set paths."""
     logging.info("Loading configuration...")
-    using_gpu, device_type = check_gpu()
+    # Assume check_gpu() is defined elsewhere and returns (using_gpu, device_type)
+    # Placeholder if check_gpu is not available in this context:
+    try:
+        using_gpu, device_type = check_gpu()
+    except NameError:
+        logging.warning("check_gpu() function not found, assuming CPU.")
+        using_gpu, device_type = False, 'cpu'
+
 
     # Environment detection
     IN_COLAB = 'google.colab' in sys.modules or 'COLAB_GPU' in os.environ
@@ -294,12 +301,26 @@ def load_config():
         default_viz_dir = str(colab_viz_dir)
     else:
         logging.info("Running in local environment.")
-        # Use relative paths for local execution
-        base_path = Path('.') # Current working directory
-        default_data_dir = str(base_path / "data_files/split_data")
-        default_models_dir = str(base_path / "models")
-        default_perf_logs_dir = str(base_path / "performance_logs")
-        default_viz_dir = str(base_path / "plots") # Separate plots directory
+        # --- MODIFICATION START: Use Absolute Paths ---
+        # Get the directory where this script (nn.py) resides
+        # Note: This requires Python 3.9+ for Path(__file__) behavior in scripts
+        # If using older Python, alternative methods might be needed.
+        try:
+            script_dir = Path(__file__).parent.resolve()
+            # Assume nn.py is in src/, so project root is one level up
+            project_root = script_dir.parent
+        except NameError:
+             # Fallback if __file__ is not defined (e.g., interactive session)
+             # This will use the current working directory as the project root.
+             logging.warning("__file__ not defined. Using current working directory as project root. Ensure you run from the project root.")
+             project_root = Path('.').resolve()
+
+        # Construct absolute paths relative to the project root
+        default_data_dir = str(project_root / "data_files/split_data")
+        default_models_dir = str(project_root / "models")
+        default_perf_logs_dir = str(project_root / "performance_logs")
+        default_viz_dir = str(project_root / "plots") # Separate plots directory
+        # --- MODIFICATION END ---
 
     # Default model/training parameters
     config = {

@@ -1547,3 +1547,867 @@ NameError: name 'start_run_time' is not defined
 2025-03-29 03:28:55,393 - INFO - Initiating extended training with tracking for TU - LSTM-GRU
 2025-03-29 03:28:55,393 - INFO - Performance logs will be saved to: performance_logs
 2025-03-29 03:28:55,393 - INFO - Performance log: performance_logs/LSTM-GRU_TU_20250329_032855.txt
+2025-03-29 03:30:24,791 - INFO - Time series plot saved to performance_logs/plots/TU_timeseries_LSTM-GRU_20250329_032855.png
+2025-03-29 03:30:25,531 - INFO - Density heatmap saved to performance_logs/plots/TU_density_heatmap_LSTM-GRU_20250329_032855.png
+2025-03-29 03:30:25,532 - INFO - Performance metrics saved to performance_logs/LSTM-GRU_TU_20250329_032855.txt
+2025-03-29 03:30:25,532 - INFO - Extended training complete. Log: performance_logs/LSTM-GRU_TU_20250329_032855.txt
+2025-03-29 03:30:25,532 - INFO - Saving model and results...
+2025-03-29 03:30:25,543 - INFO - Model saved to models/HybridRNN_TU_target_bid-ask_20250329_033025.pth
+2025-03-29 03:30:25,904 - INFO - Training plot saved to plots/training_plot_TU_bid-ask_20250329_033025.png
+2025-03-29 03:30:26,664 - INFO - Time series plot saved to plots/TU_timeseries_test_set_20250329_033025.png
+2025-03-29 03:30:27,340 - INFO - Density heatmap saved to plots/TU_density_heatmap_test_set_20250329_033025.png
+2025-03-29 03:30:27,340 - INFO - Model training workflow completed successfully.
+2025-03-29 03:38:58,764 - INFO - Application terminated by user choice
+2025-03-29 03:38:58,764 - INFO - Application shutdown sequence finished.
+2025-03-29 03:39:02,665 - INFO - Starting Option Trading Model application
+2025-03-29 03:39:02,666 - INFO - Loading configuration...
+2025-03-29 03:39:02,686 - INFO - Running in local environment.
+2025-03-29 03:39:02,686 - INFO - Apple Silicon MPS detected. Setting batch size to 48
+2025-03-29 03:39:02,686 - INFO - Configuration loaded:
+2025-03-29 03:39:02,686 - INFO -   seq_len: 30
+2025-03-29 03:39:02,686 - INFO -   batch_size: 48
+2025-03-29 03:39:02,686 - INFO -   epochs: 20
+2025-03-29 03:39:02,686 - INFO -   lr: 0.001
+2025-03-29 03:39:02,686 - INFO -   hidden_size_lstm: 64
+2025-03-29 03:39:02,686 - INFO -   hidden_size_gru: 64
+2025-03-29 03:39:02,686 - INFO -   num_layers: 2
+2025-03-29 03:39:02,686 - INFO -   ticker: None
+2025-03-29 03:39:02,686 - INFO -   target_cols: ['bid', 'ask']
+2025-03-29 03:39:02,686 - INFO -   device: mps
+2025-03-29 03:39:02,686 - INFO -   data_dir: data_files/split_data
+2025-03-29 03:39:02,686 - INFO -   models_dir: models
+2025-03-29 03:39:02,686 - INFO -   performance_logs_dir: performance_logs
+2025-03-29 03:39:02,686 - INFO -   viz_dir: plots
+2025-03-29 03:39:02,686 - INFO - Using device: mps
+2025-03-29 03:39:02,686 - INFO - Checking data directory: data_files/split_data
+2025-03-29 03:39:02,686 - INFO - Found 'by_ticker' subdirectory in data_files/split_data
+2025-03-29 03:39:02,686 - INFO - Ensuring directory exists: models (for models_dir)
+2025-03-29 03:39:02,686 - INFO - Ensuring directory exists: performance_logs (for performance_logs_dir)
+2025-03-29 03:39:02,687 - INFO - Ensuring directory exists: plots (for viz_dir)
+2025-03-29 03:39:02,687 - INFO - Validated and ensured necessary directories exist.
+2025-03-29 03:39:04,240 - INFO - Starting model training workflow...
+2025-03-29 03:39:05,989 - INFO - Performance tracking enabled: True
+2025-03-29 03:39:06,813 - INFO - Include Option Greeks features: True
+2025-03-29 03:39:08,259 - INFO - Include Rolling Window features: False
+2025-03-29 03:39:10,426 - INFO - Include Cyclical Date Features: True
+2025-03-29 03:39:11,956 - INFO - Selected architecture: LSTM-GRU
+2025-03-29 03:39:14,615 - INFO - Number of epochs set to: 10
+2025-03-29 03:39:30,671 - INFO - Selected ticker for training: HSBC
+2025-03-29 03:39:30,671 - INFO - Initializing dataset for HSBC, Greeks=True, Rolling=False, Cyclical=True...
+2025-03-29 03:39:30,671 - INFO - Initializing StockOptionDataset for ticker: HSBC
+2025-03-29 03:39:30,671 - INFO - Attempting to load data from Colab path: data_files/split_data/by_ticker/HSBC_normalized.csv
+2025-03-29 03:39:30,671 - INFO - Sequence length: 30, Target columns: ['bid', 'ask']
+2025-03-29 03:39:30,671 - INFO - Include Greeks: True
+2025-03-29 03:39:30,671 - INFO - Include Rolling Features: False
+2025-03-29 03:39:30,671 - INFO - Include Cyclical Date Features: True
+2025-03-29 03:39:30,936 - INFO - Skipping rolling window feature computation.
+2025-03-29 03:39:30,936 - INFO - Excluding rolling features as requested.
+2025-03-29 03:39:30,936 - INFO - Including 5 Greek features: ['delta', 'gamma', 'vega', 'theta', 'rho']
+2025-03-29 03:39:30,936 - INFO - Including 6 cyclical date features.
+2025-03-29 03:39:30,950 - INFO - Dropped 7864 rows (13.42%) due to NaNs in needed columns.
+2025-03-29 03:39:30,952 - INFO - Dataset created for HSBC: Features=31, Targets=2, Samples=50738, MaxIdx=50707
+2025-03-29 03:39:30,952 - INFO - Final features used (31): ['change', 'day_of_month_cos', 'day_of_month_sin', 'day_of_week_cos', 'day_of_week_sin', 'day_of_year_cos', 'day_of_year_sin', 'daysToExpiry', 'delta', 'gamma', 'impliedVolatility', 'lastPrice', 'openInterest', 'percentChange', 'rho', 'risk_free_rate', 'stockAdjClose', 'stockClose', 'stockClose_ewm_135d', 'stockClose_ewm_15d', 'stockClose_ewm_45d', 'stockClose_ewm_5d', 'stockHigh', 'stockLow', 'stockOpen', 'stockVolume', 'strike', 'strikeDelta', 'theta', 'vega', 'volume']
+2025-03-29 03:39:30,953 - INFO - Number of features used: 31
+2025-03-29 03:39:30,954 - INFO - DataLoaders created: Train=40566, Val=5070, Test=5072 samples. Settings: workers=0, pin_mem=False
+2025-03-29 03:39:30,954 - INFO - Initializing LSTM-GRU (In:31, Out:2, H_LSTM:64, H_GRU:64, Layers:2) on mps
+2025-03-29 03:39:30,966 - INFO - Analyzing model architecture...
+2025-03-29 03:39:30,966 - INFO - Analyzing architecture on device: mps:0
+2025-03-29 03:39:31,088 - INFO - Model analysis complete: Total Params=110496
+2025-03-29 03:39:31,088 - INFO - Starting training with performance tracking...
+2025-03-29 03:39:31,088 - INFO - Initiating extended training with tracking for HSBC - LSTM-GRU
+2025-03-29 03:39:31,088 - INFO - Performance logs will be saved to: performance_logs
+2025-03-29 03:39:31,088 - INFO - Performance log: performance_logs/LSTM-GRU_HSBC_20250329_033931.txt
+2025-03-29 03:53:08,784 - INFO - Plotting ticker HSBC with 5072 data points
+2025-03-29 03:53:10,037 - INFO - Time series plot saved to performance_logs/plots/HSBC_timeseries_LSTM-GRU_20250329_033931.png
+2025-03-29 03:53:10,049 - ERROR - Failed to generate prediction analysis plot: module 'matplotlib.pyplot' has no attribute 'SubFigure'
+2025-03-29 03:53:10,049 - ERROR - Traceback (most recent call last):
+  File "/Users/bekheet/dev/option-ml-prediction/src/utils/visualization_utils.py", line 356, in plot_predictions
+    if isinstance(top_axes[i], plt.SubFigure):
+AttributeError: module 'matplotlib.pyplot' has no attribute 'SubFigure'
+
+2025-03-29 03:53:10,050 - INFO - Performance metrics saved to performance_logs/LSTM-GRU_HSBC_20250329_033931.txt
+2025-03-29 03:53:10,051 - INFO - Extended training complete. Log: performance_logs/LSTM-GRU_HSBC_20250329_033931.txt
+2025-03-29 03:53:10,051 - INFO - Saving model and results...
+2025-03-29 03:53:10,061 - INFO - Model saved to models/HybridRNN_HSBC_target_bid-ask_20250329_035310.pth
+2025-03-29 03:53:10,521 - INFO - Training plot saved to plots/training_plot_HSBC_bid-ask_20250329_035310.png
+2025-03-29 03:53:10,524 - INFO - Plotting ticker HSBC with 5072 data points
+2025-03-29 03:53:11,660 - INFO - Time series plot saved to plots/HSBC_timeseries_test_set_20250329_035310.png
+2025-03-29 03:53:11,670 - ERROR - Failed to generate prediction analysis plot: module 'matplotlib.pyplot' has no attribute 'SubFigure'
+2025-03-29 03:53:11,670 - ERROR - Traceback (most recent call last):
+  File "/Users/bekheet/dev/option-ml-prediction/src/utils/visualization_utils.py", line 356, in plot_predictions
+    if isinstance(top_axes[i], plt.SubFigure):
+AttributeError: module 'matplotlib.pyplot' has no attribute 'SubFigure'
+
+2025-03-29 03:53:11,671 - INFO - Model training workflow completed successfully.
+2025-03-29 03:55:42,404 - INFO - Application terminated by user choice
+2025-03-29 03:55:42,405 - INFO - Application shutdown sequence finished.
+2025-03-29 03:55:46,633 - INFO - Starting Option Trading Model application
+2025-03-29 03:55:46,633 - INFO - Loading configuration...
+2025-03-29 03:55:46,655 - INFO - Running in local environment.
+2025-03-29 03:55:46,655 - INFO - Apple Silicon MPS detected. Setting batch size to 48
+2025-03-29 03:55:46,656 - INFO - Configuration loaded:
+2025-03-29 03:55:46,656 - INFO -   seq_len: 30
+2025-03-29 03:55:46,656 - INFO -   batch_size: 48
+2025-03-29 03:55:46,656 - INFO -   epochs: 20
+2025-03-29 03:55:46,656 - INFO -   lr: 0.001
+2025-03-29 03:55:46,656 - INFO -   hidden_size_lstm: 64
+2025-03-29 03:55:46,656 - INFO -   hidden_size_gru: 64
+2025-03-29 03:55:46,656 - INFO -   num_layers: 2
+2025-03-29 03:55:46,656 - INFO -   ticker: None
+2025-03-29 03:55:46,656 - INFO -   target_cols: ['bid', 'ask']
+2025-03-29 03:55:46,656 - INFO -   device: mps
+2025-03-29 03:55:46,656 - INFO -   data_dir: data_files/split_data
+2025-03-29 03:55:46,656 - INFO -   models_dir: models
+2025-03-29 03:55:46,656 - INFO -   performance_logs_dir: performance_logs
+2025-03-29 03:55:46,656 - INFO -   viz_dir: plots
+2025-03-29 03:55:46,656 - INFO - Using device: mps
+2025-03-29 03:55:46,656 - INFO - Checking data directory: data_files/split_data
+2025-03-29 03:55:46,656 - INFO - Found 'by_ticker' subdirectory in data_files/split_data
+2025-03-29 03:55:46,656 - INFO - Ensuring directory exists: models (for models_dir)
+2025-03-29 03:55:46,656 - INFO - Ensuring directory exists: performance_logs (for performance_logs_dir)
+2025-03-29 03:55:46,656 - INFO - Ensuring directory exists: plots (for viz_dir)
+2025-03-29 03:55:46,656 - INFO - Validated and ensured necessary directories exist.
+2025-03-29 03:55:48,197 - INFO - Starting model training workflow...
+2025-03-29 03:55:49,684 - INFO - Performance tracking enabled: True
+2025-03-29 03:55:51,551 - INFO - Include Option Greeks features: True
+2025-03-29 03:55:53,236 - INFO - Include Rolling Window features: False
+2025-03-29 03:55:54,663 - INFO - Include Cyclical Date Features: True
+2025-03-29 03:55:56,105 - INFO - Selected architecture: LSTM-GRU
+2025-03-29 03:55:59,135 - INFO - Number of epochs set to: 6
+2025-03-29 03:56:06,194 - INFO - Selected ticker for training: TU
+2025-03-29 03:56:06,195 - INFO - Initializing dataset for TU, Greeks=True, Rolling=False, Cyclical=True...
+2025-03-29 03:56:06,195 - INFO - Initializing StockOptionDataset for ticker: TU
+2025-03-29 03:56:06,195 - INFO - Attempting to load data from Colab path: data_files/split_data/by_ticker/TU_normalized.csv
+2025-03-29 03:56:06,195 - INFO - Sequence length: 30, Target columns: ['bid', 'ask']
+2025-03-29 03:56:06,195 - INFO - Include Greeks: True
+2025-03-29 03:56:06,195 - INFO - Include Rolling Features: False
+2025-03-29 03:56:06,195 - INFO - Include Cyclical Date Features: True
+2025-03-29 03:56:06,239 - INFO - Skipping rolling window feature computation.
+2025-03-29 03:56:06,239 - INFO - Excluding rolling features as requested.
+2025-03-29 03:56:06,239 - INFO - Including 5 Greek features: ['delta', 'gamma', 'vega', 'theta', 'rho']
+2025-03-29 03:56:06,239 - INFO - Including 6 cyclical date features.
+2025-03-29 03:56:06,242 - INFO - Dropped 917 rows (14.31%) due to NaNs in needed columns.
+2025-03-29 03:56:06,242 - INFO - Dataset created for TU: Features=31, Targets=2, Samples=5491, MaxIdx=5460
+2025-03-29 03:56:06,242 - INFO - Final features used (31): ['change', 'day_of_month_cos', 'day_of_month_sin', 'day_of_week_cos', 'day_of_week_sin', 'day_of_year_cos', 'day_of_year_sin', 'daysToExpiry', 'delta', 'gamma', 'impliedVolatility', 'lastPrice', 'openInterest', 'percentChange', 'rho', 'risk_free_rate', 'stockAdjClose', 'stockClose', 'stockClose_ewm_135d', 'stockClose_ewm_15d', 'stockClose_ewm_45d', 'stockClose_ewm_5d', 'stockHigh', 'stockLow', 'stockOpen', 'stockVolume', 'strike', 'strikeDelta', 'theta', 'vega', 'volume']
+2025-03-29 03:56:06,242 - INFO - Number of features used: 31
+2025-03-29 03:56:06,243 - INFO - DataLoaders created: Train=4368, Val=546, Test=547 samples. Settings: workers=0, pin_mem=False
+2025-03-29 03:56:06,243 - INFO - Initializing LSTM-GRU (In:31, Out:2, H_LSTM:64, H_GRU:64, Layers:2) on mps
+2025-03-29 03:56:06,257 - INFO - Analyzing model architecture...
+2025-03-29 03:56:06,257 - INFO - Analyzing architecture on device: mps:0
+2025-03-29 03:56:06,383 - INFO - Model analysis complete: Total Params=110496
+2025-03-29 03:56:06,383 - INFO - Starting training with performance tracking...
+2025-03-29 03:56:06,383 - INFO - Initiating extended training with tracking for TU - LSTM-GRU
+2025-03-29 03:56:06,383 - INFO - Performance logs will be saved to: performance_logs
+2025-03-29 03:56:06,383 - INFO - Performance log: performance_logs/LSTM-GRU_TU_20250329_035606.txt
+2025-03-29 03:56:58,600 - INFO - Plotting ticker TU with 547 data points
+2025-03-29 03:56:59,300 - INFO - Time series plot saved to performance_logs/plots/TU_timeseries_LSTM-GRU_20250329_035606.png
+2025-03-29 03:57:00,137 - INFO - Prediction analysis plot for bid saved to performance_logs/plots/TU_bid_prediction_analysis_LSTM-GRU_20250329_035606.png
+2025-03-29 03:57:00,897 - INFO - Prediction analysis plot for ask saved to performance_logs/plots/TU_ask_prediction_analysis_LSTM-GRU_20250329_035606.png
+2025-03-29 03:57:01,388 - INFO - Performance metrics saved to performance_logs/LSTM-GRU_TU_20250329_035606.txt
+2025-03-29 03:57:01,389 - INFO - Extended training complete. Log: performance_logs/LSTM-GRU_TU_20250329_035606.txt
+2025-03-29 03:57:01,389 - INFO - Saving model and results...
+2025-03-29 03:57:01,401 - INFO - Model saved to models/HybridRNN_TU_target_bid-ask_20250329_035701.pth
+2025-03-29 03:57:01,772 - INFO - Training plot saved to plots/training_plot_TU_bid-ask_20250329_035701.png
+2025-03-29 03:57:01,773 - INFO - Plotting ticker TU with 547 data points
+2025-03-29 03:57:02,354 - INFO - Time series plot saved to plots/TU_timeseries_test_set_20250329_035701.png
+2025-03-29 03:57:03,112 - INFO - Prediction analysis plot for bid saved to plots/TU_bid_prediction_analysis_test_set_20250329_035701.png
+2025-03-29 03:57:03,887 - INFO - Prediction analysis plot for ask saved to plots/TU_ask_prediction_analysis_test_set_20250329_035701.png
+2025-03-29 03:57:04,382 - INFO - Model training workflow completed successfully.
+2025-03-29 04:04:38,648 - INFO - Starting model prediction workflow...
+2025-03-29 04:04:43,067 - INFO - Selected model file: HybridRNN_RDSB_target_bid-ask_20250329_031858.pth
+2025-03-29 04:04:43,067 - INFO - Determining model class from name: HybridRNN_RDSB_target_bid-ask_20250329_031858.pth
+2025-03-29 04:04:43,067 - INFO - Selected LSTM-GRU hybrid model architecture (default)
+2025-03-29 04:04:47,714 - INFO - Selected ticker for prediction: TU
+2025-03-29 04:04:47,714 - INFO - Creating dataset for TU with Greeks=True, Rolling=True
+2025-03-29 04:04:51,308 - INFO - Running predictions for TU using HybridRNN_RDSB_target_bid-ask_20250329_031858.pth
+2025-03-29 04:04:51,308 - INFO - Running standard prediction (no visualization)...
+2025-03-29 04:04:51,308 - ERROR - Error during standard prediction run: load_model() got an unexpected keyword argument 'device'
+2025-03-29 04:04:51,308 - INFO - Prediction workflow for TU completed successfully.
+2025-03-29 04:06:56,960 - INFO - Application terminated by user choice
+2025-03-29 04:06:56,960 - INFO - Application shutdown sequence finished.
+2025-03-29 04:07:04,496 - INFO - Starting Option Trading Model application
+2025-03-29 04:07:04,496 - INFO - Loading configuration...
+2025-03-29 04:07:04,518 - INFO - Running in local environment.
+2025-03-29 04:07:04,518 - INFO - Apple Silicon MPS detected. Setting batch size to 48
+2025-03-29 04:07:04,518 - INFO - Configuration loaded:
+2025-03-29 04:07:04,518 - INFO -   seq_len: 30
+2025-03-29 04:07:04,518 - INFO -   batch_size: 48
+2025-03-29 04:07:04,518 - INFO -   epochs: 20
+2025-03-29 04:07:04,518 - INFO -   lr: 0.001
+2025-03-29 04:07:04,518 - INFO -   hidden_size_lstm: 64
+2025-03-29 04:07:04,518 - INFO -   hidden_size_gru: 64
+2025-03-29 04:07:04,518 - INFO -   num_layers: 2
+2025-03-29 04:07:04,518 - INFO -   ticker: None
+2025-03-29 04:07:04,518 - INFO -   target_cols: ['bid', 'ask']
+2025-03-29 04:07:04,518 - INFO -   device: mps
+2025-03-29 04:07:04,518 - INFO -   data_dir: data_files/split_data
+2025-03-29 04:07:04,518 - INFO -   models_dir: models
+2025-03-29 04:07:04,519 - INFO -   performance_logs_dir: performance_logs
+2025-03-29 04:07:04,519 - INFO -   viz_dir: plots
+2025-03-29 04:07:04,519 - INFO - Using device: mps
+2025-03-29 04:07:04,519 - INFO - Checking data directory: data_files/split_data
+2025-03-29 04:07:04,519 - INFO - Found 'by_ticker' subdirectory in data_files/split_data
+2025-03-29 04:07:04,519 - INFO - Ensuring directory exists: models (for models_dir)
+2025-03-29 04:07:04,519 - INFO - Ensuring directory exists: performance_logs (for performance_logs_dir)
+2025-03-29 04:07:04,519 - INFO - Ensuring directory exists: plots (for viz_dir)
+2025-03-29 04:07:04,519 - INFO - Validated and ensured necessary directories exist.
+2025-03-29 04:07:07,054 - INFO - Starting model prediction workflow...
+2025-03-29 04:07:10,227 - INFO - Selected model file: HybridRNN_RDSB_target_bid-ask_20250329_031858.pth
+2025-03-29 04:07:10,227 - INFO - Determining model class from name: HybridRNN_RDSB_target_bid-ask_20250329_031858.pth
+2025-03-29 04:07:10,227 - INFO - Selected LSTM-GRU hybrid model architecture (default)
+2025-03-29 04:07:12,287 - INFO - Selected ticker for prediction: SU
+2025-03-29 04:07:12,287 - INFO - Creating dataset for SU with Greeks=True, Rolling=True
+2025-03-29 04:07:15,462 - INFO - Running predictions for SU using HybridRNN_RDSB_target_bid-ask_20250329_031858.pth
+2025-03-29 04:07:15,462 - INFO - Running standard prediction (no visualization)...
+2025-03-29 04:07:15,462 - INFO - Loading model from: models/HybridRNN_RDSB_target_bid-ask_20250329_031858.pth
+2025-03-29 04:07:15,462 - INFO - Target device: mps
+2025-03-29 04:07:15,462 - INFO - Using Model class: HybridRNNModel
+2025-03-29 04:07:15,462 - INFO - Input size: 139, Output size: 2
+2025-03-29 04:07:15,462 - INFO - Creating HybridRNNModel with hidden sizes: LSTM=64, GRU=64
+2025-03-29 04:07:15,466 - INFO - Loading model state_dict to device: mps
+2025-03-29 04:07:15,500 - INFO - Model loaded and set to evaluation mode successfully on device: mps
+2025-03-29 04:08:02,639 - INFO - Prediction workflow for SU completed successfully.
+2025-03-29 04:08:20,895 - INFO - Starting model training workflow...
+2025-03-29 04:08:22,578 - INFO - Performance tracking enabled: True
+2025-03-29 04:08:22,889 - INFO - Include Option Greeks features: True
+2025-03-29 04:08:23,207 - INFO - Include Rolling Window features: True
+2025-03-29 04:08:24,006 - INFO - Include Cyclical Date Features: True
+2025-03-29 04:08:25,939 - INFO - Selected architecture: LSTM-GRU
+2025-03-29 04:08:30,552 - INFO - Number of epochs set to: 8
+2025-03-29 04:08:33,434 - INFO - Selected ticker for training: TU
+2025-03-29 04:08:33,435 - INFO - Initializing dataset for TU, Greeks=True, Rolling=True, Cyclical=True...
+2025-03-29 04:08:33,435 - INFO - Initializing StockOptionDataset for ticker: TU
+2025-03-29 04:08:33,435 - INFO - Attempting to load data from Colab path: data_files/split_data/by_ticker/TU_normalized.csv
+2025-03-29 04:08:33,435 - INFO - Sequence length: 30, Target columns: ['bid', 'ask']
+2025-03-29 04:08:33,435 - INFO - Include Greeks: True
+2025-03-29 04:08:33,435 - INFO - Include Rolling Features: True
+2025-03-29 04:08:33,435 - INFO - Include Cyclical Date Features: True
+2025-03-29 04:08:33,468 - INFO - Starting rolling window feature computation...
+2025-03-29 04:08:33,491 - INFO - Generated 108 rolling features.
+2025-03-29 04:08:33,491 - INFO - Including 108 rolling features.
+2025-03-29 04:08:33,491 - INFO - Including 5 Greek features: ['delta', 'gamma', 'vega', 'theta', 'rho']
+2025-03-29 04:08:33,491 - INFO - Including 6 cyclical date features.
+2025-03-29 04:08:33,501 - INFO - Dropped 917 rows (14.31%) due to NaNs in needed columns.
+2025-03-29 04:08:33,502 - INFO - Dataset created for TU: Features=139, Targets=2, Samples=5491, MaxIdx=5460
+2025-03-29 04:08:33,503 - INFO - Final features used (139): ['change', 'change_mean_10d', 'change_mean_3d', 'change_mean_5d', 'change_std_10d', 'change_std_3d', 'change_std_5d', 'day_of_month_cos', 'day_of_month_sin', 'day_of_week_cos', 'day_of_week_sin', 'day_of_year_cos', 'day_of_year_sin', 'daysToExpiry', 'delta', 'gamma', 'impliedVolatility', 'impliedVolatility_mean_10d', 'impliedVolatility_mean_3d', 'impliedVolatility_mean_5d', 'impliedVolatility_std_10d', 'impliedVolatility_std_3d', 'impliedVolatility_std_5d', 'lastPrice', 'lastPrice_mean_10d', 'lastPrice_mean_3d', 'lastPrice_mean_5d', 'lastPrice_std_10d', 'lastPrice_std_3d', 'lastPrice_std_5d', 'openInterest', 'openInterest_mean_10d', 'openInterest_mean_3d', 'openInterest_mean_5d', 'openInterest_std_10d', 'openInterest_std_3d', 'openInterest_std_5d', 'percentChange', 'percentChange_mean_10d', 'percentChange_mean_3d', 'percentChange_mean_5d', 'percentChange_std_10d', 'percentChange_std_3d', 'percentChange_std_5d', 'rho', 'risk_free_rate', 'stockAdjClose', 'stockAdjClose_mean_10d', 'stockAdjClose_mean_3d', 'stockAdjClose_mean_5d', 'stockAdjClose_std_10d', 'stockAdjClose_std_3d', 'stockAdjClose_std_5d', 'stockClose', 'stockClose_ewm_135d', 'stockClose_ewm_135d_mean_10d', 'stockClose_ewm_135d_mean_3d', 'stockClose_ewm_135d_mean_5d', 'stockClose_ewm_135d_std_10d', 'stockClose_ewm_135d_std_3d', 'stockClose_ewm_135d_std_5d', 'stockClose_ewm_15d', 'stockClose_ewm_15d_mean_10d', 'stockClose_ewm_15d_mean_3d', 'stockClose_ewm_15d_mean_5d', 'stockClose_ewm_15d_std_10d', 'stockClose_ewm_15d_std_3d', 'stockClose_ewm_15d_std_5d', 'stockClose_ewm_45d', 'stockClose_ewm_45d_mean_10d', 'stockClose_ewm_45d_mean_3d', 'stockClose_ewm_45d_mean_5d', 'stockClose_ewm_45d_std_10d', 'stockClose_ewm_45d_std_3d', 'stockClose_ewm_45d_std_5d', 'stockClose_ewm_5d', 'stockClose_ewm_5d_mean_10d', 'stockClose_ewm_5d_mean_3d', 'stockClose_ewm_5d_mean_5d', 'stockClose_ewm_5d_std_10d', 'stockClose_ewm_5d_std_3d', 'stockClose_ewm_5d_std_5d', 'stockClose_mean_10d', 'stockClose_mean_3d', 'stockClose_mean_5d', 'stockClose_std_10d', 'stockClose_std_3d', 'stockClose_std_5d', 'stockHigh', 'stockHigh_mean_10d', 'stockHigh_mean_3d', 'stockHigh_mean_5d', 'stockHigh_std_10d', 'stockHigh_std_3d', 'stockHigh_std_5d', 'stockLow', 'stockLow_mean_10d', 'stockLow_mean_3d', 'stockLow_mean_5d', 'stockLow_std_10d', 'stockLow_std_3d', 'stockLow_std_5d', 'stockOpen', 'stockOpen_mean_10d', 'stockOpen_mean_3d', 'stockOpen_mean_5d', 'stockOpen_std_10d', 'stockOpen_std_3d', 'stockOpen_std_5d', 'stockVolume', 'stockVolume_mean_10d', 'stockVolume_mean_3d', 'stockVolume_mean_5d', 'stockVolume_std_10d', 'stockVolume_std_3d', 'stockVolume_std_5d', 'strike', 'strikeDelta', 'strikeDelta_mean_10d', 'strikeDelta_mean_3d', 'strikeDelta_mean_5d', 'strikeDelta_std_10d', 'strikeDelta_std_3d', 'strikeDelta_std_5d', 'strike_mean_10d', 'strike_mean_3d', 'strike_mean_5d', 'strike_std_10d', 'strike_std_3d', 'strike_std_5d', 'theta', 'vega', 'volume', 'volume_mean_10d', 'volume_mean_3d', 'volume_mean_5d', 'volume_std_10d', 'volume_std_3d', 'volume_std_5d']
+2025-03-29 04:08:33,503 - INFO - Number of features used: 139
+2025-03-29 04:08:33,504 - INFO - DataLoaders created: Train=4368, Val=546, Test=547 samples. Settings: workers=0, pin_mem=False
+2025-03-29 04:08:33,504 - INFO - Initializing LSTM-GRU (In:139, Out:2, H_LSTM:64, H_GRU:64, Layers:2) on mps
+2025-03-29 04:08:33,515 - INFO - Analyzing model architecture...
+2025-03-29 04:08:33,515 - INFO - Analyzing architecture on device: mps:0
+2025-03-29 04:08:33,589 - INFO - Model analysis complete: Total Params=138360
+2025-03-29 04:08:33,589 - INFO - Starting training with performance tracking...
+2025-03-29 04:08:33,589 - INFO - Initiating extended training with tracking for TU - LSTM-GRU
+2025-03-29 04:08:33,589 - INFO - Performance logs will be saved to: performance_logs
+2025-03-29 04:08:33,589 - INFO - Performance log: performance_logs/LSTM-GRU_TU_20250329_040833.txt
+2025-03-29 04:09:35,900 - INFO - Plotting ticker TU with 547 data points
+2025-03-29 04:09:36,746 - INFO - Time series plot saved to performance_logs/plots/TU_timeseries_LSTM-GRU_20250329_040833.png
+2025-03-29 04:09:37,213 - INFO - 2D histogram for bid saved to performance_logs/plots/TU_bid_2dhist_LSTM-GRU_20250329_040833.png
+2025-03-29 04:09:37,537 - INFO - 2D histogram for ask saved to performance_logs/plots/TU_ask_2dhist_LSTM-GRU_20250329_040833.png
+2025-03-29 04:09:37,899 - INFO - Error distribution plot for bid saved to performance_logs/plots/TU_bid_error_dist_LSTM-GRU_20250329_040833.png
+2025-03-29 04:09:38,266 - INFO - Error distribution plot for ask saved to performance_logs/plots/TU_ask_error_dist_LSTM-GRU_20250329_040833.png
+2025-03-29 04:09:38,267 - INFO - Performance metrics saved to performance_logs/LSTM-GRU_TU_20250329_040833.txt
+2025-03-29 04:09:38,267 - INFO - Extended training complete. Log: performance_logs/LSTM-GRU_TU_20250329_040833.txt
+2025-03-29 04:09:38,267 - INFO - Saving model and results...
+2025-03-29 04:09:38,278 - INFO - Model saved to models/HybridRNN_TU_target_bid-ask_20250329_040938.pth
+2025-03-29 04:09:38,652 - INFO - Training plot saved to plots/training_plot_TU_bid-ask_20250329_040938.png
+2025-03-29 04:09:38,652 - INFO - Plotting ticker TU with 547 data points
+2025-03-29 04:09:39,376 - INFO - Time series plot saved to plots/TU_timeseries_test_set_20250329_040938.png
+2025-03-29 04:09:39,704 - INFO - 2D histogram for bid saved to plots/TU_bid_2dhist_test_set_20250329_040938.png
+2025-03-29 04:09:40,027 - INFO - 2D histogram for ask saved to plots/TU_ask_2dhist_test_set_20250329_040938.png
+2025-03-29 04:09:40,383 - INFO - Error distribution plot for bid saved to plots/TU_bid_error_dist_test_set_20250329_040938.png
+2025-03-29 04:09:40,752 - INFO - Error distribution plot for ask saved to plots/TU_ask_error_dist_test_set_20250329_040938.png
+2025-03-29 04:09:40,753 - INFO - Model training workflow completed successfully.
+2025-03-29 04:17:24,073 - INFO - Application terminated by user choice
+2025-03-29 04:17:24,073 - INFO - Application shutdown sequence finished.
+2025-03-29 04:17:29,396 - INFO - Starting Option Trading Model application
+2025-03-29 04:17:29,396 - INFO - Loading configuration...
+2025-03-29 04:17:29,417 - INFO - Running in local environment.
+2025-03-29 04:17:29,417 - INFO - Apple Silicon MPS detected. Setting batch size to 48
+2025-03-29 04:17:29,417 - INFO - Configuration loaded:
+2025-03-29 04:17:29,417 - INFO -   seq_len: 30
+2025-03-29 04:17:29,417 - INFO -   batch_size: 48
+2025-03-29 04:17:29,417 - INFO -   epochs: 20
+2025-03-29 04:17:29,417 - INFO -   lr: 0.001
+2025-03-29 04:17:29,417 - INFO -   hidden_size_lstm: 64
+2025-03-29 04:17:29,417 - INFO -   hidden_size_gru: 64
+2025-03-29 04:17:29,417 - INFO -   num_layers: 2
+2025-03-29 04:17:29,418 - INFO -   ticker: None
+2025-03-29 04:17:29,418 - INFO -   target_cols: ['bid', 'ask']
+2025-03-29 04:17:29,418 - INFO -   device: mps
+2025-03-29 04:17:29,418 - INFO -   data_dir: data_files/split_data
+2025-03-29 04:17:29,418 - INFO -   models_dir: models
+2025-03-29 04:17:29,418 - INFO -   performance_logs_dir: performance_logs
+2025-03-29 04:17:29,418 - INFO -   viz_dir: plots
+2025-03-29 04:17:29,418 - INFO - Using device: mps
+2025-03-29 04:17:29,418 - INFO - Checking data directory: data_files/split_data
+2025-03-29 04:17:29,418 - INFO - Found 'by_ticker' subdirectory in data_files/split_data
+2025-03-29 04:17:29,418 - INFO - Ensuring directory exists: models (for models_dir)
+2025-03-29 04:17:29,418 - INFO - Ensuring directory exists: performance_logs (for performance_logs_dir)
+2025-03-29 04:17:29,418 - INFO - Ensuring directory exists: plots (for viz_dir)
+2025-03-29 04:17:29,418 - INFO - Validated and ensured necessary directories exist.
+2025-03-29 04:17:31,322 - INFO - Starting model training workflow...
+2025-03-29 04:17:32,575 - INFO - Performance tracking enabled: True
+2025-03-29 04:17:33,225 - INFO - Include Option Greeks features: True
+2025-03-29 04:17:33,948 - INFO - Include Rolling Window features: True
+2025-03-29 04:17:34,632 - INFO - Include Cyclical Date Features: True
+2025-03-29 04:17:35,840 - INFO - Selected architecture: LSTM-GRU
+2025-03-29 04:17:38,113 - INFO - Number of epochs set to: 7
+2025-03-29 04:17:42,083 - INFO - Selected ticker for training: TU
+2025-03-29 04:17:42,084 - INFO - Initializing dataset for TU, Greeks=True, Rolling=True, Cyclical=True...
+2025-03-29 04:17:42,084 - INFO - Initializing StockOptionDataset for ticker: TU
+2025-03-29 04:17:42,084 - INFO - Attempting to load data from Colab path: data_files/split_data/by_ticker/TU_normalized.csv
+2025-03-29 04:17:42,084 - INFO - Sequence length: 30, Target columns: ['bid', 'ask']
+2025-03-29 04:17:42,084 - INFO - Include Greeks: True
+2025-03-29 04:17:42,084 - INFO - Include Rolling Features: True
+2025-03-29 04:17:42,084 - INFO - Include Cyclical Date Features: True
+2025-03-29 04:17:42,136 - INFO - Starting rolling window feature computation...
+2025-03-29 04:17:42,159 - INFO - Generated 108 rolling features.
+2025-03-29 04:17:42,160 - INFO - Including 108 rolling features.
+2025-03-29 04:17:42,160 - INFO - Including 5 Greek features: ['delta', 'gamma', 'vega', 'theta', 'rho']
+2025-03-29 04:17:42,160 - INFO - Including 6 cyclical date features.
+2025-03-29 04:17:42,166 - INFO - Dropped 917 rows (14.31%) due to NaNs in needed columns.
+2025-03-29 04:17:42,168 - INFO - Dataset created for TU: Features=139, Targets=2, Samples=5491, MaxIdx=5460
+2025-03-29 04:17:42,168 - INFO - Final features used (139): ['change', 'change_mean_10d', 'change_mean_3d', 'change_mean_5d', 'change_std_10d', 'change_std_3d', 'change_std_5d', 'day_of_month_cos', 'day_of_month_sin', 'day_of_week_cos', 'day_of_week_sin', 'day_of_year_cos', 'day_of_year_sin', 'daysToExpiry', 'delta', 'gamma', 'impliedVolatility', 'impliedVolatility_mean_10d', 'impliedVolatility_mean_3d', 'impliedVolatility_mean_5d', 'impliedVolatility_std_10d', 'impliedVolatility_std_3d', 'impliedVolatility_std_5d', 'lastPrice', 'lastPrice_mean_10d', 'lastPrice_mean_3d', 'lastPrice_mean_5d', 'lastPrice_std_10d', 'lastPrice_std_3d', 'lastPrice_std_5d', 'openInterest', 'openInterest_mean_10d', 'openInterest_mean_3d', 'openInterest_mean_5d', 'openInterest_std_10d', 'openInterest_std_3d', 'openInterest_std_5d', 'percentChange', 'percentChange_mean_10d', 'percentChange_mean_3d', 'percentChange_mean_5d', 'percentChange_std_10d', 'percentChange_std_3d', 'percentChange_std_5d', 'rho', 'risk_free_rate', 'stockAdjClose', 'stockAdjClose_mean_10d', 'stockAdjClose_mean_3d', 'stockAdjClose_mean_5d', 'stockAdjClose_std_10d', 'stockAdjClose_std_3d', 'stockAdjClose_std_5d', 'stockClose', 'stockClose_ewm_135d', 'stockClose_ewm_135d_mean_10d', 'stockClose_ewm_135d_mean_3d', 'stockClose_ewm_135d_mean_5d', 'stockClose_ewm_135d_std_10d', 'stockClose_ewm_135d_std_3d', 'stockClose_ewm_135d_std_5d', 'stockClose_ewm_15d', 'stockClose_ewm_15d_mean_10d', 'stockClose_ewm_15d_mean_3d', 'stockClose_ewm_15d_mean_5d', 'stockClose_ewm_15d_std_10d', 'stockClose_ewm_15d_std_3d', 'stockClose_ewm_15d_std_5d', 'stockClose_ewm_45d', 'stockClose_ewm_45d_mean_10d', 'stockClose_ewm_45d_mean_3d', 'stockClose_ewm_45d_mean_5d', 'stockClose_ewm_45d_std_10d', 'stockClose_ewm_45d_std_3d', 'stockClose_ewm_45d_std_5d', 'stockClose_ewm_5d', 'stockClose_ewm_5d_mean_10d', 'stockClose_ewm_5d_mean_3d', 'stockClose_ewm_5d_mean_5d', 'stockClose_ewm_5d_std_10d', 'stockClose_ewm_5d_std_3d', 'stockClose_ewm_5d_std_5d', 'stockClose_mean_10d', 'stockClose_mean_3d', 'stockClose_mean_5d', 'stockClose_std_10d', 'stockClose_std_3d', 'stockClose_std_5d', 'stockHigh', 'stockHigh_mean_10d', 'stockHigh_mean_3d', 'stockHigh_mean_5d', 'stockHigh_std_10d', 'stockHigh_std_3d', 'stockHigh_std_5d', 'stockLow', 'stockLow_mean_10d', 'stockLow_mean_3d', 'stockLow_mean_5d', 'stockLow_std_10d', 'stockLow_std_3d', 'stockLow_std_5d', 'stockOpen', 'stockOpen_mean_10d', 'stockOpen_mean_3d', 'stockOpen_mean_5d', 'stockOpen_std_10d', 'stockOpen_std_3d', 'stockOpen_std_5d', 'stockVolume', 'stockVolume_mean_10d', 'stockVolume_mean_3d', 'stockVolume_mean_5d', 'stockVolume_std_10d', 'stockVolume_std_3d', 'stockVolume_std_5d', 'strike', 'strikeDelta', 'strikeDelta_mean_10d', 'strikeDelta_mean_3d', 'strikeDelta_mean_5d', 'strikeDelta_std_10d', 'strikeDelta_std_3d', 'strikeDelta_std_5d', 'strike_mean_10d', 'strike_mean_3d', 'strike_mean_5d', 'strike_std_10d', 'strike_std_3d', 'strike_std_5d', 'theta', 'vega', 'volume', 'volume_mean_10d', 'volume_mean_3d', 'volume_mean_5d', 'volume_std_10d', 'volume_std_3d', 'volume_std_5d']
+2025-03-29 04:17:42,169 - INFO - Number of features used: 139
+2025-03-29 04:17:42,169 - INFO - DataLoaders created: Train=4368, Val=546, Test=547 samples. Settings: workers=0, pin_mem=False
+2025-03-29 04:17:42,169 - INFO - Initializing LSTM-GRU (In:139, Out:2, H_LSTM:64, H_GRU:64, Layers:2) on mps
+2025-03-29 04:17:42,184 - INFO - Analyzing model architecture...
+2025-03-29 04:17:42,184 - INFO - Analyzing architecture on device: mps:0
+2025-03-29 04:17:42,305 - INFO - Model analysis complete: Total Params=138360
+2025-03-29 04:17:42,305 - INFO - Starting training with performance tracking...
+2025-03-29 04:17:42,305 - INFO - Initiating extended training with tracking for TU - LSTM-GRU
+2025-03-29 04:17:42,305 - INFO - Performance logs will be saved to: performance_logs
+2025-03-29 04:17:42,305 - INFO - Performance log: performance_logs/LSTM-GRU_TU_20250329_041742.txt
+2025-03-29 04:18:42,935 - INFO - Plotting ticker TU with 547 data points
+2025-03-29 04:18:43,775 - INFO - Time series plot saved to performance_logs/plots/TU_timeseries_LSTM-GRU_20250329_041742.png
+2025-03-29 04:18:44,325 - INFO - 2D histogram for bid saved to performance_logs/plots/TU_bid_2dhist_LSTM-GRU_20250329_041742.png
+2025-03-29 04:18:44,738 - INFO - 2D histogram for ask saved to performance_logs/plots/TU_ask_2dhist_LSTM-GRU_20250329_041742.png
+2025-03-29 04:18:45,173 - INFO - Error distribution plot for bid saved to performance_logs/plots/TU_bid_error_dist_LSTM-GRU_20250329_041742.png
+2025-03-29 04:18:45,598 - INFO - Error distribution plot for ask saved to performance_logs/plots/TU_ask_error_dist_LSTM-GRU_20250329_041742.png
+2025-03-29 04:18:45,599 - INFO - Performance metrics saved to performance_logs/LSTM-GRU_TU_20250329_041742.txt
+2025-03-29 04:18:45,599 - INFO - Extended training complete. Log: performance_logs/LSTM-GRU_TU_20250329_041742.txt
+2025-03-29 04:18:45,599 - INFO - Saving model and results...
+2025-03-29 04:18:45,611 - INFO - Model saved to models/HybridRNN_TU_target_bid-ask_20250329_041845.pth
+2025-03-29 04:18:45,986 - INFO - Training plot saved to plots/training_plot_TU_bid-ask_20250329_041845.png
+2025-03-29 04:18:45,987 - INFO - Plotting ticker TU with 547 data points
+2025-03-29 04:18:46,714 - INFO - Time series plot saved to plots/TU_timeseries_test_set_20250329_041845.png
+2025-03-29 04:18:47,131 - INFO - 2D histogram for bid saved to plots/TU_bid_2dhist_test_set_20250329_041845.png
+2025-03-29 04:18:47,539 - INFO - 2D histogram for ask saved to plots/TU_ask_2dhist_test_set_20250329_041845.png
+2025-03-29 04:18:47,974 - INFO - Error distribution plot for bid saved to plots/TU_bid_error_dist_test_set_20250329_041845.png
+2025-03-29 04:18:48,396 - INFO - Error distribution plot for ask saved to plots/TU_ask_error_dist_test_set_20250329_041845.png
+2025-03-29 04:18:48,397 - INFO - Model training workflow completed successfully.
+2025-03-29 04:22:25,939 - INFO - Application terminated by user choice
+2025-03-29 04:22:25,939 - INFO - Application shutdown sequence finished.
+2025-03-29 04:22:37,205 - INFO - Starting Option Trading Model application
+2025-03-29 04:22:37,205 - INFO - Loading configuration...
+2025-03-29 04:22:37,226 - INFO - Running in local environment.
+2025-03-29 04:22:37,227 - INFO - Apple Silicon MPS detected. Setting batch size to 48
+2025-03-29 04:22:37,227 - INFO - Configuration loaded:
+2025-03-29 04:22:37,227 - INFO -   seq_len: 30
+2025-03-29 04:22:37,227 - INFO -   batch_size: 48
+2025-03-29 04:22:37,227 - INFO -   epochs: 20
+2025-03-29 04:22:37,227 - INFO -   lr: 0.001
+2025-03-29 04:22:37,227 - INFO -   hidden_size_lstm: 64
+2025-03-29 04:22:37,227 - INFO -   hidden_size_gru: 64
+2025-03-29 04:22:37,227 - INFO -   num_layers: 2
+2025-03-29 04:22:37,227 - INFO -   ticker: None
+2025-03-29 04:22:37,227 - INFO -   target_cols: ['bid', 'ask']
+2025-03-29 04:22:37,227 - INFO -   device: mps
+2025-03-29 04:22:37,227 - INFO -   data_dir: data_files/split_data
+2025-03-29 04:22:37,227 - INFO -   models_dir: models
+2025-03-29 04:22:37,227 - INFO -   performance_logs_dir: performance_logs
+2025-03-29 04:22:37,227 - INFO -   viz_dir: plots
+2025-03-29 04:22:37,227 - INFO - Using device: mps
+2025-03-29 04:22:37,227 - INFO - Checking data directory: data_files/split_data
+2025-03-29 04:22:37,227 - INFO - Found 'by_ticker' subdirectory in data_files/split_data
+2025-03-29 04:22:37,227 - INFO - Ensuring directory exists: models (for models_dir)
+2025-03-29 04:22:37,227 - INFO - Ensuring directory exists: performance_logs (for performance_logs_dir)
+2025-03-29 04:22:37,227 - INFO - Ensuring directory exists: plots (for viz_dir)
+2025-03-29 04:22:37,227 - INFO - Validated and ensured necessary directories exist.
+2025-03-29 04:22:38,600 - INFO - Starting model training workflow...
+2025-03-29 04:22:39,846 - INFO - Performance tracking enabled: True
+2025-03-29 04:22:40,421 - INFO - Include Option Greeks features: True
+2025-03-29 04:22:40,810 - INFO - Include Rolling Window features: True
+2025-03-29 04:22:41,194 - INFO - Include Cyclical Date Features: True
+2025-03-29 04:22:42,099 - INFO - Selected architecture: LSTM-GRU
+2025-03-29 04:22:44,695 - INFO - Number of epochs set to: 4
+2025-03-29 04:22:46,316 - INFO - Selected ticker for training: TU
+2025-03-29 04:22:46,317 - INFO - Initializing dataset for TU, Greeks=True, Rolling=True, Cyclical=True...
+2025-03-29 04:22:46,317 - INFO - Initializing StockOptionDataset for ticker: TU
+2025-03-29 04:22:46,317 - INFO - Attempting to load data from Colab path: data_files/split_data/by_ticker/TU_normalized.csv
+2025-03-29 04:22:46,317 - INFO - Sequence length: 30, Target columns: ['bid', 'ask']
+2025-03-29 04:22:46,317 - INFO - Include Greeks: True
+2025-03-29 04:22:46,317 - INFO - Include Rolling Features: True
+2025-03-29 04:22:46,317 - INFO - Include Cyclical Date Features: True
+2025-03-29 04:22:46,356 - INFO - Starting rolling window feature computation...
+2025-03-29 04:22:46,379 - INFO - Generated 108 rolling features.
+2025-03-29 04:22:46,379 - INFO - Including 108 rolling features.
+2025-03-29 04:22:46,379 - INFO - Including 5 Greek features: ['delta', 'gamma', 'vega', 'theta', 'rho']
+2025-03-29 04:22:46,379 - INFO - Including 6 cyclical date features.
+2025-03-29 04:22:46,384 - INFO - Dropped 917 rows (14.31%) due to NaNs in needed columns.
+2025-03-29 04:22:46,386 - INFO - Dataset created for TU: Features=139, Targets=2, Samples=5491, MaxIdx=5460
+2025-03-29 04:22:46,386 - INFO - Final features used (139): ['change', 'change_mean_10d', 'change_mean_3d', 'change_mean_5d', 'change_std_10d', 'change_std_3d', 'change_std_5d', 'day_of_month_cos', 'day_of_month_sin', 'day_of_week_cos', 'day_of_week_sin', 'day_of_year_cos', 'day_of_year_sin', 'daysToExpiry', 'delta', 'gamma', 'impliedVolatility', 'impliedVolatility_mean_10d', 'impliedVolatility_mean_3d', 'impliedVolatility_mean_5d', 'impliedVolatility_std_10d', 'impliedVolatility_std_3d', 'impliedVolatility_std_5d', 'lastPrice', 'lastPrice_mean_10d', 'lastPrice_mean_3d', 'lastPrice_mean_5d', 'lastPrice_std_10d', 'lastPrice_std_3d', 'lastPrice_std_5d', 'openInterest', 'openInterest_mean_10d', 'openInterest_mean_3d', 'openInterest_mean_5d', 'openInterest_std_10d', 'openInterest_std_3d', 'openInterest_std_5d', 'percentChange', 'percentChange_mean_10d', 'percentChange_mean_3d', 'percentChange_mean_5d', 'percentChange_std_10d', 'percentChange_std_3d', 'percentChange_std_5d', 'rho', 'risk_free_rate', 'stockAdjClose', 'stockAdjClose_mean_10d', 'stockAdjClose_mean_3d', 'stockAdjClose_mean_5d', 'stockAdjClose_std_10d', 'stockAdjClose_std_3d', 'stockAdjClose_std_5d', 'stockClose', 'stockClose_ewm_135d', 'stockClose_ewm_135d_mean_10d', 'stockClose_ewm_135d_mean_3d', 'stockClose_ewm_135d_mean_5d', 'stockClose_ewm_135d_std_10d', 'stockClose_ewm_135d_std_3d', 'stockClose_ewm_135d_std_5d', 'stockClose_ewm_15d', 'stockClose_ewm_15d_mean_10d', 'stockClose_ewm_15d_mean_3d', 'stockClose_ewm_15d_mean_5d', 'stockClose_ewm_15d_std_10d', 'stockClose_ewm_15d_std_3d', 'stockClose_ewm_15d_std_5d', 'stockClose_ewm_45d', 'stockClose_ewm_45d_mean_10d', 'stockClose_ewm_45d_mean_3d', 'stockClose_ewm_45d_mean_5d', 'stockClose_ewm_45d_std_10d', 'stockClose_ewm_45d_std_3d', 'stockClose_ewm_45d_std_5d', 'stockClose_ewm_5d', 'stockClose_ewm_5d_mean_10d', 'stockClose_ewm_5d_mean_3d', 'stockClose_ewm_5d_mean_5d', 'stockClose_ewm_5d_std_10d', 'stockClose_ewm_5d_std_3d', 'stockClose_ewm_5d_std_5d', 'stockClose_mean_10d', 'stockClose_mean_3d', 'stockClose_mean_5d', 'stockClose_std_10d', 'stockClose_std_3d', 'stockClose_std_5d', 'stockHigh', 'stockHigh_mean_10d', 'stockHigh_mean_3d', 'stockHigh_mean_5d', 'stockHigh_std_10d', 'stockHigh_std_3d', 'stockHigh_std_5d', 'stockLow', 'stockLow_mean_10d', 'stockLow_mean_3d', 'stockLow_mean_5d', 'stockLow_std_10d', 'stockLow_std_3d', 'stockLow_std_5d', 'stockOpen', 'stockOpen_mean_10d', 'stockOpen_mean_3d', 'stockOpen_mean_5d', 'stockOpen_std_10d', 'stockOpen_std_3d', 'stockOpen_std_5d', 'stockVolume', 'stockVolume_mean_10d', 'stockVolume_mean_3d', 'stockVolume_mean_5d', 'stockVolume_std_10d', 'stockVolume_std_3d', 'stockVolume_std_5d', 'strike', 'strikeDelta', 'strikeDelta_mean_10d', 'strikeDelta_mean_3d', 'strikeDelta_mean_5d', 'strikeDelta_std_10d', 'strikeDelta_std_3d', 'strikeDelta_std_5d', 'strike_mean_10d', 'strike_mean_3d', 'strike_mean_5d', 'strike_std_10d', 'strike_std_3d', 'strike_std_5d', 'theta', 'vega', 'volume', 'volume_mean_10d', 'volume_mean_3d', 'volume_mean_5d', 'volume_std_10d', 'volume_std_3d', 'volume_std_5d']
+2025-03-29 04:22:46,387 - INFO - Number of features used: 139
+2025-03-29 04:22:46,388 - INFO - DataLoaders created: Train=4368, Val=546, Test=547 samples. Settings: workers=0, pin_mem=False
+2025-03-29 04:22:46,388 - INFO - Initializing LSTM-GRU (In:139, Out:2, H_LSTM:64, H_GRU:64, Layers:2) on mps
+2025-03-29 04:22:46,401 - INFO - Analyzing model architecture...
+2025-03-29 04:22:46,401 - INFO - Analyzing architecture on device: mps:0
+2025-03-29 04:22:46,521 - INFO - Model analysis complete: Total Params=138360
+2025-03-29 04:22:46,521 - INFO - Starting training with performance tracking...
+2025-03-29 04:22:46,521 - INFO - Initiating extended training with tracking for TU - LSTM-GRU
+2025-03-29 04:22:46,521 - INFO - Performance logs will be saved to: performance_logs
+2025-03-29 04:22:46,522 - INFO - Performance log: performance_logs/LSTM-GRU_TU_20250329_042246.txt
+2025-03-29 04:23:21,603 - INFO - Plotting ticker TU with 547 data points
+2025-03-29 04:23:22,433 - INFO - Time series plot saved to performance_logs/plots/TU_timeseries_LSTM-GRU_20250329_042246.png
+2025-03-29 04:23:22,987 - INFO - 2D histogram for bid saved to performance_logs/plots/TU_bid_2dhist_LSTM-GRU_20250329_042246.png
+2025-03-29 04:23:23,397 - INFO - 2D histogram for ask saved to performance_logs/plots/TU_ask_2dhist_LSTM-GRU_20250329_042246.png
+2025-03-29 04:23:23,833 - INFO - Error distribution plot for bid saved to performance_logs/plots/TU_bid_error_dist_LSTM-GRU_20250329_042246.png
+2025-03-29 04:23:24,259 - INFO - Error distribution plot for ask saved to performance_logs/plots/TU_ask_error_dist_LSTM-GRU_20250329_042246.png
+2025-03-29 04:23:24,260 - INFO - Performance metrics saved to performance_logs/LSTM-GRU_TU_20250329_042246.txt
+2025-03-29 04:23:24,260 - INFO - Extended training complete. Log: performance_logs/LSTM-GRU_TU_20250329_042246.txt
+2025-03-29 04:23:24,260 - INFO - Saving model and results...
+2025-03-29 04:23:24,272 - INFO - Model saved to models/HybridRNN_TU_target_bid-ask_20250329_042324.pth
+2025-03-29 04:23:24,640 - INFO - Training plot saved to plots/training_plot_TU_bid-ask_20250329_042324.png
+2025-03-29 04:23:24,641 - INFO - Plotting ticker TU with 547 data points
+2025-03-29 04:23:25,363 - INFO - Time series plot saved to plots/TU_timeseries_test_set_20250329_042324.png
+2025-03-29 04:23:25,778 - INFO - 2D histogram for bid saved to plots/TU_bid_2dhist_test_set_20250329_042324.png
+2025-03-29 04:23:26,188 - INFO - 2D histogram for ask saved to plots/TU_ask_2dhist_test_set_20250329_042324.png
+2025-03-29 04:23:26,626 - INFO - Error distribution plot for bid saved to plots/TU_bid_error_dist_test_set_20250329_042324.png
+2025-03-29 04:23:27,055 - INFO - Error distribution plot for ask saved to plots/TU_ask_error_dist_test_set_20250329_042324.png
+2025-03-29 04:23:27,056 - INFO - Model training workflow completed successfully.
+2025-03-29 04:29:58,187 - INFO - Application terminated by user choice
+2025-03-29 04:29:58,187 - INFO - Application shutdown sequence finished.
+2025-03-29 04:30:06,233 - INFO - Starting Option Trading Model application
+2025-03-29 04:30:06,233 - INFO - Loading configuration...
+2025-03-29 04:30:06,254 - INFO - Running in local environment.
+2025-03-29 04:30:06,254 - INFO - Apple Silicon MPS detected. Setting batch size to 48
+2025-03-29 04:30:06,254 - INFO - Configuration loaded:
+2025-03-29 04:30:06,254 - INFO -   seq_len: 30
+2025-03-29 04:30:06,254 - INFO -   batch_size: 48
+2025-03-29 04:30:06,254 - INFO -   epochs: 20
+2025-03-29 04:30:06,254 - INFO -   lr: 0.001
+2025-03-29 04:30:06,254 - INFO -   hidden_size_lstm: 64
+2025-03-29 04:30:06,254 - INFO -   hidden_size_gru: 64
+2025-03-29 04:30:06,254 - INFO -   num_layers: 2
+2025-03-29 04:30:06,254 - INFO -   ticker: None
+2025-03-29 04:30:06,254 - INFO -   target_cols: ['bid', 'ask']
+2025-03-29 04:30:06,254 - INFO -   device: mps
+2025-03-29 04:30:06,254 - INFO -   data_dir: data_files/split_data
+2025-03-29 04:30:06,254 - INFO -   models_dir: models
+2025-03-29 04:30:06,254 - INFO -   performance_logs_dir: performance_logs
+2025-03-29 04:30:06,254 - INFO -   viz_dir: plots
+2025-03-29 04:30:06,254 - INFO - Using device: mps
+2025-03-29 04:30:06,254 - INFO - Checking data directory: data_files/split_data
+2025-03-29 04:30:06,254 - INFO - Found 'by_ticker' subdirectory in data_files/split_data
+2025-03-29 04:30:06,254 - INFO - Ensuring directory exists: models (for models_dir)
+2025-03-29 04:30:06,254 - INFO - Ensuring directory exists: performance_logs (for performance_logs_dir)
+2025-03-29 04:30:06,254 - INFO - Ensuring directory exists: plots (for viz_dir)
+2025-03-29 04:30:06,254 - INFO - Validated and ensured necessary directories exist.
+2025-03-29 04:30:07,792 - INFO - Starting model training workflow...
+2025-03-29 04:30:09,114 - INFO - Performance tracking enabled: True
+2025-03-29 04:30:09,419 - INFO - Include Option Greeks features: True
+2025-03-29 04:30:09,731 - INFO - Include Rolling Window features: True
+2025-03-29 04:30:10,158 - INFO - Include Cyclical Date Features: True
+2025-03-29 04:30:11,690 - INFO - Selected architecture: LSTM-GRU
+2025-03-29 04:30:14,249 - INFO - Number of epochs set to: 4
+2025-03-29 04:30:16,162 - INFO - Selected ticker for training: TU
+2025-03-29 04:30:16,162 - INFO - Initializing dataset for TU, Greeks=True, Rolling=True, Cyclical=True...
+2025-03-29 04:30:16,162 - INFO - Initializing StockOptionDataset for ticker: TU
+2025-03-29 04:30:16,162 - INFO - Attempting to load data from Colab path: data_files/split_data/by_ticker/TU_normalized.csv
+2025-03-29 04:30:16,162 - INFO - Sequence length: 30, Target columns: ['bid', 'ask']
+2025-03-29 04:30:16,162 - INFO - Include Greeks: True
+2025-03-29 04:30:16,163 - INFO - Include Rolling Features: True
+2025-03-29 04:30:16,163 - INFO - Include Cyclical Date Features: True
+2025-03-29 04:30:16,213 - INFO - Starting rolling window feature computation...
+2025-03-29 04:30:16,236 - INFO - Generated 108 rolling features.
+2025-03-29 04:30:16,236 - INFO - Including 108 rolling features.
+2025-03-29 04:30:16,236 - INFO - Including 5 Greek features: ['delta', 'gamma', 'vega', 'theta', 'rho']
+2025-03-29 04:30:16,236 - INFO - Including 6 cyclical date features.
+2025-03-29 04:30:16,242 - INFO - Dropped 917 rows (14.31%) due to NaNs in needed columns.
+2025-03-29 04:30:16,244 - INFO - Dataset created for TU: Features=139, Targets=2, Samples=5491, MaxIdx=5460
+2025-03-29 04:30:16,244 - INFO - Final features used (139): ['change', 'change_mean_10d', 'change_mean_3d', 'change_mean_5d', 'change_std_10d', 'change_std_3d', 'change_std_5d', 'day_of_month_cos', 'day_of_month_sin', 'day_of_week_cos', 'day_of_week_sin', 'day_of_year_cos', 'day_of_year_sin', 'daysToExpiry', 'delta', 'gamma', 'impliedVolatility', 'impliedVolatility_mean_10d', 'impliedVolatility_mean_3d', 'impliedVolatility_mean_5d', 'impliedVolatility_std_10d', 'impliedVolatility_std_3d', 'impliedVolatility_std_5d', 'lastPrice', 'lastPrice_mean_10d', 'lastPrice_mean_3d', 'lastPrice_mean_5d', 'lastPrice_std_10d', 'lastPrice_std_3d', 'lastPrice_std_5d', 'openInterest', 'openInterest_mean_10d', 'openInterest_mean_3d', 'openInterest_mean_5d', 'openInterest_std_10d', 'openInterest_std_3d', 'openInterest_std_5d', 'percentChange', 'percentChange_mean_10d', 'percentChange_mean_3d', 'percentChange_mean_5d', 'percentChange_std_10d', 'percentChange_std_3d', 'percentChange_std_5d', 'rho', 'risk_free_rate', 'stockAdjClose', 'stockAdjClose_mean_10d', 'stockAdjClose_mean_3d', 'stockAdjClose_mean_5d', 'stockAdjClose_std_10d', 'stockAdjClose_std_3d', 'stockAdjClose_std_5d', 'stockClose', 'stockClose_ewm_135d', 'stockClose_ewm_135d_mean_10d', 'stockClose_ewm_135d_mean_3d', 'stockClose_ewm_135d_mean_5d', 'stockClose_ewm_135d_std_10d', 'stockClose_ewm_135d_std_3d', 'stockClose_ewm_135d_std_5d', 'stockClose_ewm_15d', 'stockClose_ewm_15d_mean_10d', 'stockClose_ewm_15d_mean_3d', 'stockClose_ewm_15d_mean_5d', 'stockClose_ewm_15d_std_10d', 'stockClose_ewm_15d_std_3d', 'stockClose_ewm_15d_std_5d', 'stockClose_ewm_45d', 'stockClose_ewm_45d_mean_10d', 'stockClose_ewm_45d_mean_3d', 'stockClose_ewm_45d_mean_5d', 'stockClose_ewm_45d_std_10d', 'stockClose_ewm_45d_std_3d', 'stockClose_ewm_45d_std_5d', 'stockClose_ewm_5d', 'stockClose_ewm_5d_mean_10d', 'stockClose_ewm_5d_mean_3d', 'stockClose_ewm_5d_mean_5d', 'stockClose_ewm_5d_std_10d', 'stockClose_ewm_5d_std_3d', 'stockClose_ewm_5d_std_5d', 'stockClose_mean_10d', 'stockClose_mean_3d', 'stockClose_mean_5d', 'stockClose_std_10d', 'stockClose_std_3d', 'stockClose_std_5d', 'stockHigh', 'stockHigh_mean_10d', 'stockHigh_mean_3d', 'stockHigh_mean_5d', 'stockHigh_std_10d', 'stockHigh_std_3d', 'stockHigh_std_5d', 'stockLow', 'stockLow_mean_10d', 'stockLow_mean_3d', 'stockLow_mean_5d', 'stockLow_std_10d', 'stockLow_std_3d', 'stockLow_std_5d', 'stockOpen', 'stockOpen_mean_10d', 'stockOpen_mean_3d', 'stockOpen_mean_5d', 'stockOpen_std_10d', 'stockOpen_std_3d', 'stockOpen_std_5d', 'stockVolume', 'stockVolume_mean_10d', 'stockVolume_mean_3d', 'stockVolume_mean_5d', 'stockVolume_std_10d', 'stockVolume_std_3d', 'stockVolume_std_5d', 'strike', 'strikeDelta', 'strikeDelta_mean_10d', 'strikeDelta_mean_3d', 'strikeDelta_mean_5d', 'strikeDelta_std_10d', 'strikeDelta_std_3d', 'strikeDelta_std_5d', 'strike_mean_10d', 'strike_mean_3d', 'strike_mean_5d', 'strike_std_10d', 'strike_std_3d', 'strike_std_5d', 'theta', 'vega', 'volume', 'volume_mean_10d', 'volume_mean_3d', 'volume_mean_5d', 'volume_std_10d', 'volume_std_3d', 'volume_std_5d']
+2025-03-29 04:30:16,245 - INFO - Number of features used: 139
+2025-03-29 04:30:16,245 - INFO - DataLoaders created: Train=4368, Val=546, Test=547 samples. Settings: workers=0, pin_mem=False
+2025-03-29 04:30:16,245 - INFO - Initializing LSTM-GRU (In:139, Out:2, H_LSTM:64, H_GRU:64, Layers:2) on mps
+2025-03-29 04:30:16,259 - INFO - Analyzing model architecture...
+2025-03-29 04:30:16,260 - INFO - Analyzing architecture on device: mps:0
+2025-03-29 04:30:16,380 - INFO - Model analysis complete: Total Params=138360
+2025-03-29 04:30:16,380 - INFO - Starting training with performance tracking...
+2025-03-29 04:30:16,380 - INFO - Initiating extended training with tracking for TU - LSTM-GRU
+2025-03-29 04:30:16,380 - INFO - Performance logs will be saved to: performance_logs
+2025-03-29 04:30:16,380 - INFO - Performance log: performance_logs/LSTM-GRU_TU_20250329_043016.txt
+2025-03-29 04:30:51,478 - INFO - Plotting ticker TU with 547 data points
+2025-03-29 04:30:52,313 - INFO - Time series plot saved to performance_logs/plots/TU_timeseries_LSTM-GRU_20250329_043016.png
+2025-03-29 04:30:52,855 - INFO - 2D histogram for bid saved to performance_logs/plots/TU_bid_2dhist_LSTM-GRU_20250329_043016.png
+2025-03-29 04:30:53,261 - INFO - 2D histogram for ask saved to performance_logs/plots/TU_ask_2dhist_LSTM-GRU_20250329_043016.png
+2025-03-29 04:30:53,690 - INFO - Error distribution plot for bid saved to performance_logs/plots/TU_bid_error_dist_LSTM-GRU_20250329_043016.png
+2025-03-29 04:30:54,117 - INFO - Error distribution plot for ask saved to performance_logs/plots/TU_ask_error_dist_LSTM-GRU_20250329_043016.png
+2025-03-29 04:30:54,119 - INFO - Performance metrics saved to performance_logs/LSTM-GRU_TU_20250329_043016.txt
+2025-03-29 04:30:54,119 - INFO - Extended training complete. Log: performance_logs/LSTM-GRU_TU_20250329_043016.txt
+2025-03-29 04:30:54,119 - INFO - Saving model and results...
+2025-03-29 04:30:54,130 - INFO - Model saved to models/HybridRNN_TU_target_bid-ask_20250329_043054.pth
+2025-03-29 04:30:54,498 - INFO - Training plot saved to plots/training_plot_TU_bid-ask_20250329_043054.png
+2025-03-29 04:30:54,499 - INFO - Plotting ticker TU with 547 data points
+2025-03-29 04:30:55,222 - INFO - Time series plot saved to plots/TU_timeseries_test_set_20250329_043054.png
+2025-03-29 04:30:55,628 - INFO - 2D histogram for bid saved to plots/TU_bid_2dhist_test_set_20250329_043054.png
+2025-03-29 04:30:56,037 - INFO - 2D histogram for ask saved to plots/TU_ask_2dhist_test_set_20250329_043054.png
+2025-03-29 04:30:56,468 - INFO - Error distribution plot for bid saved to plots/TU_bid_error_dist_test_set_20250329_043054.png
+2025-03-29 04:30:56,893 - INFO - Error distribution plot for ask saved to plots/TU_ask_error_dist_test_set_20250329_043054.png
+2025-03-29 04:30:56,894 - INFO - Model training workflow completed successfully.
+2025-03-29 04:31:42,416 - INFO - Application terminated by user choice
+2025-03-29 04:31:42,417 - INFO - Application shutdown sequence finished.
+2025-03-29 06:10:38,305 - INFO - Starting Option Trading Model application
+2025-03-29 06:10:38,305 - INFO - Loading configuration...
+2025-03-29 06:10:38,327 - INFO - Running in local environment.
+2025-03-29 06:10:38,327 - INFO - Apple Silicon MPS detected. Setting batch size to 48
+2025-03-29 06:10:38,327 - INFO - Configuration loaded:
+2025-03-29 06:10:38,327 - INFO -   seq_len: 30
+2025-03-29 06:10:38,327 - INFO -   batch_size: 48
+2025-03-29 06:10:38,327 - INFO -   epochs: 20
+2025-03-29 06:10:38,327 - INFO -   lr: 0.001
+2025-03-29 06:10:38,327 - INFO -   hidden_size_lstm: 64
+2025-03-29 06:10:38,327 - INFO -   hidden_size_gru: 64
+2025-03-29 06:10:38,327 - INFO -   num_layers: 2
+2025-03-29 06:10:38,327 - INFO -   ticker: None
+2025-03-29 06:10:38,327 - INFO -   target_cols: ['bid', 'ask']
+2025-03-29 06:10:38,327 - INFO -   device: mps
+2025-03-29 06:10:38,327 - INFO -   data_dir: /Users/bekheet/dev/option-ml-prediction/data_files/split_data
+2025-03-29 06:10:38,327 - INFO -   models_dir: /Users/bekheet/dev/option-ml-prediction/models
+2025-03-29 06:10:38,327 - INFO -   performance_logs_dir: /Users/bekheet/dev/option-ml-prediction/performance_logs
+2025-03-29 06:10:38,327 - INFO -   viz_dir: /Users/bekheet/dev/option-ml-prediction/plots
+2025-03-29 06:10:38,327 - INFO - Using device: mps
+2025-03-29 06:10:38,327 - INFO - Checking data directory: /Users/bekheet/dev/option-ml-prediction/data_files/split_data
+2025-03-29 06:10:38,327 - INFO - Found 'by_ticker' subdirectory in /Users/bekheet/dev/option-ml-prediction/data_files/split_data
+2025-03-29 06:10:38,327 - INFO - Ensuring directory exists: /Users/bekheet/dev/option-ml-prediction/models (for models_dir)
+2025-03-29 06:10:38,327 - INFO - Ensuring directory exists: /Users/bekheet/dev/option-ml-prediction/performance_logs (for performance_logs_dir)
+2025-03-29 06:10:38,327 - INFO - Ensuring directory exists: /Users/bekheet/dev/option-ml-prediction/plots (for viz_dir)
+2025-03-29 06:10:38,327 - INFO - Validated and ensured necessary directories exist.
+2025-03-29 06:10:45,279 - INFO - Starting model training workflow...
+2025-03-29 06:10:46,500 - INFO - Performance tracking enabled: True
+2025-03-29 06:10:46,691 - INFO - Include Option Greeks features: True
+2025-03-29 06:10:46,891 - INFO - Include Rolling Window features: True
+2025-03-29 06:10:47,874 - INFO - Include Cyclical Date Features: True
+2025-03-29 06:10:49,093 - INFO - Selected architecture: LSTM-GRU
+2025-03-29 06:10:51,049 - INFO - Number of epochs set to: 3
+2025-03-29 06:10:52,681 - INFO - Selected ticker for training: TU
+2025-03-29 06:10:52,682 - INFO - Initializing dataset for TU, Greeks=True, Rolling=True, Cyclical=True...
+2025-03-29 06:10:52,682 - INFO - Initializing StockOptionDataset for ticker: TU
+2025-03-29 06:10:52,682 - INFO - Attempting to load data from Colab path: /Users/bekheet/dev/option-ml-prediction/data_files/split_data/by_ticker/TU_normalized.csv
+2025-03-29 06:10:52,682 - INFO - Sequence length: 30, Target columns: ['bid', 'ask']
+2025-03-29 06:10:52,682 - INFO - Include Greeks: True
+2025-03-29 06:10:52,682 - INFO - Include Rolling Features: True
+2025-03-29 06:10:52,683 - INFO - Include Cyclical Date Features: True
+2025-03-29 06:10:52,722 - INFO - Starting rolling window feature computation...
+2025-03-29 06:10:52,746 - INFO - Generated 108 rolling features.
+2025-03-29 06:10:52,746 - INFO - Including 108 rolling features.
+2025-03-29 06:10:52,747 - INFO - Including 5 Greek features: ['delta', 'gamma', 'vega', 'theta', 'rho']
+2025-03-29 06:10:52,747 - INFO - Including 6 cyclical date features.
+2025-03-29 06:10:52,752 - INFO - Dropped 917 rows (14.31%) due to NaNs in needed columns.
+2025-03-29 06:10:52,754 - INFO - Dataset created for TU: Features=139, Targets=2, Samples=5491, MaxIdx=5460
+2025-03-29 06:10:52,754 - INFO - Final features used (139): ['change', 'change_mean_10d', 'change_mean_3d', 'change_mean_5d', 'change_std_10d', 'change_std_3d', 'change_std_5d', 'day_of_month_cos', 'day_of_month_sin', 'day_of_week_cos', 'day_of_week_sin', 'day_of_year_cos', 'day_of_year_sin', 'daysToExpiry', 'delta', 'gamma', 'impliedVolatility', 'impliedVolatility_mean_10d', 'impliedVolatility_mean_3d', 'impliedVolatility_mean_5d', 'impliedVolatility_std_10d', 'impliedVolatility_std_3d', 'impliedVolatility_std_5d', 'lastPrice', 'lastPrice_mean_10d', 'lastPrice_mean_3d', 'lastPrice_mean_5d', 'lastPrice_std_10d', 'lastPrice_std_3d', 'lastPrice_std_5d', 'openInterest', 'openInterest_mean_10d', 'openInterest_mean_3d', 'openInterest_mean_5d', 'openInterest_std_10d', 'openInterest_std_3d', 'openInterest_std_5d', 'percentChange', 'percentChange_mean_10d', 'percentChange_mean_3d', 'percentChange_mean_5d', 'percentChange_std_10d', 'percentChange_std_3d', 'percentChange_std_5d', 'rho', 'risk_free_rate', 'stockAdjClose', 'stockAdjClose_mean_10d', 'stockAdjClose_mean_3d', 'stockAdjClose_mean_5d', 'stockAdjClose_std_10d', 'stockAdjClose_std_3d', 'stockAdjClose_std_5d', 'stockClose', 'stockClose_ewm_135d', 'stockClose_ewm_135d_mean_10d', 'stockClose_ewm_135d_mean_3d', 'stockClose_ewm_135d_mean_5d', 'stockClose_ewm_135d_std_10d', 'stockClose_ewm_135d_std_3d', 'stockClose_ewm_135d_std_5d', 'stockClose_ewm_15d', 'stockClose_ewm_15d_mean_10d', 'stockClose_ewm_15d_mean_3d', 'stockClose_ewm_15d_mean_5d', 'stockClose_ewm_15d_std_10d', 'stockClose_ewm_15d_std_3d', 'stockClose_ewm_15d_std_5d', 'stockClose_ewm_45d', 'stockClose_ewm_45d_mean_10d', 'stockClose_ewm_45d_mean_3d', 'stockClose_ewm_45d_mean_5d', 'stockClose_ewm_45d_std_10d', 'stockClose_ewm_45d_std_3d', 'stockClose_ewm_45d_std_5d', 'stockClose_ewm_5d', 'stockClose_ewm_5d_mean_10d', 'stockClose_ewm_5d_mean_3d', 'stockClose_ewm_5d_mean_5d', 'stockClose_ewm_5d_std_10d', 'stockClose_ewm_5d_std_3d', 'stockClose_ewm_5d_std_5d', 'stockClose_mean_10d', 'stockClose_mean_3d', 'stockClose_mean_5d', 'stockClose_std_10d', 'stockClose_std_3d', 'stockClose_std_5d', 'stockHigh', 'stockHigh_mean_10d', 'stockHigh_mean_3d', 'stockHigh_mean_5d', 'stockHigh_std_10d', 'stockHigh_std_3d', 'stockHigh_std_5d', 'stockLow', 'stockLow_mean_10d', 'stockLow_mean_3d', 'stockLow_mean_5d', 'stockLow_std_10d', 'stockLow_std_3d', 'stockLow_std_5d', 'stockOpen', 'stockOpen_mean_10d', 'stockOpen_mean_3d', 'stockOpen_mean_5d', 'stockOpen_std_10d', 'stockOpen_std_3d', 'stockOpen_std_5d', 'stockVolume', 'stockVolume_mean_10d', 'stockVolume_mean_3d', 'stockVolume_mean_5d', 'stockVolume_std_10d', 'stockVolume_std_3d', 'stockVolume_std_5d', 'strike', 'strikeDelta', 'strikeDelta_mean_10d', 'strikeDelta_mean_3d', 'strikeDelta_mean_5d', 'strikeDelta_std_10d', 'strikeDelta_std_3d', 'strikeDelta_std_5d', 'strike_mean_10d', 'strike_mean_3d', 'strike_mean_5d', 'strike_std_10d', 'strike_std_3d', 'strike_std_5d', 'theta', 'vega', 'volume', 'volume_mean_10d', 'volume_mean_3d', 'volume_mean_5d', 'volume_std_10d', 'volume_std_3d', 'volume_std_5d']
+2025-03-29 06:10:52,755 - INFO - Number of features used: 139
+2025-03-29 06:10:52,755 - INFO - DataLoaders created: Train=4368, Val=546, Test=547 samples. Settings: workers=0, pin_mem=False
+2025-03-29 06:10:52,755 - INFO - Initializing LSTM-GRU (In:139, Out:2, H_LSTM:64, H_GRU:64, Layers:2) on mps
+2025-03-29 06:10:52,769 - INFO - Analyzing model architecture...
+2025-03-29 06:10:52,769 - INFO - Analyzing architecture on device: mps:0
+2025-03-29 06:10:52,896 - INFO - Model analysis complete: Total Params=138360
+2025-03-29 06:10:52,896 - INFO - Starting training with performance tracking...
+2025-03-29 06:10:52,896 - INFO - Initiating extended training with tracking for TU - LSTM-GRU
+2025-03-29 06:10:52,896 - INFO - Performance logs will be saved to: /Users/bekheet/dev/option-ml-prediction/performance_logs
+2025-03-29 06:10:52,896 - INFO - Performance log: /Users/bekheet/dev/option-ml-prediction/performance_logs/LSTM-GRU_TU_20250329_061052.txt
+2025-03-29 06:11:20,239 - INFO - Plotting ticker TU with 547 data points
+2025-03-29 06:11:21,110 - INFO - Time series plot saved to /Users/bekheet/dev/option-ml-prediction/performance_logs/plots/TU_timeseries_LSTM-GRU_20250329_061052.png
+2025-03-29 06:11:21,669 - INFO - 2D histogram for bid saved to /Users/bekheet/dev/option-ml-prediction/performance_logs/plots/TU_bid_2dhist_LSTM-GRU_20250329_061052.png
+2025-03-29 06:11:22,088 - INFO - 2D histogram for ask saved to /Users/bekheet/dev/option-ml-prediction/performance_logs/plots/TU_ask_2dhist_LSTM-GRU_20250329_061052.png
+2025-03-29 06:11:22,528 - INFO - Error distribution plot for bid saved to /Users/bekheet/dev/option-ml-prediction/performance_logs/plots/TU_bid_error_dist_LSTM-GRU_20250329_061052.png
+2025-03-29 06:11:22,977 - INFO - Error distribution plot for ask saved to /Users/bekheet/dev/option-ml-prediction/performance_logs/plots/TU_ask_error_dist_LSTM-GRU_20250329_061052.png
+2025-03-29 06:11:22,978 - INFO - Performance metrics saved to /Users/bekheet/dev/option-ml-prediction/performance_logs/LSTM-GRU_TU_20250329_061052.txt
+2025-03-29 06:11:22,978 - INFO - Extended training complete. Log: /Users/bekheet/dev/option-ml-prediction/performance_logs/LSTM-GRU_TU_20250329_061052.txt
+2025-03-29 06:11:22,978 - INFO - Saving model and results...
+2025-03-29 06:11:22,990 - INFO - Model saved to /Users/bekheet/dev/option-ml-prediction/models/HybridRNN_TU_target_bid-ask_20250329_061122.pth
+2025-03-29 06:11:23,367 - INFO - Training plot saved to /Users/bekheet/dev/option-ml-prediction/plots/training_plot_TU_bid-ask_20250329_061122.png
+2025-03-29 06:11:23,368 - ERROR - Failed to generate prediction plot from history: DEBUG: Reached the start of the MODIFIED load_scaling_params function!
+Traceback (most recent call last):
+  File "/Users/bekheet/dev/option-ml-prediction/src/utils/visualization_utils.py", line 92, in save_and_display_results
+    scaling_params = load_scaling_params(ticker, data_dir)
+  File "/Users/bekheet/dev/option-ml-prediction/src/utils/model_utils.py", line 417, in load_scaling_params
+    raise Exception("DEBUG: Reached the start of the MODIFIED load_scaling_params function!")
+Exception: DEBUG: Reached the start of the MODIFIED load_scaling_params function!
+2025-03-29 06:11:23,368 - INFO - Model training workflow completed successfully.
+2025-03-29 06:14:28,887 - INFO - Application terminated by user choice
+2025-03-29 06:14:28,887 - INFO - Application shutdown sequence finished.
+2025-03-29 06:14:33,123 - INFO - Starting Option Trading Model application
+2025-03-29 06:14:33,123 - INFO - Loading configuration...
+2025-03-29 06:14:33,143 - INFO - Running in local environment.
+2025-03-29 06:14:33,143 - INFO - Apple Silicon MPS detected. Setting batch size to 48
+2025-03-29 06:14:33,143 - INFO - Configuration loaded:
+2025-03-29 06:14:33,143 - INFO -   seq_len: 30
+2025-03-29 06:14:33,143 - INFO -   batch_size: 48
+2025-03-29 06:14:33,143 - INFO -   epochs: 20
+2025-03-29 06:14:33,143 - INFO -   lr: 0.001
+2025-03-29 06:14:33,143 - INFO -   hidden_size_lstm: 64
+2025-03-29 06:14:33,143 - INFO -   hidden_size_gru: 64
+2025-03-29 06:14:33,144 - INFO -   num_layers: 2
+2025-03-29 06:14:33,144 - INFO -   ticker: None
+2025-03-29 06:14:33,144 - INFO -   target_cols: ['bid', 'ask']
+2025-03-29 06:14:33,144 - INFO -   device: mps
+2025-03-29 06:14:33,144 - INFO -   data_dir: /Users/bekheet/dev/option-ml-prediction/data_files/split_data
+2025-03-29 06:14:33,144 - INFO -   models_dir: /Users/bekheet/dev/option-ml-prediction/models
+2025-03-29 06:14:33,144 - INFO -   performance_logs_dir: /Users/bekheet/dev/option-ml-prediction/performance_logs
+2025-03-29 06:14:33,144 - INFO -   viz_dir: /Users/bekheet/dev/option-ml-prediction/plots
+2025-03-29 06:14:33,144 - INFO - Using device: mps
+2025-03-29 06:14:33,144 - INFO - Checking data directory: /Users/bekheet/dev/option-ml-prediction/data_files/split_data
+2025-03-29 06:14:33,144 - INFO - Found 'by_ticker' subdirectory in /Users/bekheet/dev/option-ml-prediction/data_files/split_data
+2025-03-29 06:14:33,144 - INFO - Ensuring directory exists: /Users/bekheet/dev/option-ml-prediction/models (for models_dir)
+2025-03-29 06:14:33,144 - INFO - Ensuring directory exists: /Users/bekheet/dev/option-ml-prediction/performance_logs (for performance_logs_dir)
+2025-03-29 06:14:33,144 - INFO - Ensuring directory exists: /Users/bekheet/dev/option-ml-prediction/plots (for viz_dir)
+2025-03-29 06:14:33,144 - INFO - Validated and ensured necessary directories exist.
+2025-03-29 06:14:34,873 - INFO - Starting model training workflow...
+2025-03-29 06:14:36,137 - INFO - Performance tracking enabled: True
+2025-03-29 06:14:36,343 - INFO - Include Option Greeks features: True
+2025-03-29 06:14:36,595 - INFO - Include Rolling Window features: True
+2025-03-29 06:14:37,130 - INFO - Include Cyclical Date Features: True
+2025-03-29 06:14:38,265 - INFO - Selected architecture: LSTM-GRU
+2025-03-29 06:14:40,118 - INFO - Number of epochs set to: 3
+2025-03-29 06:14:41,617 - INFO - Selected ticker for training: TU
+2025-03-29 06:14:41,618 - INFO - Initializing dataset for TU, Greeks=True, Rolling=True, Cyclical=True...
+2025-03-29 06:14:41,618 - INFO - Initializing StockOptionDataset for ticker: TU
+2025-03-29 06:14:41,618 - INFO - Attempting to load data from Colab path: /Users/bekheet/dev/option-ml-prediction/data_files/split_data/by_ticker/TU_normalized.csv
+2025-03-29 06:14:41,618 - INFO - Sequence length: 30, Target columns: ['bid', 'ask']
+2025-03-29 06:14:41,618 - INFO - Include Greeks: True
+2025-03-29 06:14:41,618 - INFO - Include Rolling Features: True
+2025-03-29 06:14:41,618 - INFO - Include Cyclical Date Features: True
+2025-03-29 06:14:41,656 - INFO - Starting rolling window feature computation...
+2025-03-29 06:14:41,678 - INFO - Generated 108 rolling features.
+2025-03-29 06:14:41,678 - INFO - Including 108 rolling features.
+2025-03-29 06:14:41,678 - INFO - Including 5 Greek features: ['delta', 'gamma', 'vega', 'theta', 'rho']
+2025-03-29 06:14:41,678 - INFO - Including 6 cyclical date features.
+2025-03-29 06:14:41,684 - INFO - Dropped 917 rows (14.31%) due to NaNs in needed columns.
+2025-03-29 06:14:41,686 - INFO - Dataset created for TU: Features=139, Targets=2, Samples=5491, MaxIdx=5460
+2025-03-29 06:14:41,686 - INFO - Final features used (139): ['change', 'change_mean_10d', 'change_mean_3d', 'change_mean_5d', 'change_std_10d', 'change_std_3d', 'change_std_5d', 'day_of_month_cos', 'day_of_month_sin', 'day_of_week_cos', 'day_of_week_sin', 'day_of_year_cos', 'day_of_year_sin', 'daysToExpiry', 'delta', 'gamma', 'impliedVolatility', 'impliedVolatility_mean_10d', 'impliedVolatility_mean_3d', 'impliedVolatility_mean_5d', 'impliedVolatility_std_10d', 'impliedVolatility_std_3d', 'impliedVolatility_std_5d', 'lastPrice', 'lastPrice_mean_10d', 'lastPrice_mean_3d', 'lastPrice_mean_5d', 'lastPrice_std_10d', 'lastPrice_std_3d', 'lastPrice_std_5d', 'openInterest', 'openInterest_mean_10d', 'openInterest_mean_3d', 'openInterest_mean_5d', 'openInterest_std_10d', 'openInterest_std_3d', 'openInterest_std_5d', 'percentChange', 'percentChange_mean_10d', 'percentChange_mean_3d', 'percentChange_mean_5d', 'percentChange_std_10d', 'percentChange_std_3d', 'percentChange_std_5d', 'rho', 'risk_free_rate', 'stockAdjClose', 'stockAdjClose_mean_10d', 'stockAdjClose_mean_3d', 'stockAdjClose_mean_5d', 'stockAdjClose_std_10d', 'stockAdjClose_std_3d', 'stockAdjClose_std_5d', 'stockClose', 'stockClose_ewm_135d', 'stockClose_ewm_135d_mean_10d', 'stockClose_ewm_135d_mean_3d', 'stockClose_ewm_135d_mean_5d', 'stockClose_ewm_135d_std_10d', 'stockClose_ewm_135d_std_3d', 'stockClose_ewm_135d_std_5d', 'stockClose_ewm_15d', 'stockClose_ewm_15d_mean_10d', 'stockClose_ewm_15d_mean_3d', 'stockClose_ewm_15d_mean_5d', 'stockClose_ewm_15d_std_10d', 'stockClose_ewm_15d_std_3d', 'stockClose_ewm_15d_std_5d', 'stockClose_ewm_45d', 'stockClose_ewm_45d_mean_10d', 'stockClose_ewm_45d_mean_3d', 'stockClose_ewm_45d_mean_5d', 'stockClose_ewm_45d_std_10d', 'stockClose_ewm_45d_std_3d', 'stockClose_ewm_45d_std_5d', 'stockClose_ewm_5d', 'stockClose_ewm_5d_mean_10d', 'stockClose_ewm_5d_mean_3d', 'stockClose_ewm_5d_mean_5d', 'stockClose_ewm_5d_std_10d', 'stockClose_ewm_5d_std_3d', 'stockClose_ewm_5d_std_5d', 'stockClose_mean_10d', 'stockClose_mean_3d', 'stockClose_mean_5d', 'stockClose_std_10d', 'stockClose_std_3d', 'stockClose_std_5d', 'stockHigh', 'stockHigh_mean_10d', 'stockHigh_mean_3d', 'stockHigh_mean_5d', 'stockHigh_std_10d', 'stockHigh_std_3d', 'stockHigh_std_5d', 'stockLow', 'stockLow_mean_10d', 'stockLow_mean_3d', 'stockLow_mean_5d', 'stockLow_std_10d', 'stockLow_std_3d', 'stockLow_std_5d', 'stockOpen', 'stockOpen_mean_10d', 'stockOpen_mean_3d', 'stockOpen_mean_5d', 'stockOpen_std_10d', 'stockOpen_std_3d', 'stockOpen_std_5d', 'stockVolume', 'stockVolume_mean_10d', 'stockVolume_mean_3d', 'stockVolume_mean_5d', 'stockVolume_std_10d', 'stockVolume_std_3d', 'stockVolume_std_5d', 'strike', 'strikeDelta', 'strikeDelta_mean_10d', 'strikeDelta_mean_3d', 'strikeDelta_mean_5d', 'strikeDelta_std_10d', 'strikeDelta_std_3d', 'strikeDelta_std_5d', 'strike_mean_10d', 'strike_mean_3d', 'strike_mean_5d', 'strike_std_10d', 'strike_std_3d', 'strike_std_5d', 'theta', 'vega', 'volume', 'volume_mean_10d', 'volume_mean_3d', 'volume_mean_5d', 'volume_std_10d', 'volume_std_3d', 'volume_std_5d']
+2025-03-29 06:14:41,686 - INFO - Number of features used: 139
+2025-03-29 06:14:41,687 - INFO - DataLoaders created: Train=4368, Val=546, Test=547 samples. Settings: workers=0, pin_mem=False
+2025-03-29 06:14:41,687 - INFO - Initializing LSTM-GRU (In:139, Out:2, H_LSTM:64, H_GRU:64, Layers:2) on mps
+2025-03-29 06:14:41,699 - INFO - Analyzing model architecture...
+2025-03-29 06:14:41,700 - INFO - Analyzing architecture on device: mps:0
+2025-03-29 06:14:41,827 - INFO - Model analysis complete: Total Params=138360
+2025-03-29 06:14:41,827 - INFO - Starting training with performance tracking...
+2025-03-29 06:14:41,827 - INFO - Initiating extended training with tracking for TU - LSTM-GRU
+2025-03-29 06:14:41,827 - INFO - Performance logs will be saved to: /Users/bekheet/dev/option-ml-prediction/performance_logs
+2025-03-29 06:14:41,827 - INFO - Performance log: /Users/bekheet/dev/option-ml-prediction/performance_logs/LSTM-GRU_TU_20250329_061441.txt
+2025-03-29 06:15:09,507 - INFO - Plotting ticker TU with 547 data points
+2025-03-29 06:15:10,359 - INFO - Time series plot saved to /Users/bekheet/dev/option-ml-prediction/performance_logs/plots/TU_timeseries_LSTM-GRU_20250329_061441.png
+2025-03-29 06:15:10,918 - INFO - 2D histogram for bid saved to /Users/bekheet/dev/option-ml-prediction/performance_logs/plots/TU_bid_2dhist_LSTM-GRU_20250329_061441.png
+2025-03-29 06:15:11,336 - INFO - 2D histogram for ask saved to /Users/bekheet/dev/option-ml-prediction/performance_logs/plots/TU_ask_2dhist_LSTM-GRU_20250329_061441.png
+2025-03-29 06:15:11,777 - INFO - Error distribution plot for bid saved to /Users/bekheet/dev/option-ml-prediction/performance_logs/plots/TU_bid_error_dist_LSTM-GRU_20250329_061441.png
+2025-03-29 06:15:12,214 - INFO - Error distribution plot for ask saved to /Users/bekheet/dev/option-ml-prediction/performance_logs/plots/TU_ask_error_dist_LSTM-GRU_20250329_061441.png
+2025-03-29 06:15:12,215 - INFO - Performance metrics saved to /Users/bekheet/dev/option-ml-prediction/performance_logs/LSTM-GRU_TU_20250329_061441.txt
+2025-03-29 06:15:12,215 - INFO - Extended training complete. Log: /Users/bekheet/dev/option-ml-prediction/performance_logs/LSTM-GRU_TU_20250329_061441.txt
+2025-03-29 06:15:12,215 - INFO - Saving model and results...
+2025-03-29 06:15:12,227 - INFO - Model saved to /Users/bekheet/dev/option-ml-prediction/models/HybridRNN_TU_target_bid-ask_20250329_061512.pth
+2025-03-29 06:15:12,605 - INFO - Training plot saved to /Users/bekheet/dev/option-ml-prediction/plots/training_plot_TU_bid-ask_20250329_061512.png
+2025-03-29 06:15:12,605 - INFO - Attempting to load scaling parameters from constructed path: /Users/bekheet/dev/option-ml-prediction/data_files/split_data/by_ticker/scaling_params/TU_scaling_params.json
+2025-03-29 06:15:12,606 - INFO - Successfully loaded and parsed scaling parameters for TU.
+2025-03-29 06:15:12,606 - INFO - Recovering original values for columns: ['bid', 'ask']
+2025-03-29 06:15:12,606 - INFO - Recovering original values for columns: ['bid', 'ask']
+2025-03-29 06:15:12,607 - INFO - Plotting ticker TU with 547 data points
+2025-03-29 06:15:13,348 - INFO - Time series plot saved to /Users/bekheet/dev/option-ml-prediction/plots/TU_timeseries_test_set_20250329_061512.png
+2025-03-29 06:15:13,776 - INFO - 2D histogram for bid saved to /Users/bekheet/dev/option-ml-prediction/plots/TU_bid_2dhist_test_set_20250329_061512.png
+2025-03-29 06:15:14,192 - INFO - 2D histogram for ask saved to /Users/bekheet/dev/option-ml-prediction/plots/TU_ask_2dhist_test_set_20250329_061512.png
+2025-03-29 06:15:14,640 - INFO - Error distribution plot for bid saved to /Users/bekheet/dev/option-ml-prediction/plots/TU_bid_error_dist_test_set_20250329_061512.png
+2025-03-29 06:15:15,081 - INFO - Error distribution plot for ask saved to /Users/bekheet/dev/option-ml-prediction/plots/TU_ask_error_dist_test_set_20250329_061512.png
+2025-03-29 06:15:15,082 - INFO - Model training workflow completed successfully.
+2025-03-29 06:15:32,335 - INFO - Starting model training workflow...
+2025-03-29 06:15:33,361 - INFO - Performance tracking enabled: True
+2025-03-29 06:15:33,579 - INFO - Include Option Greeks features: True
+2025-03-29 06:15:33,841 - INFO - Include Rolling Window features: True
+2025-03-29 06:15:34,164 - INFO - Include Cyclical Date Features: True
+2025-03-29 06:15:34,930 - INFO - Selected architecture: LSTM-GRU
+2025-03-29 06:15:35,528 - INFO - Number of epochs set to: 20
+2025-03-29 06:16:06,261 - INFO - Selected ticker for training: KSU
+2025-03-29 06:16:06,261 - INFO - Initializing dataset for KSU, Greeks=True, Rolling=True, Cyclical=True...
+2025-03-29 06:16:06,261 - INFO - Initializing StockOptionDataset for ticker: KSU
+2025-03-29 06:16:06,261 - INFO - Attempting to load data from Colab path: /Users/bekheet/dev/option-ml-prediction/data_files/split_data/by_ticker/KSU_normalized.csv
+2025-03-29 06:16:06,261 - INFO - Sequence length: 30, Target columns: ['bid', 'ask']
+2025-03-29 06:16:06,261 - INFO - Include Greeks: True
+2025-03-29 06:16:06,261 - INFO - Include Rolling Features: True
+2025-03-29 06:16:06,261 - INFO - Include Cyclical Date Features: True
+2025-03-29 06:16:06,264 - INFO - Starting rolling window feature computation...
+2025-03-29 06:16:06,270 - INFO - Generated 108 rolling features.
+2025-03-29 06:16:06,270 - INFO - Including 108 rolling features.
+2025-03-29 06:16:06,270 - INFO - Including 5 Greek features: ['delta', 'gamma', 'vega', 'theta', 'rho']
+2025-03-29 06:16:06,270 - INFO - Including 6 cyclical date features.
+2025-03-29 06:16:06,271 - INFO - Dropped 0 rows (0.00%) due to NaNs in needed columns.
+2025-03-29 06:16:06,271 - INFO - Dataset created for KSU: Features=139, Targets=2, Samples=89, MaxIdx=58
+2025-03-29 06:16:06,271 - INFO - Final features used (139): ['change', 'change_mean_10d', 'change_mean_3d', 'change_mean_5d', 'change_std_10d', 'change_std_3d', 'change_std_5d', 'day_of_month_cos', 'day_of_month_sin', 'day_of_week_cos', 'day_of_week_sin', 'day_of_year_cos', 'day_of_year_sin', 'daysToExpiry', 'delta', 'gamma', 'impliedVolatility', 'impliedVolatility_mean_10d', 'impliedVolatility_mean_3d', 'impliedVolatility_mean_5d', 'impliedVolatility_std_10d', 'impliedVolatility_std_3d', 'impliedVolatility_std_5d', 'lastPrice', 'lastPrice_mean_10d', 'lastPrice_mean_3d', 'lastPrice_mean_5d', 'lastPrice_std_10d', 'lastPrice_std_3d', 'lastPrice_std_5d', 'openInterest', 'openInterest_mean_10d', 'openInterest_mean_3d', 'openInterest_mean_5d', 'openInterest_std_10d', 'openInterest_std_3d', 'openInterest_std_5d', 'percentChange', 'percentChange_mean_10d', 'percentChange_mean_3d', 'percentChange_mean_5d', 'percentChange_std_10d', 'percentChange_std_3d', 'percentChange_std_5d', 'rho', 'risk_free_rate', 'stockAdjClose', 'stockAdjClose_mean_10d', 'stockAdjClose_mean_3d', 'stockAdjClose_mean_5d', 'stockAdjClose_std_10d', 'stockAdjClose_std_3d', 'stockAdjClose_std_5d', 'stockClose', 'stockClose_ewm_135d', 'stockClose_ewm_135d_mean_10d', 'stockClose_ewm_135d_mean_3d', 'stockClose_ewm_135d_mean_5d', 'stockClose_ewm_135d_std_10d', 'stockClose_ewm_135d_std_3d', 'stockClose_ewm_135d_std_5d', 'stockClose_ewm_15d', 'stockClose_ewm_15d_mean_10d', 'stockClose_ewm_15d_mean_3d', 'stockClose_ewm_15d_mean_5d', 'stockClose_ewm_15d_std_10d', 'stockClose_ewm_15d_std_3d', 'stockClose_ewm_15d_std_5d', 'stockClose_ewm_45d', 'stockClose_ewm_45d_mean_10d', 'stockClose_ewm_45d_mean_3d', 'stockClose_ewm_45d_mean_5d', 'stockClose_ewm_45d_std_10d', 'stockClose_ewm_45d_std_3d', 'stockClose_ewm_45d_std_5d', 'stockClose_ewm_5d', 'stockClose_ewm_5d_mean_10d', 'stockClose_ewm_5d_mean_3d', 'stockClose_ewm_5d_mean_5d', 'stockClose_ewm_5d_std_10d', 'stockClose_ewm_5d_std_3d', 'stockClose_ewm_5d_std_5d', 'stockClose_mean_10d', 'stockClose_mean_3d', 'stockClose_mean_5d', 'stockClose_std_10d', 'stockClose_std_3d', 'stockClose_std_5d', 'stockHigh', 'stockHigh_mean_10d', 'stockHigh_mean_3d', 'stockHigh_mean_5d', 'stockHigh_std_10d', 'stockHigh_std_3d', 'stockHigh_std_5d', 'stockLow', 'stockLow_mean_10d', 'stockLow_mean_3d', 'stockLow_mean_5d', 'stockLow_std_10d', 'stockLow_std_3d', 'stockLow_std_5d', 'stockOpen', 'stockOpen_mean_10d', 'stockOpen_mean_3d', 'stockOpen_mean_5d', 'stockOpen_std_10d', 'stockOpen_std_3d', 'stockOpen_std_5d', 'stockVolume', 'stockVolume_mean_10d', 'stockVolume_mean_3d', 'stockVolume_mean_5d', 'stockVolume_std_10d', 'stockVolume_std_3d', 'stockVolume_std_5d', 'strike', 'strikeDelta', 'strikeDelta_mean_10d', 'strikeDelta_mean_3d', 'strikeDelta_mean_5d', 'strikeDelta_std_10d', 'strikeDelta_std_3d', 'strikeDelta_std_5d', 'strike_mean_10d', 'strike_mean_3d', 'strike_mean_5d', 'strike_std_10d', 'strike_std_3d', 'strike_std_5d', 'theta', 'vega', 'volume', 'volume_mean_10d', 'volume_mean_3d', 'volume_mean_5d', 'volume_std_10d', 'volume_std_3d', 'volume_std_5d']
+2025-03-29 06:16:06,272 - INFO - Number of features used: 139
+2025-03-29 06:16:06,272 - INFO - DataLoaders created: Train=47, Val=5, Test=7 samples. Settings: workers=0, pin_mem=False
+2025-03-29 06:16:06,272 - INFO - Initializing LSTM-GRU (In:139, Out:2, H_LSTM:64, H_GRU:64, Layers:2) on mps
+2025-03-29 06:16:06,282 - INFO - Analyzing model architecture...
+2025-03-29 06:16:06,283 - INFO - Analyzing architecture on device: mps:0
+2025-03-29 06:16:06,312 - INFO - Model analysis complete: Total Params=138360
+2025-03-29 06:16:06,313 - INFO - Starting training with performance tracking...
+2025-03-29 06:16:06,313 - INFO - Initiating extended training with tracking for KSU - LSTM-GRU
+2025-03-29 06:16:06,313 - INFO - Performance logs will be saved to: /Users/bekheet/dev/option-ml-prediction/performance_logs
+2025-03-29 06:16:06,313 - INFO - Performance log: /Users/bekheet/dev/option-ml-prediction/performance_logs/LSTM-GRU_KSU_20250329_061606.txt
+2025-03-29 06:16:10,074 - INFO - Plotting ticker KSU with 7 data points
+2025-03-29 06:16:10,818 - INFO - Time series plot saved to /Users/bekheet/dev/option-ml-prediction/performance_logs/plots/KSU_timeseries_LSTM-GRU_20250329_061606.png
+2025-03-29 06:16:11,245 - INFO - 2D histogram for bid saved to /Users/bekheet/dev/option-ml-prediction/performance_logs/plots/KSU_bid_2dhist_LSTM-GRU_20250329_061606.png
+2025-03-29 06:16:11,673 - INFO - 2D histogram for ask saved to /Users/bekheet/dev/option-ml-prediction/performance_logs/plots/KSU_ask_2dhist_LSTM-GRU_20250329_061606.png
+2025-03-29 06:16:12,098 - INFO - Error distribution plot for bid saved to /Users/bekheet/dev/option-ml-prediction/performance_logs/plots/KSU_bid_error_dist_LSTM-GRU_20250329_061606.png
+2025-03-29 06:16:12,507 - INFO - Error distribution plot for ask saved to /Users/bekheet/dev/option-ml-prediction/performance_logs/plots/KSU_ask_error_dist_LSTM-GRU_20250329_061606.png
+2025-03-29 06:16:12,509 - INFO - Performance metrics saved to /Users/bekheet/dev/option-ml-prediction/performance_logs/LSTM-GRU_KSU_20250329_061606.txt
+2025-03-29 06:16:12,509 - INFO - Extended training complete. Log: /Users/bekheet/dev/option-ml-prediction/performance_logs/LSTM-GRU_KSU_20250329_061606.txt
+2025-03-29 06:16:12,509 - INFO - Saving model and results...
+2025-03-29 06:16:12,520 - INFO - Model saved to /Users/bekheet/dev/option-ml-prediction/models/HybridRNN_KSU_target_bid-ask_20250329_061612.pth
+2025-03-29 06:16:12,904 - INFO - Training plot saved to /Users/bekheet/dev/option-ml-prediction/plots/training_plot_KSU_bid-ask_20250329_061612.png
+2025-03-29 06:16:12,904 - INFO - Attempting to load scaling parameters from constructed path: /Users/bekheet/dev/option-ml-prediction/data_files/split_data/by_ticker/scaling_params/KSU_scaling_params.json
+2025-03-29 06:16:12,904 - INFO - Successfully loaded and parsed scaling parameters for KSU.
+2025-03-29 06:16:12,904 - INFO - Recovering original values for columns: ['bid', 'ask']
+2025-03-29 06:16:12,904 - INFO - Recovering original values for columns: ['bid', 'ask']
+2025-03-29 06:16:12,905 - INFO - Plotting ticker KSU with 7 data points
+2025-03-29 06:16:13,580 - INFO - Time series plot saved to /Users/bekheet/dev/option-ml-prediction/plots/KSU_timeseries_test_set_20250329_061612.png
+2025-03-29 06:16:14,002 - INFO - 2D histogram for bid saved to /Users/bekheet/dev/option-ml-prediction/plots/KSU_bid_2dhist_test_set_20250329_061612.png
+2025-03-29 06:16:14,432 - INFO - 2D histogram for ask saved to /Users/bekheet/dev/option-ml-prediction/plots/KSU_ask_2dhist_test_set_20250329_061612.png
+2025-03-29 06:16:14,855 - INFO - Error distribution plot for bid saved to /Users/bekheet/dev/option-ml-prediction/plots/KSU_bid_error_dist_test_set_20250329_061612.png
+2025-03-29 06:16:15,281 - INFO - Error distribution plot for ask saved to /Users/bekheet/dev/option-ml-prediction/plots/KSU_ask_error_dist_test_set_20250329_061612.png
+2025-03-29 06:16:15,282 - INFO - Model training workflow completed successfully.
+2025-03-29 06:16:26,599 - INFO - Starting model training workflow...
+2025-03-29 06:16:27,474 - INFO - Performance tracking enabled: True
+2025-03-29 06:16:27,689 - INFO - Include Option Greeks features: True
+2025-03-29 06:16:27,896 - INFO - Include Rolling Window features: True
+2025-03-29 06:16:28,083 - INFO - Include Cyclical Date Features: True
+2025-03-29 06:16:29,011 - INFO - Selected architecture: LSTM-GRU
+2025-03-29 06:16:31,306 - INFO - Number of epochs set to: 4
+2025-03-29 06:16:35,081 - INFO - Selected ticker for training: RCI
+2025-03-29 06:16:35,081 - INFO - Initializing dataset for RCI, Greeks=True, Rolling=True, Cyclical=True...
+2025-03-29 06:16:35,081 - INFO - Initializing StockOptionDataset for ticker: RCI
+2025-03-29 06:16:35,081 - INFO - Attempting to load data from Colab path: /Users/bekheet/dev/option-ml-prediction/data_files/split_data/by_ticker/RCI_normalized.csv
+2025-03-29 06:16:35,081 - INFO - Sequence length: 30, Target columns: ['bid', 'ask']
+2025-03-29 06:16:35,081 - INFO - Include Greeks: True
+2025-03-29 06:16:35,081 - INFO - Include Rolling Features: True
+2025-03-29 06:16:35,081 - INFO - Include Cyclical Date Features: True
+2025-03-29 06:16:35,109 - INFO - Starting rolling window feature computation...
+2025-03-29 06:16:35,128 - INFO - Generated 108 rolling features.
+2025-03-29 06:16:35,128 - INFO - Including 108 rolling features.
+2025-03-29 06:16:35,128 - INFO - Including 5 Greek features: ['delta', 'gamma', 'vega', 'theta', 'rho']
+2025-03-29 06:16:35,128 - INFO - Including 6 cyclical date features.
+2025-03-29 06:16:35,132 - INFO - Dropped 1910 rows (34.87%) due to NaNs in needed columns.
+2025-03-29 06:16:35,133 - INFO - Dataset created for RCI: Features=139, Targets=2, Samples=3567, MaxIdx=3536
+2025-03-29 06:16:35,133 - INFO - Final features used (139): ['change', 'change_mean_10d', 'change_mean_3d', 'change_mean_5d', 'change_std_10d', 'change_std_3d', 'change_std_5d', 'day_of_month_cos', 'day_of_month_sin', 'day_of_week_cos', 'day_of_week_sin', 'day_of_year_cos', 'day_of_year_sin', 'daysToExpiry', 'delta', 'gamma', 'impliedVolatility', 'impliedVolatility_mean_10d', 'impliedVolatility_mean_3d', 'impliedVolatility_mean_5d', 'impliedVolatility_std_10d', 'impliedVolatility_std_3d', 'impliedVolatility_std_5d', 'lastPrice', 'lastPrice_mean_10d', 'lastPrice_mean_3d', 'lastPrice_mean_5d', 'lastPrice_std_10d', 'lastPrice_std_3d', 'lastPrice_std_5d', 'openInterest', 'openInterest_mean_10d', 'openInterest_mean_3d', 'openInterest_mean_5d', 'openInterest_std_10d', 'openInterest_std_3d', 'openInterest_std_5d', 'percentChange', 'percentChange_mean_10d', 'percentChange_mean_3d', 'percentChange_mean_5d', 'percentChange_std_10d', 'percentChange_std_3d', 'percentChange_std_5d', 'rho', 'risk_free_rate', 'stockAdjClose', 'stockAdjClose_mean_10d', 'stockAdjClose_mean_3d', 'stockAdjClose_mean_5d', 'stockAdjClose_std_10d', 'stockAdjClose_std_3d', 'stockAdjClose_std_5d', 'stockClose', 'stockClose_ewm_135d', 'stockClose_ewm_135d_mean_10d', 'stockClose_ewm_135d_mean_3d', 'stockClose_ewm_135d_mean_5d', 'stockClose_ewm_135d_std_10d', 'stockClose_ewm_135d_std_3d', 'stockClose_ewm_135d_std_5d', 'stockClose_ewm_15d', 'stockClose_ewm_15d_mean_10d', 'stockClose_ewm_15d_mean_3d', 'stockClose_ewm_15d_mean_5d', 'stockClose_ewm_15d_std_10d', 'stockClose_ewm_15d_std_3d', 'stockClose_ewm_15d_std_5d', 'stockClose_ewm_45d', 'stockClose_ewm_45d_mean_10d', 'stockClose_ewm_45d_mean_3d', 'stockClose_ewm_45d_mean_5d', 'stockClose_ewm_45d_std_10d', 'stockClose_ewm_45d_std_3d', 'stockClose_ewm_45d_std_5d', 'stockClose_ewm_5d', 'stockClose_ewm_5d_mean_10d', 'stockClose_ewm_5d_mean_3d', 'stockClose_ewm_5d_mean_5d', 'stockClose_ewm_5d_std_10d', 'stockClose_ewm_5d_std_3d', 'stockClose_ewm_5d_std_5d', 'stockClose_mean_10d', 'stockClose_mean_3d', 'stockClose_mean_5d', 'stockClose_std_10d', 'stockClose_std_3d', 'stockClose_std_5d', 'stockHigh', 'stockHigh_mean_10d', 'stockHigh_mean_3d', 'stockHigh_mean_5d', 'stockHigh_std_10d', 'stockHigh_std_3d', 'stockHigh_std_5d', 'stockLow', 'stockLow_mean_10d', 'stockLow_mean_3d', 'stockLow_mean_5d', 'stockLow_std_10d', 'stockLow_std_3d', 'stockLow_std_5d', 'stockOpen', 'stockOpen_mean_10d', 'stockOpen_mean_3d', 'stockOpen_mean_5d', 'stockOpen_std_10d', 'stockOpen_std_3d', 'stockOpen_std_5d', 'stockVolume', 'stockVolume_mean_10d', 'stockVolume_mean_3d', 'stockVolume_mean_5d', 'stockVolume_std_10d', 'stockVolume_std_3d', 'stockVolume_std_5d', 'strike', 'strikeDelta', 'strikeDelta_mean_10d', 'strikeDelta_mean_3d', 'strikeDelta_mean_5d', 'strikeDelta_std_10d', 'strikeDelta_std_3d', 'strikeDelta_std_5d', 'strike_mean_10d', 'strike_mean_3d', 'strike_mean_5d', 'strike_std_10d', 'strike_std_3d', 'strike_std_5d', 'theta', 'vega', 'volume', 'volume_mean_10d', 'volume_mean_3d', 'volume_mean_5d', 'volume_std_10d', 'volume_std_3d', 'volume_std_5d']
+2025-03-29 06:16:35,134 - INFO - Number of features used: 139
+2025-03-29 06:16:35,134 - INFO - DataLoaders created: Train=2829, Val=353, Test=355 samples. Settings: workers=0, pin_mem=False
+2025-03-29 06:16:35,134 - INFO - Initializing LSTM-GRU (In:139, Out:2, H_LSTM:64, H_GRU:64, Layers:2) on mps
+2025-03-29 06:16:35,144 - INFO - Analyzing model architecture...
+2025-03-29 06:16:35,144 - INFO - Analyzing architecture on device: mps:0
+2025-03-29 06:16:35,174 - INFO - Model analysis complete: Total Params=138360
+2025-03-29 06:16:35,174 - INFO - Starting training with performance tracking...
+2025-03-29 06:16:35,174 - INFO - Initiating extended training with tracking for RCI - LSTM-GRU
+2025-03-29 06:16:35,174 - INFO - Performance logs will be saved to: /Users/bekheet/dev/option-ml-prediction/performance_logs
+2025-03-29 06:16:35,174 - INFO - Performance log: /Users/bekheet/dev/option-ml-prediction/performance_logs/LSTM-GRU_RCI_20250329_061635.txt
+2025-03-29 06:16:59,504 - INFO - Plotting ticker RCI with 355 data points
+2025-03-29 06:17:00,404 - INFO - Time series plot saved to /Users/bekheet/dev/option-ml-prediction/performance_logs/plots/RCI_timeseries_LSTM-GRU_20250329_061635.png
+2025-03-29 06:17:00,813 - INFO - 2D histogram for bid saved to /Users/bekheet/dev/option-ml-prediction/performance_logs/plots/RCI_bid_2dhist_LSTM-GRU_20250329_061635.png
+2025-03-29 06:17:01,220 - INFO - 2D histogram for ask saved to /Users/bekheet/dev/option-ml-prediction/performance_logs/plots/RCI_ask_2dhist_LSTM-GRU_20250329_061635.png
+2025-03-29 06:17:01,667 - INFO - Error distribution plot for bid saved to /Users/bekheet/dev/option-ml-prediction/performance_logs/plots/RCI_bid_error_dist_LSTM-GRU_20250329_061635.png
+2025-03-29 06:17:02,114 - INFO - Error distribution plot for ask saved to /Users/bekheet/dev/option-ml-prediction/performance_logs/plots/RCI_ask_error_dist_LSTM-GRU_20250329_061635.png
+2025-03-29 06:17:02,116 - INFO - Performance metrics saved to /Users/bekheet/dev/option-ml-prediction/performance_logs/LSTM-GRU_RCI_20250329_061635.txt
+2025-03-29 06:17:02,116 - INFO - Extended training complete. Log: /Users/bekheet/dev/option-ml-prediction/performance_logs/LSTM-GRU_RCI_20250329_061635.txt
+2025-03-29 06:17:02,116 - INFO - Saving model and results...
+2025-03-29 06:17:02,127 - INFO - Model saved to /Users/bekheet/dev/option-ml-prediction/models/HybridRNN_RCI_target_bid-ask_20250329_061702.pth
+2025-03-29 06:17:02,503 - INFO - Training plot saved to /Users/bekheet/dev/option-ml-prediction/plots/training_plot_RCI_bid-ask_20250329_061702.png
+2025-03-29 06:17:02,503 - INFO - Attempting to load scaling parameters from constructed path: /Users/bekheet/dev/option-ml-prediction/data_files/split_data/by_ticker/scaling_params/RCI_scaling_params.json
+2025-03-29 06:17:02,504 - INFO - Successfully loaded and parsed scaling parameters for RCI.
+2025-03-29 06:17:02,504 - INFO - Recovering original values for columns: ['bid', 'ask']
+2025-03-29 06:17:02,504 - INFO - Recovering original values for columns: ['bid', 'ask']
+2025-03-29 06:17:02,504 - INFO - Plotting ticker RCI with 355 data points
+2025-03-29 06:17:03,318 - INFO - Time series plot saved to /Users/bekheet/dev/option-ml-prediction/plots/RCI_timeseries_test_set_20250329_061702.png
+2025-03-29 06:17:03,738 - INFO - 2D histogram for bid saved to /Users/bekheet/dev/option-ml-prediction/plots/RCI_bid_2dhist_test_set_20250329_061702.png
+2025-03-29 06:17:04,152 - INFO - 2D histogram for ask saved to /Users/bekheet/dev/option-ml-prediction/plots/RCI_ask_2dhist_test_set_20250329_061702.png
+2025-03-29 06:17:04,591 - INFO - Error distribution plot for bid saved to /Users/bekheet/dev/option-ml-prediction/plots/RCI_bid_error_dist_test_set_20250329_061702.png
+2025-03-29 06:17:05,129 - INFO - Error distribution plot for ask saved to /Users/bekheet/dev/option-ml-prediction/plots/RCI_ask_error_dist_test_set_20250329_061702.png
+2025-03-29 06:17:05,130 - INFO - Model training workflow completed successfully.
+2025-03-29 06:24:31,279 - INFO - Application terminated by user choice
+2025-03-29 06:24:31,279 - INFO - Application shutdown sequence finished.
+2025-03-29 06:24:35,719 - INFO - Starting Option Trading Model application
+2025-03-29 06:24:35,719 - INFO - Loading configuration...
+2025-03-29 06:24:35,741 - INFO - Running in local environment.
+2025-03-29 06:24:35,742 - INFO - Apple Silicon MPS detected. Setting batch size to 48
+2025-03-29 06:24:35,742 - INFO - Configuration loaded:
+2025-03-29 06:24:35,742 - INFO -   seq_len: 30
+2025-03-29 06:24:35,742 - INFO -   batch_size: 48
+2025-03-29 06:24:35,742 - INFO -   epochs: 20
+2025-03-29 06:24:35,742 - INFO -   lr: 0.001
+2025-03-29 06:24:35,742 - INFO -   hidden_size_lstm: 64
+2025-03-29 06:24:35,742 - INFO -   hidden_size_gru: 64
+2025-03-29 06:24:35,742 - INFO -   num_layers: 2
+2025-03-29 06:24:35,742 - INFO -   ticker: None
+2025-03-29 06:24:35,742 - INFO -   target_cols: ['bid', 'ask']
+2025-03-29 06:24:35,742 - INFO -   device: mps
+2025-03-29 06:24:35,742 - INFO -   data_dir: /Users/bekheet/dev/option-ml-prediction/data_files/split_data
+2025-03-29 06:24:35,742 - INFO -   models_dir: /Users/bekheet/dev/option-ml-prediction/models
+2025-03-29 06:24:35,742 - INFO -   performance_logs_dir: /Users/bekheet/dev/option-ml-prediction/performance_logs
+2025-03-29 06:24:35,742 - INFO -   viz_dir: /Users/bekheet/dev/option-ml-prediction/plots
+2025-03-29 06:24:35,742 - INFO - Using device: mps
+2025-03-29 06:24:35,742 - INFO - Checking data directory: /Users/bekheet/dev/option-ml-prediction/data_files/split_data
+2025-03-29 06:24:35,742 - INFO - Found 'by_ticker' subdirectory in /Users/bekheet/dev/option-ml-prediction/data_files/split_data
+2025-03-29 06:24:35,742 - INFO - Ensuring directory exists: /Users/bekheet/dev/option-ml-prediction/models (for models_dir)
+2025-03-29 06:24:35,742 - INFO - Ensuring directory exists: /Users/bekheet/dev/option-ml-prediction/performance_logs (for performance_logs_dir)
+2025-03-29 06:24:35,742 - INFO - Ensuring directory exists: /Users/bekheet/dev/option-ml-prediction/plots (for viz_dir)
+2025-03-29 06:24:35,742 - INFO - Validated and ensured necessary directories exist.
+2025-03-29 06:24:40,755 - INFO - Starting model training workflow...
+2025-03-29 06:24:41,856 - INFO - Performance tracking enabled: True
+2025-03-29 06:24:42,025 - INFO - Include Option Greeks features: True
+2025-03-29 06:24:42,190 - INFO - Include Rolling Window features: True
+2025-03-29 06:24:42,726 - INFO - Include Cyclical Date Features: True
+2025-03-29 06:24:44,561 - INFO - Selected architecture: LSTM-GRU
+2025-03-29 06:24:46,359 - INFO - Number of epochs set to: 4
+2025-03-29 06:24:50,371 - INFO - Selected ticker for training: TU
+2025-03-29 06:24:50,372 - INFO - Initializing dataset for TU, Greeks=True, Rolling=True, Cyclical=True...
+2025-03-29 06:24:50,372 - INFO - Initializing StockOptionDataset for ticker: TU
+2025-03-29 06:24:50,372 - INFO - Attempting to load data from Colab path: /Users/bekheet/dev/option-ml-prediction/data_files/split_data/by_ticker/TU_normalized.csv
+2025-03-29 06:24:50,372 - INFO - Sequence length: 30, Target columns: ['bid', 'ask']
+2025-03-29 06:24:50,372 - INFO - Include Greeks: True
+2025-03-29 06:24:50,372 - INFO - Include Rolling Features: True
+2025-03-29 06:24:50,372 - INFO - Include Cyclical Date Features: True
+2025-03-29 06:24:50,407 - INFO - Starting rolling window feature computation...
+2025-03-29 06:24:50,430 - INFO - Generated 108 rolling features.
+2025-03-29 06:24:50,430 - INFO - Including 108 rolling features.
+2025-03-29 06:24:50,430 - INFO - Including 5 Greek features: ['delta', 'gamma', 'vega', 'theta', 'rho']
+2025-03-29 06:24:50,430 - INFO - Including 6 cyclical date features.
+2025-03-29 06:24:50,436 - INFO - Dropped 917 rows (14.31%) due to NaNs in needed columns.
+2025-03-29 06:24:50,438 - INFO - Dataset created for TU: Features=139, Targets=2, Samples=5491, MaxIdx=5460
+2025-03-29 06:24:50,438 - INFO - Final features used (139): ['change', 'change_mean_10d', 'change_mean_3d', 'change_mean_5d', 'change_std_10d', 'change_std_3d', 'change_std_5d', 'day_of_month_cos', 'day_of_month_sin', 'day_of_week_cos', 'day_of_week_sin', 'day_of_year_cos', 'day_of_year_sin', 'daysToExpiry', 'delta', 'gamma', 'impliedVolatility', 'impliedVolatility_mean_10d', 'impliedVolatility_mean_3d', 'impliedVolatility_mean_5d', 'impliedVolatility_std_10d', 'impliedVolatility_std_3d', 'impliedVolatility_std_5d', 'lastPrice', 'lastPrice_mean_10d', 'lastPrice_mean_3d', 'lastPrice_mean_5d', 'lastPrice_std_10d', 'lastPrice_std_3d', 'lastPrice_std_5d', 'openInterest', 'openInterest_mean_10d', 'openInterest_mean_3d', 'openInterest_mean_5d', 'openInterest_std_10d', 'openInterest_std_3d', 'openInterest_std_5d', 'percentChange', 'percentChange_mean_10d', 'percentChange_mean_3d', 'percentChange_mean_5d', 'percentChange_std_10d', 'percentChange_std_3d', 'percentChange_std_5d', 'rho', 'risk_free_rate', 'stockAdjClose', 'stockAdjClose_mean_10d', 'stockAdjClose_mean_3d', 'stockAdjClose_mean_5d', 'stockAdjClose_std_10d', 'stockAdjClose_std_3d', 'stockAdjClose_std_5d', 'stockClose', 'stockClose_ewm_135d', 'stockClose_ewm_135d_mean_10d', 'stockClose_ewm_135d_mean_3d', 'stockClose_ewm_135d_mean_5d', 'stockClose_ewm_135d_std_10d', 'stockClose_ewm_135d_std_3d', 'stockClose_ewm_135d_std_5d', 'stockClose_ewm_15d', 'stockClose_ewm_15d_mean_10d', 'stockClose_ewm_15d_mean_3d', 'stockClose_ewm_15d_mean_5d', 'stockClose_ewm_15d_std_10d', 'stockClose_ewm_15d_std_3d', 'stockClose_ewm_15d_std_5d', 'stockClose_ewm_45d', 'stockClose_ewm_45d_mean_10d', 'stockClose_ewm_45d_mean_3d', 'stockClose_ewm_45d_mean_5d', 'stockClose_ewm_45d_std_10d', 'stockClose_ewm_45d_std_3d', 'stockClose_ewm_45d_std_5d', 'stockClose_ewm_5d', 'stockClose_ewm_5d_mean_10d', 'stockClose_ewm_5d_mean_3d', 'stockClose_ewm_5d_mean_5d', 'stockClose_ewm_5d_std_10d', 'stockClose_ewm_5d_std_3d', 'stockClose_ewm_5d_std_5d', 'stockClose_mean_10d', 'stockClose_mean_3d', 'stockClose_mean_5d', 'stockClose_std_10d', 'stockClose_std_3d', 'stockClose_std_5d', 'stockHigh', 'stockHigh_mean_10d', 'stockHigh_mean_3d', 'stockHigh_mean_5d', 'stockHigh_std_10d', 'stockHigh_std_3d', 'stockHigh_std_5d', 'stockLow', 'stockLow_mean_10d', 'stockLow_mean_3d', 'stockLow_mean_5d', 'stockLow_std_10d', 'stockLow_std_3d', 'stockLow_std_5d', 'stockOpen', 'stockOpen_mean_10d', 'stockOpen_mean_3d', 'stockOpen_mean_5d', 'stockOpen_std_10d', 'stockOpen_std_3d', 'stockOpen_std_5d', 'stockVolume', 'stockVolume_mean_10d', 'stockVolume_mean_3d', 'stockVolume_mean_5d', 'stockVolume_std_10d', 'stockVolume_std_3d', 'stockVolume_std_5d', 'strike', 'strikeDelta', 'strikeDelta_mean_10d', 'strikeDelta_mean_3d', 'strikeDelta_mean_5d', 'strikeDelta_std_10d', 'strikeDelta_std_3d', 'strikeDelta_std_5d', 'strike_mean_10d', 'strike_mean_3d', 'strike_mean_5d', 'strike_std_10d', 'strike_std_3d', 'strike_std_5d', 'theta', 'vega', 'volume', 'volume_mean_10d', 'volume_mean_3d', 'volume_mean_5d', 'volume_std_10d', 'volume_std_3d', 'volume_std_5d']
+2025-03-29 06:24:50,439 - INFO - Number of features used: 139
+2025-03-29 06:24:50,439 - INFO - DataLoaders created: Train=4368, Val=546, Test=547 samples. Settings: workers=0, pin_mem=False
+2025-03-29 06:24:50,439 - INFO - Initializing LSTM-GRU (In:139, Out:2, H_LSTM:64, H_GRU:64, Layers:2) on mps
+2025-03-29 06:24:50,453 - INFO - Analyzing model architecture...
+2025-03-29 06:24:50,454 - INFO - Analyzing architecture on device: mps:0
+2025-03-29 06:24:50,584 - INFO - Model analysis complete: Total Params=138360
+2025-03-29 06:24:50,584 - INFO - Starting training with performance tracking...
+2025-03-29 06:24:50,584 - INFO - Initiating extended training with tracking for TU - LSTM-GRU
+2025-03-29 06:24:50,584 - INFO - Performance logs will be saved to: /Users/bekheet/dev/option-ml-prediction/performance_logs
+2025-03-29 06:24:50,584 - INFO - Performance log: /Users/bekheet/dev/option-ml-prediction/performance_logs/LSTM-GRU_TU_20250329_062450.txt
+2025-03-29 06:25:26,445 - INFO - Plotting ticker TU with 547 data points
+2025-03-29 06:25:27,305 - INFO - Time series plot saved to /Users/bekheet/dev/option-ml-prediction/performance_logs/plots/TU_timeseries_LSTM-GRU_20250329_062450.png
+2025-03-29 06:25:27,882 - INFO - 2D histogram for bid saved to /Users/bekheet/dev/option-ml-prediction/performance_logs/plots/TU_bid_2dhist_LSTM-GRU_20250329_062450.png
+2025-03-29 06:25:28,304 - INFO - 2D histogram for ask saved to /Users/bekheet/dev/option-ml-prediction/performance_logs/plots/TU_ask_2dhist_LSTM-GRU_20250329_062450.png
+2025-03-29 06:25:28,737 - INFO - Error distribution plot for bid saved to /Users/bekheet/dev/option-ml-prediction/performance_logs/plots/TU_bid_error_dist_LSTM-GRU_20250329_062450.png
+2025-03-29 06:25:29,175 - INFO - Error distribution plot for ask saved to /Users/bekheet/dev/option-ml-prediction/performance_logs/plots/TU_ask_error_dist_LSTM-GRU_20250329_062450.png
+2025-03-29 06:25:29,176 - INFO - Performance metrics saved to /Users/bekheet/dev/option-ml-prediction/performance_logs/LSTM-GRU_TU_20250329_062450.txt
+2025-03-29 06:25:29,177 - INFO - Extended training complete. Log: /Users/bekheet/dev/option-ml-prediction/performance_logs/LSTM-GRU_TU_20250329_062450.txt
+2025-03-29 06:25:29,177 - INFO - Saving model and results...
+2025-03-29 06:25:29,188 - INFO - Model saved to /Users/bekheet/dev/option-ml-prediction/models/HybridRNN_TU_target_bid-ask_20250329_062529.pth
+2025-03-29 06:25:29,555 - INFO - Training plot saved to /Users/bekheet/dev/option-ml-prediction/plots/training_plot_TU_bid-ask_20250329_062529.png
+2025-03-29 06:25:29,555 - INFO - Attempting to load scaling parameters from constructed path: /Users/bekheet/dev/option-ml-prediction/data_files/split_data/by_ticker/scaling_params/TU_scaling_params.json
+2025-03-29 06:25:29,555 - INFO - Successfully loaded and parsed scaling parameters for TU.
+2025-03-29 06:25:29,555 - INFO - Recovering original values for columns: ['bid', 'ask']
+2025-03-29 06:25:29,555 - INFO - Recovering original values for columns: ['bid', 'ask']
+2025-03-29 06:25:29,556 - INFO - Plotting ticker TU with 547 data points
+2025-03-29 06:25:30,299 - INFO - Time series plot saved to /Users/bekheet/dev/option-ml-prediction/plots/TU_timeseries_test_set_20250329_062529.png
+2025-03-29 06:25:30,728 - INFO - 2D histogram for bid saved to /Users/bekheet/dev/option-ml-prediction/plots/TU_bid_2dhist_test_set_20250329_062529.png
+2025-03-29 06:25:31,142 - INFO - 2D histogram for ask saved to /Users/bekheet/dev/option-ml-prediction/plots/TU_ask_2dhist_test_set_20250329_062529.png
+2025-03-29 06:25:31,579 - INFO - Error distribution plot for bid saved to /Users/bekheet/dev/option-ml-prediction/plots/TU_bid_error_dist_test_set_20250329_062529.png
+2025-03-29 06:25:32,019 - INFO - Error distribution plot for ask saved to /Users/bekheet/dev/option-ml-prediction/plots/TU_ask_error_dist_test_set_20250329_062529.png
+2025-03-29 06:25:32,020 - INFO - Model training workflow completed successfully.

@@ -16,7 +16,6 @@ from torch.utils.data import DataLoader
 from torch.utils.data.dataset import Subset
 from tqdm import tqdm
 
-from utils.visualization_utils import plot_predictions
 
 
 class EarlyStopping:
@@ -412,26 +411,28 @@ def load_scaling_params(ticker: str, data_dir: str) -> Optional[Dict[str, Dict[s
     """
     Load the scaling parameters (mean, scale/std) for a specific ticker.
     Looks for the file in the 'by_ticker/scaling_params' subdirectory.
-
-    Args:
-        ticker (str): The ticker symbol.
-        data_dir (str): The base data directory (e.g., 'data_files/split_data').
-
-    Returns:
-        Optional[Dict[str, Dict[str, float]]]: Dictionary of scaling parameters or None if not found.
+    Includes enhanced debugging.
     """
     params_path = os.path.join(data_dir, 'by_ticker', 'scaling_params', f"{ticker}_scaling_params.json")
-    logging.info(f"Attempting to load scaling parameters from: {params_path}")
-    if not os.path.exists(params_path):
-        logging.error(f"Scaling parameters file not found: {params_path}")
+    logging.info(f"Attempting to load scaling parameters from constructed path: {params_path}")
+
+    file_exists = os.path.exists(params_path)
+
+    if not file_exists:
+        logging.error(f"Scaling parameters file not found (os.path.exists returned False): {params_path}")
         return None
     try:
         with open(params_path, 'r') as f:
             scaling_params = json.load(f)
-        logging.info(f"Successfully loaded scaling parameters for {ticker}.")
+        logging.info(f"Successfully loaded and parsed scaling parameters for {ticker}.")
         return scaling_params
+    except json.JSONDecodeError as json_err:
+        logging.error(f"Error decoding JSON from file {params_path}: {json_err}", exc_info=True) # Log JSON errors specifically
+        print(f"ERROR: Failed to decode JSON from {params_path}: {json_err}") # Print JSON error
+        return None
     except Exception as e:
-        logging.error(f"Error loading or parsing scaling parameters file {params_path}: {e}")
+        logging.error(f"Error loading or parsing scaling parameters file {params_path}: {e}", exc_info=True) # Log other errors
+        print(f"ERROR: Failed to load/parse {params_path}: {e}") # Print other errors
         return None
 
 def recover_original_values(
@@ -750,6 +751,7 @@ def run_existing_model_with_visualization(
         print("\nGenerating visualizations...")
         try:
             # Pass the ORIGINAL SCALE data and metrics to the plotting function
+            from utils.visualization_utils import plot_predictions
             viz_files = plot_predictions(
                 y_true=y_true_orig, # Pass un-normalized
                 y_pred=y_pred_orig, # Pass un-normalized
@@ -941,19 +943,25 @@ def handle_train_model(config, HybridRNNModel, GRUGRUModel, LSTMLSTMModel,
         # --- Save Results ---
         if history:
             logging.info("Saving model and results...")
-            from .visualization_utils import save_and_display_results # Ensure imported
-            # Pass feature flags to save_and_display_results if needed for filename or plots
+            # Import necessary functions if not already imported at the top
+            from .visualization_utils import save_and_display_results
+            from .model_utils import load_scaling_params, recover_original_values # Add these imports
+
+            # Pass the data_dir from the config
             save_and_display_results(
                 model=model, history=history, analysis=model_analysis,
                 ticker=ticker, target_cols=config['target_cols'],
-                models_dir=str(models_dir), plots_dir=str(viz_dir),
+                models_dir=str(models_dir), # Pass path as string
+                plots_dir=str(viz_dir),      # Pass path as string
+                data_dir=str(data_dir)       # <-- ADD THIS ARGUMENT
                 # Optional: Pass flags if needed by saving function
                 # include_greeks=include_greeks_flag,
                 # include_rolling=include_rolling_flag,
                 # include_cyclical=include_cyclical_flag
             )
             logging.info("Model training workflow completed successfully.")
-        else: logging.warning("Training did not produce history results. Skipping save.")
+        else:
+            logging.warning("Training did not produce history results. Skipping save.")
 
     # --- Error Handling (remains the same) ---
     except FileNotFoundError as e: logging.error(f"File/Dir not found: {e}"); print(f"\nError: File not found: {e}")

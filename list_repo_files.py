@@ -18,17 +18,19 @@ def get_human_readable_size(size_bytes):
 def list_directory_contents(start_path, ignore_dirs=None, ignore_ext=None):
     """
     Recursively lists directory contents with sizes and paths.
-
+    
     Args:
         start_path (str): The root directory to start listing from.
         ignore_dirs (list): List of directory names to ignore.
         ignore_ext (list): List of file extensions to ignore.
     """
+    # Add "models" to ignore_dirs to skip that folder
     if ignore_dirs is None:
-        ignore_dirs = ['.git', '__pycache__', '.ipynb_checkpoints', 'venv', 'env']
+        ignore_dirs = ['.git', '__pycache__', '.ipynb_checkpoints', 'venv', 'env', 'models']
+    # Add .txt and .png to ignore_ext to skip these files
     if ignore_ext is None:
-        ignore_ext = ['.pyc', '.log', '.DS_Store'] # Add other extensions if needed
-
+        ignore_ext = ['.pyc', '.log', '.DS_Store', '.txt', '.png']
+    
     print(f"Directory Outline for: {Path(start_path).resolve()}")
     print("-" * 60)
 

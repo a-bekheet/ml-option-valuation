@@ -167,7 +167,7 @@ def analyze_model_architecture(model, input_size=None, seq_len=15, batch_size=32
     }
 
 def train_model(model, train_loader, val_loader, epochs=20, lr=1e-3, device='cpu'):
-    criterion = nn.MSELoss() # type: ignore
+    criterion = nn.MSELoss()
     optimizer = torch.optim.Adam(model.parameters(), lr=lr, weight_decay=1e-5)
     scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
         optimizer, mode='min', factor=0.5, patience=3

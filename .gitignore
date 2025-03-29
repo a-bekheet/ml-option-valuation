@@ -1,21 +1,34 @@
-# Python
+# Data Files (ensure raw/intermediate are ignored)
+data_files/
+data_files_new/
+sampled_data/
+data_files/split_data/temp/
+data_files/split_data/*.csv 
+data_files/split_data/by_ticker/
+
+# Test Results
+test_results_sampled/
+src/data_preprocessing/test_results*/
+
+# Archive
+archive/
+
+# Model/Log Outputs (already covered but good practice)
+models/
+performance_logs/
+*.pth
+*.png
+*.svg
+*.log
+option_model.log
+
+# Python Caches & Venvs (already covered)
 __pycache__/
 *.py[cod]
-*.class
 .env
 .venv
 env/
 venv/
-*.npy
-*.csv
+
+# OS Files
 .DS_Store
-.pth
-models
-archive/
-old_code/
-performance_logs
-*.log
-option_model.log
-*.png
-*.svg
-*.json

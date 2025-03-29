@@ -646,3 +646,77 @@ RuntimeError: Placeholder storage has not been allocated on MPS device!
 2025-03-28 22:49:14,521 - INFO - Model analysis complete: Total Params=138360
 2025-03-28 22:49:14,522 - INFO - Starting training with performance tracking...
 2025-03-28 22:49:14,522 - INFO - Initiating extended training with tracking for BNS - LSTM-GRU
+2025-03-28 23:02:16,307 - INFO - Performance metrics saved to performance_logs/LSTM-GRU_BNS_20250328_224914.txt
+2025-03-28 23:02:16,308 - INFO - Extended training for BNS - LSTM-GRU complete. Log: performance_logs/LSTM-GRU_BNS_20250328_224914.txt
+2025-03-28 23:02:16,308 - INFO - Saving model and results...
+2025-03-28 23:02:18,011 - INFO - Model training workflow completed successfully.
+2025-03-28 23:03:10,789 - INFO - Starting model training workflow...
+2025-03-28 23:03:14,698 - INFO - Performance tracking enabled: True
+2025-03-28 23:03:16,960 - INFO - Include Option Greeks features: True
+2025-03-28 23:03:22,144 - INFO - Include Rolling Window features: False
+2025-03-28 23:03:23,497 - INFO - Selected architecture: LSTM-GRU
+2025-03-28 23:03:29,751 - INFO - Selected ticker: BNS
+2025-03-28 23:03:29,752 - INFO - Initializing dataset for BNS, include_greeks=True, include_rolling=False...
+2025-03-28 23:03:29,752 - INFO - Initializing StockOptionDataset for ticker: BNS
+2025-03-28 23:03:29,752 - INFO - Attempting to load data from: data_files/split_data/by_ticker/BNS_normalized.csv
+2025-03-28 23:03:29,752 - INFO - Sequence length: 30, Target columns: ['bid', 'ask']
+2025-03-28 23:03:29,752 - INFO - Include Greeks: True
+2025-03-28 23:03:29,752 - INFO - Include Rolling Features: False
+2025-03-28 23:03:29,899 - INFO - Starting rolling window feature computation...
+2025-03-28 23:03:29,952 - INFO - Generated 108 rolling features.
+2025-03-28 23:03:29,973 - INFO - Excluding rolling features as requested.
+2025-03-28 23:03:29,973 - INFO - Including 5 Greek features: ['delta', 'gamma', 'vega', 'theta', 'rho']
+2025-03-28 23:03:29,997 - INFO - Dropped 3102 rows due to NaNs.
+2025-03-28 23:03:29,999 - INFO - Dataset created for BNS: Features=31, Targets=2, Samples=27022, MaxIdx=26991
+2025-03-28 23:03:30,002 - INFO - Number of features used in this run: 31
+2025-03-28 23:03:30,002 - INFO - DataLoaders created: Train=21593, Val=2699, Test=2700 samples.
+2025-03-28 23:03:30,002 - INFO - Initializing model LSTM-GRU with input_size=31, output_size=2
+2025-03-28 23:03:30,013 - INFO - Analyzing model architecture...
+2025-03-28 23:03:30,013 - INFO - Analyzing architecture on device: mps:0
+2025-03-28 23:03:30,053 - INFO - Model analysis complete: Total Params=110496
+2025-03-28 23:03:30,053 - INFO - Starting training with performance tracking...
+2025-03-28 23:03:30,053 - INFO - Initiating extended training with tracking for BNS - LSTM-GRU
+2025-03-28 23:09:18,953 - INFO - Performance metrics saved to performance_logs/LSTM-GRU_BNS_20250328_230330.txt
+2025-03-28 23:09:18,953 - INFO - Extended training for BNS - LSTM-GRU complete. Log: performance_logs/LSTM-GRU_BNS_20250328_230330.txt
+2025-03-28 23:09:18,953 - INFO - Saving model and results...
+2025-03-28 23:09:20,660 - INFO - Model training workflow completed successfully.
+2025-03-28 23:09:31,055 - INFO - Starting model training workflow...
+2025-03-28 23:09:32,727 - INFO - Performance tracking enabled: True
+2025-03-28 23:09:34,530 - INFO - Include Option Greeks features: True
+2025-03-28 23:09:40,311 - INFO - Include Rolling Window features: False
+2025-03-28 23:09:41,327 - INFO - Selected architecture: LSTM-GRU
+2025-03-28 23:10:12,329 - INFO - Application shutdown
+2025-03-28 23:12:31,792 - INFO - Starting Option Trading Model application
+2025-03-28 23:12:31,815 - INFO - Using device: mps
+2025-03-28 23:13:05,222 - INFO - Starting model training workflow...
+2025-03-28 23:13:06,723 - INFO - Performance tracking enabled: True
+2025-03-28 23:13:09,165 - INFO - Include Option Greeks features: True
+2025-03-28 23:13:11,967 - INFO - Include Rolling Window features: True
+2025-03-28 23:13:13,729 - INFO - Selected architecture: LSTM-GRU
+2025-03-28 23:13:16,493 - INFO - Selected ticker: GOLD
+2025-03-28 23:13:16,493 - INFO - Initializing dataset for GOLD, include_greeks=True, include_rolling=True...
+2025-03-28 23:13:16,493 - INFO - Initializing StockOptionDataset for ticker: GOLD
+2025-03-28 23:13:16,493 - INFO - Attempting to load data from: data_files/split_data/by_ticker/GOLD_normalized.csv
+2025-03-28 23:13:16,493 - INFO - Sequence length: 30, Target columns: ['bid', 'ask']
+2025-03-28 23:13:16,493 - INFO - Include Greeks: True
+2025-03-28 23:13:16,493 - INFO - Include Rolling Features: True
+2025-03-28 23:13:16,990 - INFO - Starting rolling window feature computation...
+2025-03-28 23:13:17,172 - INFO - Generated 108 rolling features.
+2025-03-28 23:13:17,256 - INFO - Including 108 rolling features.
+2025-03-28 23:13:17,256 - INFO - Including 5 Greek features: ['delta', 'gamma', 'vega', 'theta', 'rho']
+2025-03-28 23:13:17,352 - INFO - Dropped 7632 rows due to NaNs.
+2025-03-28 23:13:17,375 - INFO - Dataset created for GOLD: Features=139, Targets=2, Samples=104109, MaxIdx=104078
+2025-03-28 23:13:17,385 - INFO - Number of features used in this run: 139
+2025-03-28 23:13:17,386 - INFO - DataLoaders created: Train=83263, Val=10407, Test=10409 samples.
+2025-03-28 23:13:17,386 - INFO - Initializing model LSTM-GRU with input_size=139, output_size=2
+2025-03-28 23:13:17,405 - INFO - Analyzing model architecture...
+2025-03-28 23:13:17,405 - INFO - Analyzing architecture on device: mps:0
+2025-03-28 23:13:17,528 - INFO - Model analysis complete: Total Params=138360
+2025-03-28 23:13:17,529 - INFO - Starting training with performance tracking...
+2025-03-28 23:13:17,529 - INFO - Initiating extended training with tracking for GOLD - LSTM-GRU
+2025-03-28 23:35:30,594 - INFO - Performance metrics saved to performance_logs/LSTM-GRU_GOLD_20250328_231317.txt
+2025-03-28 23:35:30,594 - INFO - Extended training for GOLD - LSTM-GRU complete. Log: performance_logs/LSTM-GRU_GOLD_20250328_231317.txt
+2025-03-28 23:35:30,594 - INFO - Saving model and results...
+2025-03-28 23:35:32,443 - INFO - Model training workflow completed successfully.
+2025-03-28 23:35:52,139 - INFO - Application terminated by user
+2025-03-28 23:35:52,139 - INFO - Application shutdown
